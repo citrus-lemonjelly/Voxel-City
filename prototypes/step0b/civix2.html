@@ -280,14 +280,14 @@ function circuit(o) {
 }
 let TIME = 0;
 const RP = +(Q.get('rp') || 2), SB = +(Q.get('sb') || 6), SP = +(Q.get('sp') || 0.5), FPS = +(Q.get('fps') || 10);
-const [SHI, SLO] = Q.get('tone') ? [1.2, 0.8] : [1.6, 0.35];   // toned-down scroll contrast
+const [SHI, SLO] = Q.get('sc') ? [1 + +Q.get('sc'), 1 - +Q.get('sc')] : Q.get('tone') ? [1.2, 0.8] : [1.6, 0.35];   // sweep contrast   // toned-down scroll contrast
 const LIV = LIVERIES[CFG.livery] || LIVERIES.solid;
 const lum = c => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
 const glowify = (c, strength) => { const target = (night ? 2.4 : 4.2) * strength; return c.clone().multiplyScalar(Math.min(5, target / Math.max(0.12, lum(c)))); };
 const SHADE = { light: 1.12, mid: 0.92, dark: 0.68, seam: 0.5 };
 function paintColor(o, t) {
   let c = hexToC(LIV.base), glow = 0;
-  for (const layer of LIV.layers) if (layer.mask(o, t)) { c = hexToC(layer.c); glow = CFG.glowlevel === 'off' ? 0 : (layer.glow || 0) * ({ low: 0.45, med: 0.7, full: 1 }[CFG.glowlevel] || 0); }
+  for (const layer of LIV.layers) if (layer.mask(o, t)) { c = hexToC(layer.c); glow = CFG.glowlevel === 'off' ? 0 : (layer.glow || 0) * ({ low: 0.45, half: 0.5, med: 0.7, full: 1 }[CFG.glowlevel] || 0); }
   // active effects on paint
   if (CFG.anim === 'rainbow' && glow) c.setHSL(((o.u * 0.8 + t / RP) % 1 + 1) % 1, Q.get('tone') ? 0.75 : 0.9, 0.6);
   if (CFG.anim === 'scroll' && LIV.layers.length) { const band = ((o.u * SB - t / SP) % 1 + 1) % 1; if (glow) glow *= band < 0.35 ? SHI : SLO; }

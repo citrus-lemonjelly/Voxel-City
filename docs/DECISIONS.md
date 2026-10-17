@@ -14,7 +14,7 @@ Carries forward the status taxonomy from `VOXEL_CITY_READOUT_V1.md`. Claude Code
 | # | Decision | Status | Date | Notes |
 |---|---|---|---|---|
 | P1 | Web-based game, desktop browser first | Agreed | 2026-10-16 | Mobile is out of scope. An exe wrapper (Tauri/Electron) may come later; never a rewrite. |
-| P2 | Three.js + TypeScript + Vite | Agreed | 2026-10-16 | Chosen over Babylon.js, Godot, Unity. Reassess only if the walkable garage milestone becomes painful. |
+| P2 | Three.js + TypeScript + Vite | Agreed | 2026-10-16 | Chosen over Babylon.js, Godot, Unity. Reassess only if the walkable garage milestone becomes painful. **Note 2026-10-16:** Claude's workspace can't download Vite, so Step 1 builds with esbuild (the bundler Vite uses internally). A Vite config ships in the repo for when Node is installed locally; no code changes needed. |
 | P3 | No engine editor; all content is data-driven (JSON/TS definitions) | Agreed | 2026-10-16 | Owner has no scene-editing, coding, or art background. Claude Code builds everything; content must be editable as plain data. |
 | P4 | Voxel assets defined in code/data first; MagicaVoxel (.vox) import optional later | Preference | 2026-10-16 | Avoids an art pipeline for Milestone 1. |
 | P5 | Backend (accounts, ghosts, crews) deferred to Milestone 4–5; localStorage persistence until then | Agreed | 2026-10-16 | |
@@ -56,7 +56,7 @@ Carries forward the status taxonomy from `VOXEL_CITY_READOUT_V1.md`. Claude Code
 | # | Decision | Status | Date | Notes |
 |---|---|---|---|---|
 | U1 | Full upgrade set: Engine, Transmission, Tires, Body (weight reduction), Turbo, Nitrous (if/when added) | Agreed | 2026-10-16 | Order of introduction below. |
-| U2 | Milestone 1 upgrades: Transmission + Engine, 3 tiers each | Agreed | 2026-10-16 | |
+| U2 | Milestone 1 upgrades: Transmission + Engine | Agreed | 2026-10-16 | Step 1 implements **T1–T5** for both (per U3's per-league 1–5 scale) rather than 3 tiers. |
 | U3 | Upgrade model is CSR-style: any part category can be upgraded at any time, in any order, within the limits of the car's class. Player chooses how to spend. | Agreed | 2026-10-16 | Supersedes the earlier staged-introduction idea. M1 still ships only Transmission + Engine as the slice; all six categories open from M2. Class limits: a car's league is fixed by model — a maxed D car never beats a C car. Each league has its own part tier scale T1–T5 (separate per league, not one running scale). Proposed implementation: tier effects are multipliers on the car's base stats so one tier table serves all leagues; league difference lives in base stats. |
 | U4 | Starter car: **Panda Civix** (D league, 90s FWD hatchback) | Agreed | 2026-10-16 | Fictional brands play on real marques; no real badges, logos, or exact model names. Brand roster (proposal): Panda, Nisshin, Toyoma, Kobalt, Fjord, Mazuda, Subarbu, Bayern Werke. Run final names past a trademark check before any commercial release. |
 
@@ -79,10 +79,11 @@ Carries forward the status taxonomy from `VOXEL_CITY_READOUT_V1.md`. Claude Code
 | A19 | Livery tiers as proposed (Standard / Specialty / Neon-Glow / Animated / Reactive) | Agreed (until further review) | 2026-10-16 | |
 | A20 | ~~Active (animated) liveries: in.~~ Superseded by A22–A23. Animated paint effects that glow, blink or pulse are out. Reactive ideas move to underglow (under test). | Revised | 2026-10-16 | GIF tests in `docs/reference/step0b/` kept for reference only. |
 | A22 | **Paint does not glow by default.** Exception: rare premium liveries may glow, at a much lower intensity than the first tests. Everyday light comes from underglow and functional head/tail lights. | Agreed (revised 2026-10-16) | 2026-10-16 | Glow levels Off / Low / Med / Full rendered; Low proposed as the in-game maximum. |
-| A31 | Three rare animated premium liveries kept: **Circuit Scroll**, **Flame Flicker**, **Rainbow Tron** | Agreed | 2026-10-16 | Rainbow Tron: Low glow, 8 s colour cycle. Flame Flicker: **original version kept** (no glow, 10 shape changes/s) — owner did not want it toned down. Circuit Scroll: sweep strength pending (subtle / mid / original). All respect A27 settings. |
+| A31 | Three rare animated premium liveries kept: **Circuit Scroll**, **Flame Flicker**, **Rainbow Tron** | Agreed | 2026-10-16 | Rainbow Tron: Low glow, 8 s colour cycle. Flame Flicker: **original version kept** (no glow, 10 shape changes/s) — owner did not want it toned down. Circuit Scroll: original pattern at **half speed (1 sweep/s) and half brightness** — owner pick, pending final look. All respect A27 settings. |
 | A27 | Player settings: **Glow intensity** (Off / Low / Full, default Low) and **Freeze cosmetic animation** (accessibility). Glow level is the player's choice in settings, not a hard cap. | Agreed | 2026-10-16 | |
 | A28 | Underglow is a single static colour by default. Rare underglow items may use **breathe** (3 s soft fade) or **slow blink** (1.5 s on / off with fades), assigned per item. | Agreed | 2026-10-16 | Both respect A23 limits and A27 freeze. |
 | A29 | Night scenes are lit (lamp posts, moonlight), never pitch dark; garage has its own lighting | Agreed | 2026-10-16 | Night ambient + moonlight raised in the prototype. |
+| A33 | Underglow is purely cosmetic: no gameplay information or advantage (no RPM/redline-reactive underglow) | Agreed | 2026-10-16 | Redline-reactive underglow rejected. Extends A24. |
 | A32 | **Civix v2.1 locked** as the stock Panda Civix (ride height +1, roof 21, first option in every slot) | Agreed | 2026-10-16 | `docs/reference/step0b/civix21-stock.png`. |
 | A30 | All cars share the pack's proportions; smaller/larger cars allowed only by a small margin to keep the style | Agreed | 2026-10-16 | Civix v2.1: ride height +1, roof 19 → 21. |
 | A23 | **Photosensitivity rule:** nothing on a car blinks or pulses. Any animated effect keeps constant brightness and changes slowly. | Agreed | 2026-10-16 | Proposed guard rails: ≥ 4 s per colour cycle, no brightness swings, no flashes; plus an accessibility setting that freezes all cosmetic animation. |
@@ -142,11 +143,25 @@ One car (TBD, U4) · one static garage screen · Downtown Grid · hold-release l
 |---|---|---|---|---|
 | C1 | Crew system design deferred to M5; to be designed carefully as its own effort | Agreed | 2026-10-16 | Placeholder only: ~20 members, Leader / Officer / Member. |
 
+## Step 1 implementation notes (2026-10-17) — for review
+
+| # | Item | Value | Notes |
+|---|---|---|---|
+| S1 | Race distance | 800 m | Chosen so a stock Civix with perfect driving finishes in ~24.6 s (R4 target ~25 s). |
+| S2 | Stock Civix performance | 118 hp, 1,020 kg, 7,200 rpm redline, 5-speed (4 shifts) | `src/data/cars.ts`. |
+| S3 | Transmission tiers | T1–T2 5-speed (4 shifts), T3–T5 6-speed (5 shifts); shift time 0.50 → 0.18 s; green zone 10 % → 6 %; Perfect boost 5 % → 13 % | Implements R5. |
+| S4 | Engine tiers | +0 / 8 / 16 / 25 / 35 % power | Fully upgraded ≈ 22.2 s. |
+| S5 | Shift grading | Perfect = in zone (shift 45 % faster + brief boost); Good = near zone; Early/Late = 25 % slower shift | `SHIFT_TIME_MULT` in `src/game/race.ts`. |
+| S6 | Launch | Hold to rev; release after GO; Perfect zone 55–72 % of redline; Bog / Wheelspin penalties | `LAUNCH` in `src/data/parts.ts`. |
+| S7 | First rival | "Rico", stock Civix, skill 0.55 (~25 s) | Beatable with clean driving. |
+| S8 | Economy | Start 1,000 VX; win 450, loss 150, +25 per Perfect shift, +40 Perfect launch, +100 new best | Engine T2 600 → T5 3,600; Trans T2 700 → T5 3,900. |
+| S9 | Race camera | Rear-chase that pulls back to keep a trailing rival in frame | Rival lane appears on the left. |
+| S10 | Units | mph on screen | |
+
 ## Open (next discussion)
 
 - U3: multiplier implementation of per-league tiers — owner: revisit during testing.
-- Circuit Scroll sweep strength: subtle / mid / original.
-- Reactive rare item: redline-only underglow — yes or no.
+- (none for Step 0)
 - Flames/complex patterns: hand-drawn masks vs procedural.
 
 ## Change log
@@ -154,6 +169,9 @@ One car (TBD, U4) · one static garage screen · Downtown Grid · hold-release l
 - 2026-10-16 — Created. P1–P5, R3–R5, G1, E1 added from discussion.
 - 2026-10-16 — Review items 1–10 resolved: P6–P7, R8–R13, G6, U1–U4, W2a–W2b.
 - 2026-10-16 — Starter car set (U4 Panda Civix). Added A1–A2 art direction, G7 Garage Terminal, X1 screen-by-screen process. Step 1 plan approved by owner.
+- 2026-10-17 — **Step 1 delivered**: playable slice (`build/VoxelCity.html`), source in `src/`, tests in `tests/`. Implementation values S1–S10 logged for review.
+- 2026-10-16 — **Step 0 closed** (`docs/STEP0_CLOSEOUT.md`); part-slot standard written (`docs/PART_SLOTS.md`); Circuit Scroll approved. Step 1 started.
+- 2026-10-16 — Circuit Scroll set to half speed / half brightness; reactive underglow rejected, underglow purely cosmetic (A33).
 - 2026-10-16 — Glow in settings (A27); original flames kept (A31); underglow breathe + slow blink both used (A28); Civix v2.1 locked (A32); X3 visuals with questions.
 - 2026-10-16 — Circuit Scroll, Flame Flicker, Rainbow Tron kept as rare toned-down liveries (A31). Civix v2.1 rendered.
 - 2026-10-16 — Premium-livery glow allowed at low intensity (A22 revised); settings A27; underglow A28; night lighting A29; proportions A30.
