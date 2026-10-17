@@ -19,6 +19,7 @@ export interface Racer {
   stats: CarStats;
   ctl: Controller;
   x: number;               // metres from the start line
+  px?: number;             // x at the previous physics step (render interpolation)
   v: number;               // m/s
   gear: number;            // index into ratios
   rpm: number;

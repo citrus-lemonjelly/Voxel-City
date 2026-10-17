@@ -12,11 +12,20 @@ export interface SaveV1 {
   bestTime: number | null;
   races: number;
   wins: number;
+  /** Player settings (added in Step 1b; old saves pick up the defaults). */
+  settings: Settings;
 }
+export interface Settings {
+  camera: 'dynamic' | 'close';            // C = Dynamic, C2 = Dynamic close
+  time: 'day' | 'dusk' | 'night';         // time-of-day preview (stages will set this later)
+  nearSide: 'mixed' | 'curb' | 'barrier'; // near-side dressing (preview while we choose)
+  blur: 'off' | 'low' | 'full';           // speed blur on the world (cars stay sharp)
+}
+export const DEFAULT_SETTINGS: Settings = { camera: 'dynamic', time: 'day', nearSide: 'mixed', blur: 'low' };
 const KEY = 'voxelcity.save';
 
 export function freshSave(): SaveV1 {
-  return { version: 1, voxels: ECONOMY.startingVoxels, carId: STARTER_CAR, owned: { engine: [1], trans: [1] }, equipped: { engine: 1, trans: 1 }, bestTime: null, races: 0, wins: 0 };
+  return { version: 1, voxels: ECONOMY.startingVoxels, carId: STARTER_CAR, owned: { engine: [1], trans: [1] }, equipped: { engine: 1, trans: 1 }, bestTime: null, races: 0, wins: 0, settings: { ...DEFAULT_SETTINGS } };
 }
 
 export function loadSave(): SaveV1 {
@@ -24,7 +33,7 @@ export function loadSave(): SaveV1 {
     const raw = localStorage.getItem(KEY);
     if (!raw) return freshSave();
     const data = JSON.parse(raw);
-    if (data && data.version === 1) return { ...freshSave(), ...data };
+    if (data && data.version === 1) return { ...freshSave(), ...data, settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) } };
   } catch { /* storage blocked or corrupt: start fresh */ }
   return freshSave();
 }

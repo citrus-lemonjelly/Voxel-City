@@ -7,7 +7,7 @@ export interface StageDef {
   modifiers: { gripMult: number; dragMult: number };
   sky: string;
   buildingColours: string[];
-  timeOfDay: 'day' | 'night';
+  timeOfDay: 'day' | 'dusk' | 'night';   // default; the player's Settings choice overrides it during previews
 }
 
 export const STAGES: Record<string, StageDef> = {

@@ -11,7 +11,13 @@ const h = (html: string) => { const t = document.createElement('template'); t.in
 export const fmtTime = (s: number) => s.toFixed(3) + ' s';
 
 // ---------------- Garage Terminal (G7; static garage screen for M1) ----------------
-export interface GarageHandlers { onBuyOrEquip(kind: 'engine' | 'trans', tier: Tier): void; onRace(): void }
+export interface GarageHandlers { onBuyOrEquip(kind: 'engine' | 'trans', tier: Tier): void; onRace(): void; onSetting(key: string, value: string): void }
+const SETTING_ROWS: [string, string, [string, string][]][] = [
+  ['camera', 'Race camera', [['dynamic', 'Dynamic'], ['close', 'Dynamic close']]],
+  ['time', 'Time of day', [['day', 'Day'], ['dusk', 'Dusk'], ['night', 'Night']]],
+  ['nearSide', 'Near side', [['mixed', 'Mixed'], ['curb', 'Curb'], ['barrier', 'Barrier']]],
+  ['blur', 'Speed blur', [['off', 'Off'], ['low', 'Low'], ['full', 'Full']]],
+];
 export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, stage: StageDef, on: GarageHandlers, toast?: string) {
   const car = CARS[save.carId];
   const st = displayStats(carStats(save.carId, save.equipped.engine, save.equipped.trans));
@@ -40,6 +46,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
     <div class="upg"><h3 class="hd">Transmission</h3><div class="desc">${eqT.label} — ${eqT.ratios.length} gears, ${eqT.shiftTime.toFixed(2)} s shifts, ${Math.round(eqT.zoneWidth * 100)}% shift zone</div><div class="tiers">${TIERS.map(t => tierBtn('trans', t)).join('')}</div></div>
     <div class="next"><b>Next race:</b> ${opp.name} · ${CARS[opp.carId].brand} ${CARS[opp.carId].name} · ${stage.name} (${stage.distanceM} m)<br>
       <span style="color:var(--dim)">Best ${save.bestTime ? fmtTime(save.bestTime) : '—'} · Record ${save.wins}–${save.races - save.wins}</span></div>
+    <div class="settings"><h3 class="hd">Settings</h3>${SETTING_ROWS.map(([key, label, opts]) => `<div class="setrow"><span>${label}</span><div class="seg">${opts.map(([v, t]) => `<button class="${(save.settings as any)[key] === v ? 'on' : ''}" data-set="${key}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>
     <div class="spacer"></div>
     <button class="btn race" id="raceBtn">Race ▸</button>
     <div style="font-size:12px;color:var(--dim)">Hold <b>SPACE</b> (or the Shift button) to rev · release on <b style="color:var(--good)">green</b> to launch · tap to shift in the green zone</div>
@@ -47,6 +54,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   root.appendChild(el);
   if (toast) root.appendChild(h(`<div class="toast blk">${toast}</div>`));
   el.querySelectorAll<HTMLButtonElement>('.tier').forEach(b => b.addEventListener('click', () => on.onBuyOrEquip(b.dataset.kind as any, +b.dataset.tier! as Tier)));
+  el.querySelectorAll<HTMLButtonElement>('[data-set]').forEach(b => b.addEventListener('click', () => on.onSetting(b.dataset.set!, b.dataset.val!)));
   el.querySelector('#raceBtn')!.addEventListener('click', on.onRace);
 }
 

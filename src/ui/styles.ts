@@ -30,6 +30,11 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .tier.equipped{background:var(--accent);color:#14161c;box-shadow:0 0 0 2px #b8901c}
 .tier.owned{box-shadow:0 0 0 2px var(--accent)}
 .tier.locked{opacity:.45;cursor:not-allowed}
+.settings h3{margin:4px 0 6px;font-size:14px}
+.setrow{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--dim);margin:4px 0}
+.seg{display:flex;gap:4px}
+.seg button{border:0;padding:5px 8px;cursor:pointer;background:var(--panel2);color:var(--text);box-shadow:0 0 0 2px var(--edge);font:700 11px system-ui}
+.seg button.on{background:var(--accent);color:#14161c;box-shadow:0 0 0 2px #b8901c}
 .next{background:var(--panel2);padding:10px 12px;box-shadow:0 0 0 2px var(--edge);font-size:13px}
 .spacer{flex:1}
 #terminal .btn.race{font-size:24px;padding:16px}

@@ -20,6 +20,24 @@ declare module 'three' {
   export const PMREMGenerator: any; export type PMREMGenerator = any;
   export const Fog: any; export type Fog = any;
   export const Texture: any; export type Texture = any;
+  export const Vector3: any; export type Vector3 = any;
+  export const PlaneGeometry: any; export type PlaneGeometry = any;
+  export const SphereGeometry: any; export type SphereGeometry = any;
+  export const ShaderMaterial: any; export type ShaderMaterial = any;
+  export const Camera: any; export type Camera = any;
+  export const CanvasTexture: any; export type CanvasTexture = any;
+  export const AdditiveBlending: any; export const BackSide: any; export const NearestFilter: any;
+  export const BufferGeometry: any; export type BufferGeometry = any;
+  export const Float32BufferAttribute: any; export type Float32BufferAttribute = any;
+  export const Uint16BufferAttribute: any; export type Uint16BufferAttribute = any;
+  export const Uint32BufferAttribute: any; export type Uint32BufferAttribute = any;
+  export const WebGLRenderTarget: any; export type WebGLRenderTarget = any;
+  export const DepthTexture: any; export type DepthTexture = any;
+  export const OrthographicCamera: any; export type OrthographicCamera = any;
+  export const Matrix4: any; export type Matrix4 = any;
+  export const Vector2: any; export type Vector2 = any;
+  export const Quaternion: any; export type Quaternion = any;
+  export const HalfFloatType: any; export const UnsignedByteType: any; export const LinearFilter: any; export const RGBAFormat: any; export const DepthFormat: any; export const UnsignedIntType: any; export const FloatType: any; export const NoBlending: any; export const DoubleSide: any;
   export const PCFSoftShadowMap: any;
   export const NeutralToneMapping: any;
 }

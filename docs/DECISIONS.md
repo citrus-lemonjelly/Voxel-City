@@ -157,6 +157,16 @@ One car (TBD, U4) · one static garage screen · Downtown Grid · hold-release l
 | S8 | Economy | Start 1,000 VX; win 450, loss 150, +25 per Perfect shift, +40 Perfect launch, +100 new best | Engine T2 600 → T5 3,600; Trans T2 700 → T5 3,900. |
 | S9 | Race camera | Rear-chase that pulls back to keep a trailing rival in frame | Rival lane appears on the left. |
 | S10 | Units | mph on screen | |
+| S9b | Race camera (revised) | CSR-style side view from the near side of the street. Settings offers **Dynamic** (C: dMin 300, elev 0.17) and **Dynamic close** (C2: dMin 240, elev 0.34 — lowered from the 0.42 preview). Yaw swings with who's leading. | Owner picked C + C2, 2026-10-17. Old rear-chase kept only as a debug mode. |
+| S11 | World resolution | Everything is built in the cars' block unit (1 block = 1/58 of a Civix). Large surfaces share one block shader: per-block colour noise, lit tops, darker bases. | Owner: world must match the cars' resolution. |
+| S12 | Street layout | Road, kerb parking lane (z 86–114), far sidewalk, then a varied frontage built from segments: shops, brick walk-ups with fire escapes, glass offices, warehouses, diner, side streets with crosswalks and signals, park with fountain, VOX OIL station + VOX MART + tanker, parking lot, construction site with crane, alleys. Parked Civixes in random paint/parts; ~1 in 5 is a VOX company car. | Seeded per chunk, so every race is the same street (proposal). |
+| S13 | Time of day | Day / Dusk / Night presets: banded gradient sky, block clouds, blocky sun (dusk) and moon + stars (night), warm light pools under lamps, signs and headlights; lit windows. Night stays readable. | Settings preview for now; stages will own their time later. |
+| S15 | Race smoothness | Whole street built at race load (no mid-race generation); camera locked to the player's car; cars drawn between physics steps; face-culled car meshes (~4× fewer triangles); flat ground doesn't cast shadows; shadow edges snapped; wheel motion disc at speed. | Owner played: "miles smoother", 2026-10-17. |
+| S16 | Speed blur | World-only motion blur scaled by speed and depth; race cars stay sharp. Settings: Off / **Low (default)** / Full. | Owner approved Low as default, 2026-10-17. |
+| S17 | World scale | Cars are real-car size (Civix 58×28×22 = reference pack 56–62×27–28×19–24; 1 block ≈ 6.9 cm). City rebuilt at real proportions (option C, ×2.2 from the old street plan): storeys, doors, awnings, lamps, trees, signs grow; thin details stay 1 block; human-sized props use real sizes; lanes 3.6 m (rival lane z 52); parking lane 2.4 m; tanker ~11 m. | Owner chose C, 2026-10-17. Default race camera **Dynamic** (Q14); near side **Mixed** for now (Q12); rival partly hidden when level is OK — alternative angle to be shown (Q15). |
+| S18 | Race camera angle | Dynamic uses the **Raised** angle (elev 0.32). Start-line glide: countdown opens on the Swung angle (lower, swung round) and rises to Raised by green; the future roll-up to the line plays over the same move. | Owner, 2026-10-17 (Q15). |
+| S19 | Trees | Street and park trees are remixes of the owner's VOX Trees: 10 variants (saplings as supplied, young ×2, street ×3, park ×4), mostly our greens with a few sun-lit patches of the original bright greens, softened toward ours (fewest on park trees, owner Q18); quarter-turn rotations. Saplings in planters. Pipeline in `docs/ASSETS.md`. | Owner Q17a–c, Q18, 2026-10-17. Glide approved as is (Q19). |
+| S14 | Near side | Kept low (≤ 4 blocks) so it never covers the cars' wheels or the HUD. Options: Curb (red/white race curb, bollards, cones, hedges), Barrier (K-rail with VOX hazard bands), Mixed (barriers near start and finish, curb in between). | Pending owner pick. |
 
 ## Open (next discussion)
 
@@ -165,6 +175,13 @@ One car (TBD, U4) · one static garage screen · Downtown Grid · hold-release l
 - Flames/complex patterns: hand-drawn masks vs procedural.
 
 ## Change log
+
+- 2026-10-17 — Start-line camera glide + Raised angle (S18); tree remix from owner's VOX Trees (S19), brights toned down; asset pipeline doc. Written to repo.
+
+- 2026-10-17 — Real-scale city (S17) approved; default camera Dynamic, near side Mixed. Written to repo.
+
+- 2026-10-17 — Smoothness pass + speed blur: S15–S16 approved by owner. Camera, street and time of day accepted "for now" (polish later with the scene focus).
+- 2026-10-17 — Step 1b (street + sky + settings): S9b, S11–S14 added for review.
 
 - 2026-10-16 — Created. P1–P5, R3–R5, G1, E1 added from discussion.
 - 2026-10-16 — Review items 1–10 resolved: P6–P7, R8–R13, G6, U1–U4, W2a–W2b.

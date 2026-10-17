@@ -2,7 +2,7 @@
 // Car-local frame (docs/PART_SLOTS.md): x = length (front at 0, car faces −x), y = up (ground 0), z = width.
 // Body at car density; wheels at 2× (half-size blocks, decision A15). Every part slot takes a variant id.
 import * as THREE from 'three';
-import { Vox, Role, buildVoxMeshes, Materials } from './voxel';
+import { Vox, Role, Materials, mergedVoxMeshes } from './voxel';
 
 export const PAL = {
   glass: '#10232b', streak: '#2c4a55', frame: '#1a1a1e', trimLight: '#bcd5c2', dark: '#1a1a1e', darkGrey: '#2e3036', midGrey: '#5a5e66',
@@ -171,25 +171,111 @@ function buildWheels(kind: string): WheelVox[] {
   return out;
 }
 
-const SHADE: Record<string, number> = { light: 1.12, mid: 0.92, dark: 0.68 };
+export const SHADE: Record<string, number> = { light: 1.12, mid: 0.92, dark: 0.68 };
 
-/** A ready-to-place car: `group` in car-local units (1 = one voxel block), wheels spin via `setWheelAngle`. */
+/** Whole car as one static voxel list (wheels folded in at their centres) — used for parked/background cars. */
+export function carVoxelsStatic(look: CarLook): Vox[] {
+  const { body, wheels } = buildCarVoxels(look);
+  const paint = new THREE.Color(look.paint);
+  const out: Vox[] = body.map(v => v.role === 'paint' ? { ...v, c: '#' + paint.clone().multiplyScalar(SHADE[v.shade || 'mid'] || 1).getHexString() } : v);
+  for (const w of wheels) for (const v of w.items) out.push({ ...v, x: v.x + 2 * w.cx, y: v.y + 2 * WHEEL_Y });
+  return out;
+}
+
+/** VOX OIL company livery: black body, yellow belt line, "VOX" on the camera-facing door, amber roof bar. */
+export function applyVoxLivery(vox: Vox[]): Vox[] {
+  const cells = new Set<string>();
+  const letters: Record<string, string[]> = { V: ['101', '101', '101', '101', '010'], O: ['010', '101', '101', '101', '010'], X: ['101', '101', '010', '101', '101'] };
+  // reads correctly from the camera side (z = 0), where screen-right is world −x
+  'VOX'.split('').forEach((ch, i) => letters[ch].forEach((row, r) => [...row].forEach((b, c) => { if (b === '1') cells.add(`${35 - (i * 4 + c)},${4 + (4 - r) + BODY_DY}`); })));
+  const out = vox.map(v => {
+    if (v.s !== 1 || v.role !== 'paint') return v;
+    if (v.z === 0 && cells.has(`${v.x},${v.y}`)) return { ...v, c: '#f2c230' };
+    if ((v.z === 0 || v.z === W - 1) && v.y === 10 + BODY_DY) return { ...v, c: '#f2c230' };
+    return { ...v, c: v.shade === 'light' ? '#2a2a30' : '#1a1a1e' };
+  });
+  for (let x = 30; x < 34; x++) for (let z = 8; z < W - 8; z++) out.push({ x, y: ROOF + BODY_DY, z, c: (z & 1) ? '#f2a43a' : '#2e3036', role: 'light', s: 1 });
+  return out;
+}
+
+/** A ready-to-place car: `group` in car-local units (1 = one voxel block).
+ *  Body and wheels are face-culled merged meshes (~5× fewer triangles than one box per voxel).
+ *  Wheels spin via `setWheels`; above strobe speed the spin is capped and a voxel "motion disc"
+ *  (each ring = the average colour of that ring of the rim) fades in, so wheels never appear to roll backwards. */
 export class CarModel {
   group = new THREE.Group();
   private wheelGroups: THREE.Group[] = [];
-  private calipers: THREE.Object3D[] = [];
+  private discs: THREE.Group[] = [];
+  private discMat: THREE.MeshStandardMaterial;
+  private spin = 0;
   constructor(look: CarLook, mats: Materials) {
     const { body, wheels } = buildCarVoxels(look);
     const paint = new THREE.Color(look.paint);
-    this.group.add(buildVoxMeshes(body, mats, v => paint.clone().multiplyScalar(SHADE[v.shade || 'mid'] || 1)));
+    this.group.add(mergedVoxMeshes(body, mats, v => paint.clone().multiplyScalar(SHADE[v.shade || 'mid'] || 1)));
+    this.discMat = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, flatShading: true, roughness: 0.6, transparent: true, opacity: 0, depthWrite: false, envMapIntensity: 0.25 });
     for (const w of wheels) {
       const pivot = new THREE.Group();
       pivot.position.set(w.cx, WHEEL_Y, 0);
-      pivot.add(buildVoxMeshes(w.items, mats, () => paint));
+      pivot.add(mergedVoxMeshes(w.items, mats, () => paint));
       this.group.add(pivot);
       this.wheelGroups.push(pivot);
+      const disc = motionDisc(w.items, w.side, this.discMat);
+      disc.position.copy(pivot.position); disc.visible = false;
+      this.group.add(disc); this.discs.push(disc);
     }
   }
-  /** Rolling toward −x: positive rotation about +z. */
-  setWheelAngle(a: number) { for (const g of this.wheelGroups) g.rotation.z = a; }
+  /** a = rolled angle (rad, from distance); w = wheel angular speed (rad/s); dt = frame time. */
+  setWheels(a: number, w: number, dt: number) {
+    // Above ~3 rev/s the 5–12-fold rims alias at 60 fps. Cap the visible spin rate and blend in the motion disc.
+    const CAP = 16;                                  // rad/s shown at most
+    const k = Math.max(0, Math.min(1, (w - 12) / 22));
+    if (w <= 12) this.spin = a; else this.spin += Math.min(w, CAP) * dt;
+    for (const g of this.wheelGroups) g.rotation.z = this.spin;
+    this.discMat.opacity = k * 0.92;
+    for (const d of this.discs) d.visible = k > 0.01;
+  }
+  /** Back-compat: angle only (garage/static). */
+  setWheelAngle(a: number) { this.setWheels(a, 0, 0); }
+}
+
+/** Voxel motion disc for one wheel: covers the rim face with ring-averaged colours, just outside the outer face. */
+function motionDisc(items: Vox[], side: 0 | 1, mat: THREE.Material): THREE.Group {
+  const first = new Map<string, Vox>();
+  for (const v of [...items].sort((a, b) => side === 0 ? a.z - b.z : b.z - a.z)) { const k = `${v.x},${v.y}`; if (!first.has(k)) first.set(k, v); }
+  const rings = new Map<number, { r: number; g: number; b: number; n: number }>();
+  const tmp = new THREE.Color();
+  for (const v of first.values()) {
+    const r = Math.round(Math.hypot(v.x + 0.5, v.y + 0.5));
+    tmp.set(v.c || '#4a4d53');
+    const a = rings.get(r) || { r: 0, g: 0, b: 0, n: 0 }; a.r += tmp.r; a.g += tmp.g; a.b += tmp.b; a.n++; rings.set(r, a);
+  }
+  const R = WHEEL_R * 2, outer = side === 0 ? Math.min(...items.map(v => v.z)) - 1 : Math.max(...items.map(v => v.z)) + 1;
+  const pos: number[] = [], col: number[] = [], idx: number[] = [];
+  for (let x = -Math.ceil(R); x <= Math.ceil(R); x++) for (let y = -Math.ceil(R); y <= Math.ceil(R); y++) {
+    const rr = Math.hypot(x + 0.5, y + 0.5); if (rr >= R - 0.2) continue;
+    const a = rings.get(Math.round(rr)); if (!a) continue;
+    const base = pos.length / 3, s = 0.5, z = (outer + (side === 0 ? 0.6 : 0.4)) * s;
+    for (const [cx, cy] of [[0, 0], [1, 0], [1, 1], [0, 1]]) { pos.push((x + cx) * s, (y + cy) * s, z); col.push(a.r / a.n, a.g / a.n, a.b / a.n); }
+    if (side === 0) idx.push(base, base + 2, base + 1, base, base + 3, base + 2); else idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.setIndex(idx); geo.computeVertexNormals(); geo.computeBoundingSphere();
+  const g = new THREE.Group(); g.add(new THREE.Mesh(geo, mat));
+  return g;
+}
+
+// ---- static (non-animated) car templates, cached per look: parked cars and company cars ----
+const STATIC_CACHE = new Map<string, THREE.Group>();
+export function staticCar(look: CarLook, mats: Materials, voxLivery = false): THREE.Group {
+  const key = JSON.stringify(look) + (voxLivery ? '|vox' : '');
+  let t = STATIC_CACHE.get(key);
+  if (!t) {
+    let v = carVoxelsStatic(look);
+    if (voxLivery) v = applyVoxLivery(v);
+    t = mergedVoxMeshes(v.map(p => p.role === 'light' ? { ...p, role: 'trim' as Role } : p), mats, p => new THREE.Color(p.c || '#ff00ff'));
+    STATIC_CACHE.set(key, t);
+  }
+  return t.clone();
 }
