@@ -1,0 +1,346 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Panda Civix — Step 0</title>
+<style>html,body{margin:0;overflow:hidden;background:#9fc7e8}canvas{display:block}</style>
+</head>
+<body>
+<script type="module">
+import * as THREE from './lib/three.module.js';
+
+// ---------- Palette v0 (32 colours) ----------
+const PAL = {
+  red: 0xd23a2a, redDark: 0x9e2a1f, blue: 0x2f6fd6, blueDark: 0x1f4c99, white: 0xeeeae0, offWhite: 0xd6d2c6,
+  black: 0x1a1a1e, darkGrey: 0x2e3036, midGrey: 0x5a5e66, lightGrey: 0x9ca1a8, chrome: 0xd0d4d9,
+  glass: 0x3a6a93, tire: 0x1d1d20, steel: 0x8c9096, headlight: 0xfff3c4, amber: 0xf2a43a, tail: 0xe0261c,
+  plate: 0xf2f2ea, skin: 0xd59a6a, skinLight: 0xf0c9a0, hairDark: 0x2a1c14, hairRed: 0xa6331f,
+  hoodie: 0x6b6f78, denim: 0x3a5a8a, sneaker: 0xf4f4f4, asphalt: 0x45484e, asphalt2: 0x3d4046,
+  laneYellow: 0xf2c230, concrete: 0xb7b4ab, concrete2: 0xaaa79e, building: 0x8e9bb3, sky: 0x9fc7e8,
+};
+
+const Q = new URLSearchParams(location.search);
+const L = +(Q.get('L') || 32);
+const VARIANT = Q.get('variant') || 'stock';   // stock | upgraded | livery
+const VIEW = Q.get('view') || 'front34';       // front34 | side | chase
+const W_ = innerWidth, H_ = innerHeight;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(PAL.sky);
+const box = new THREE.BoxGeometry(1, 1, 1);
+const mats = new Map();
+function mat(c, glass) {
+  const k = c + (glass ? 'g' : '');
+  if (!mats.has(k)) mats.set(k, glass
+    ? new THREE.MeshStandardMaterial({ color: c, flatShading: true, roughness: 0.2, metalness: 0.1, transparent: true, opacity: 0.32, depthWrite: false })
+    : new THREE.MeshStandardMaterial({ color: c, flatShading: true, roughness: 0.92, metalness: 0 }));
+  return mats.get(k);
+}
+
+// ---------- Voxel map helpers ----------
+class Vox {
+  constructor() { this.m = new Map(); }
+  k(x, y, z) { return x + ',' + y + ',' + z; }
+  set(x, y, z, c, glass = false) { this.m.set(this.k(x, y, z), { c, glass }); }
+  get(x, y, z) { return this.m.get(this.k(x, y, z)); }
+  del(x, y, z) { this.m.delete(this.k(x, y, z)); }
+  has(x, y, z) { return this.m.has(this.k(x, y, z)); }
+  // emit instanced meshes under a parent group; hide fully enclosed opaque cells
+  toGroup() {
+    const g = new THREE.Group();
+    const buckets = new Map();
+    for (const [key, v] of this.m) {
+      const [x, y, z] = key.split(',').map(Number);
+      const nb = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+      const hidden = !v.glass && nb.every(([a,b,c]) => { const n = this.get(x+a, y+b, z+c); return n && !n.glass; });
+      if (hidden) continue;
+      const bk = v.c + (v.glass ? 'g' : '');
+      if (!buckets.has(bk)) buckets.set(bk, { c: v.c, glass: v.glass, p: [] });
+      buckets.get(bk).p.push(x, y, z);
+    }
+    const o = new THREE.Object3D();
+    for (const b of buckets.values()) {
+      const n = b.p.length / 3;
+      const im = new THREE.InstancedMesh(box, mat(b.c, b.glass), n);
+      for (let i = 0; i < n; i++) { o.position.set(b.p[i*3] + .5, b.p[i*3+1] + .5, b.p[i*3+2] + .5); o.updateMatrix(); im.setMatrixAt(i, o.matrix); }
+      im.castShadow = !b.glass; im.receiveShadow = true;
+      if (b.glass) im.renderOrder = 2;
+      g.add(im);
+    }
+    return g;
+  }
+}
+
+// ---------- Panda Civix builder (car density) ----------
+// x: length, front at x=0 (car faces -x); y: up; z: width
+function buildCivix(L, opt) {
+  const V = new Vox();
+  const up = !!opt.upgraded;
+  const B = opt.body, BD = opt.bodyDark;
+  const W = 2 * Math.round(L * 0.25);          // 16 @32, 20 @40
+  const r = Math.round(L * 0.125);             // wheel radius 4 @32
+  const tw = Math.max(3, Math.round(L * 0.1)); // tyre width
+  const low = up ? 1 : 0;                      // lowered stance
+  const c0 = Math.round(r * 0.5) - low;        // body bottom
+  const yb = 2 * r + 1 - low;                  // beltline
+  const yr = yb + Math.round(L * 0.17);        // roof (exclusive)
+  const gi = Math.max(1, Math.round(W * 0.09));// greenhouse inset
+  const wx = [Math.round(L * 0.19), Math.round(L * 0.80)];
+  const cz = W / 2;
+  const rw = r + (up ? 0.7 : 1.1);             // wheel-well radius
+  const ws0 = 0.29, ws1 = 0.44, rf1 = 0.82, ht1 = 0.97;
+  const xA = Math.round(L * ws1), xB = Math.round(L * 0.63);
+
+  // --- lower body ---
+  const lowerTop = x => { const u = (x + .5) / L; if (x === L - 1) return yb - 1; if (u < ws0) return yb - Math.round((ws0 - u) / ws0 * 2.4); return yb; };
+  for (let x = 0; x < L; x++) {
+    for (let y = c0; y < lowerTop(x); y++) for (let z = 0; z < W; z++) {
+      if ((x === 0 || x === L - 1) && (z === 0 || z === W - 1)) continue;
+      let well = false;
+      for (const w of wx) { const dx = x + .5 - w, dy = y + .5 - r; if ((z < tw + 1 || z >= W - tw - 1) && dx*dx + dy*dy < rw*rw) well = true; }
+      if (well) continue;
+      V.set(x, y, z, B);
+    }
+  }
+  // --- greenhouse ---
+  const topG = x => {
+    const u = (x + .5) / L;
+    if (u < ws0 || u >= ht1) return yb;
+    if (u < ws1) return Math.max(yb + 1, yb + Math.round((u - ws0) / (ws1 - ws0) * (yr - yb)));
+    if (u < rf1) return yr;
+    return yr - Math.round((u - rf1) / (ht1 - rf1) * (yr - yb - 1));
+  };
+  const inVol = (x, y, z) => x >= 0 && x < L && z >= gi && z <= W - 1 - gi && y >= yb && y < topG(x);
+  for (let x = 0; x < L; x++) for (let y = yb; y < topG(x); y++) for (let z = gi; z <= W - 1 - gi; z++) {
+    const u = (x + .5) / L;
+    const exposed = [[1,0,0],[-1,0,0],[0,1,0],[0,0,1],[0,0,-1]].some(([a,b,c]) => !inVol(x+a, y+b, z+c));
+    if (!exposed) continue;
+    const onSide = z === gi || z === W - 1 - gi;
+    const isTop = !inVol(x, y + 1, z);
+    const front = !inVol(x - 1, y, z);
+    const region = u < ws1 ? 'ws' : u < rf1 ? 'roof' : 'hatch';
+    let col = B, glass = false;
+    if (y === yb) col = B;                                        // sill / cowl
+    else if (region === 'roof' && isTop) col = B;                 // roof skin
+    else if (onSide) {
+      if (region === 'hatch') col = B;                            // C pillar
+      else if (region === 'ws' && (isTop || front)) col = B;      // A pillar
+      else if (x === xB || (L >= 40 && x === xB + 1)) col = B;    // B pillar
+      else { col = PAL.glass; glass = true; }
+    } else if (region === 'ws' || region === 'hatch') { col = PAL.glass; glass = true; }
+    V.set(x, y, z, col, glass);
+  }
+  // interior floor, dash, seats
+  for (let x = 0; x < L; x++) for (let z = gi + 1; z <= W - 2 - gi; z++) {
+    const u = (x + .5) / L; if (u < ws0 || u >= ht1) continue;
+    if (V.has(x, yb - 1, z)) V.set(x, yb - 1, z, PAL.darkGrey);
+  }
+  for (let z = gi + 1; z <= W - 2 - gi; z++) { V.set(xA - 1, yb, z, PAL.darkGrey); }   // dashboard
+  const dz = W - 2 - gi - 3;            // driver sits on the +z side
+  const hx = xA + 1;                    // head front x
+  // driver seat + rear bench
+  for (let z = dz - 1; z <= dz + 3; z++) for (let y = yb; y < yb + 3; y++) V.set(hx + 3, y, z, PAL.black);
+  for (let z = gi + 2; z <= gi + 5; z++) for (let y = yb; y < yb + 3; y++) V.set(hx + 3, y, z, PAL.black);
+  // steering wheel
+  V.set(xA - 1, yb + 1, dz + 1, PAL.black); V.set(xA - 1, yb + 2, dz, PAL.black); V.set(xA - 1, yb + 2, dz + 2, PAL.black);
+  // driver bust (derived from avatar colours)
+  const D = opt.driver;
+  for (let z = dz - 1; z <= dz + 3; z++) for (let x = hx; x < hx + 3; x++) V.set(x, yb, z, D.shirt);  // shoulders
+  for (let x = hx; x < hx + 3; x++) for (let y = yb + 1; y < yb + 4; y++) for (let z = dz; z < dz + 3; z++) {
+    let c = D.skin;
+    if (y === yb + 3 || x === hx + 2) c = D.hair;
+    V.set(x, y, z, c);
+  }
+  V.set(hx, yb + 2, dz, PAL.black); V.set(hx, yb + 2, dz + 2, PAL.black);  // eyes
+
+  // --- front ---
+  for (let z = 1; z < W - 1; z++) { V.set(0, c0, z, PAL.darkGrey); }
+  for (const zr of [[1, 4], [W - 4, W - 1]]) for (let z = zr[0]; z < zr[1]; z++) for (let y = yb - 4; y < yb - 2; y++) V.set(0, y, z, PAL.headlight);
+  V.set(0, yb - 4, 1, PAL.amber); V.set(0, yb - 4, W - 2, PAL.amber);
+  for (let z = 5; z < W - 5; z++) for (let y = yb - 4; y < yb - 2; y++) V.set(0, y, z, PAL.black);
+  for (let z = cz - 2; z < cz + 2; z++) V.set(0, c0 + 1, z, PAL.plate);
+  // panda badge (white/black 2x2) on nose
+  V.set(0, yb - 3, cz - 1, PAL.white); V.set(0, yb - 3, cz, PAL.white); V.set(0, yb - 4, cz - 1, PAL.black); V.set(0, yb - 4, cz, PAL.black);
+  // --- rear ---
+  const xr = L - 1;
+  for (let z = 1; z < W - 1; z++) V.set(xr, c0, z, PAL.darkGrey);
+  for (const zr of [[1, 5], [W - 5, W - 1]]) for (let z = zr[0]; z < zr[1]; z++) for (let y = yb - 4; y < yb - 2; y++) V.set(xr, y, z, PAL.tail);
+  V.set(xr, yb - 4, 4, PAL.amber); V.set(xr, yb - 4, W - 5, PAL.amber);
+  for (let z = 5; z < W - 5; z++) V.set(xr, yb - 3, z, BD);
+  for (let z = cz - 2; z < cz + 2; z++) for (let y = c0 + 1; y < c0 + 3; y++) V.set(xr, y, z, PAL.plate);
+  // --- sides ---
+  for (const zs of [0, W - 1]) {
+    for (let x = 1; x < L - 1; x++) if (V.has(x, c0, zs)) V.set(x, c0, zs, PAL.darkGrey);           // sill
+    for (const xs of [Math.round(L * 0.36), xB]) for (let y = c0 + 1; y < yb; y++) if (V.has(xs, y, zs)) V.set(xs, y, zs, BD); // door seams
+    V.set(xB - 2, yb - 2, zs, PAL.darkGrey);                                                       // handle
+    V.set(Math.round(L * 0.36), yb, zs === 0 ? 0 : W - 1, B);                                      // mirror
+    V.set(Math.round(L * 0.36), yb + 1, zs === 0 ? 0 : W - 1, BD);
+    V.set(xr - 1, yb - 3, zs, PAL.amber);                                                          // side marker
+  }
+
+  // --- wheels ---
+  for (const w of wx) for (const side of [0, 1]) {
+    const bandW = tw + (up ? 1 : 0);
+    for (let i = 0; i < bandW; i++) {
+      const z = side === 0 ? (up ? -1 : 0) + i : (up ? W : W - 1) - i;
+      const outer = i === 0;
+      for (let x = w - r; x < w + r; x++) for (let y = 0; y < 2 * r; y++) {
+        const dx = x + .5 - w, dy = y + .5 - r, d = Math.sqrt(dx*dx + dy*dy);
+        if (d >= r) continue;
+        let c = PAL.tire;
+        if (outer || i === 1) {
+          if (up) {
+            if (d < r * 0.72) c = (Math.abs(dx) < .6 || Math.abs(dy) < .6 || d < r * 0.28) ? PAL.chrome : (outer ? PAL.darkGrey : PAL.tire);
+          } else if (d < r * 0.55) c = outer ? (d < r * 0.22 ? PAL.darkGrey : PAL.steel) : PAL.tire;
+        }
+        V.set(x, y, z, c);
+      }
+    }
+  }
+
+  // --- upgrades (visible) ---
+  if (up) {
+    for (const w of wx) for (const zs of [-1, W]) for (let x = w - r - 1; x <= w + r; x++) for (let y = r; y < yb; y++) {
+      const dx = x + .5 - w, dy = y + .5 - r, d = Math.sqrt(dx*dx + dy*dy);
+      if (d >= r + 0.3 && d < r + 1.4) V.set(x, y, zs, B);                       // fender flares
+    }
+    for (let z = 1; z < W - 1; z++) V.set(-1, c0, z, PAL.black);                  // front lip
+    for (let x = Math.round(L * 0.13); x < Math.round(L * 0.25); x++) for (let z = cz - 2; z < cz + 2; z++) V.set(x, yb, z, PAL.black); // hood scoop
+    for (let z = cz - 2; z < cz + 2; z++) V.set(Math.round(L * 0.13), yb, z, PAL.darkGrey);
+    for (let z = 5; z < W - 5; z++) V.set(0, yb - 4, z, PAL.lightGrey);           // intercooler in grille
+    V.set(L, c0 + 1, W - 4, PAL.chrome); V.set(L, c0 + 1, W - 5, PAL.chrome);     // exhaust
+    for (const zp of [3, W - 4]) for (let y = yb - 1; y < yb + 2; y++) V.set(L - 1, y, zp, PAL.black); // wing posts
+    for (let x = L - 2; x <= L; x++) for (let z = 1; z < W - 1; z++) V.set(x, yb + 2, z, PAL.black);  // wing plank
+    for (const ze of [1, W - 2]) for (let x = L - 2; x <= L; x++) V.set(x, yb + 3, ze, PAL.black);    // end plates
+  }
+
+  // --- livery (decal as block pattern) ---
+  if (opt.livery) {
+    const bands = [cz - 3, cz - 2, cz + 1, cz + 2];
+    for (const [key, v] of [...V.m]) {
+      if (v.glass || v.c !== B) continue;
+      const [x, y, z] = key.split(',').map(Number);
+      if (bands.includes(z) && !V.has(x, y + 1, z)) V.set(x, y, z, PAL.white);           // twin stripes over the top
+      if (bands.includes(z) && x === 0) V.set(x, y, z, PAL.white);
+    }
+    for (const zs of [0, W - 1]) {
+      for (let x = 1; x < L - 1; x++) if (V.get(x, yb - 1, zs)?.c === B) V.set(x, yb - 1, zs, PAL.laneYellow);  // shoulder line
+      // door roundel with "7"
+      const x0 = Math.round(L * 0.40), y0 = c0 + 1;
+      for (let x = x0; x < x0 + 5; x++) for (let y = y0; y < yb; y++) V.set(x, y, zs, PAL.white);   // roundel (breaks the shoulder line)
+      const seven = ['111', '001', '010', '010'];
+      const gTop = yb - 2;
+      for (let row = 0; row < seven.length; row++) for (let col = 0; col < 3; col++) if (seven[row][col] === '1') {
+        const x = zs === 0 ? x0 + 3 - col : x0 + 1 + col;   // mirrored on the far side so it reads correctly
+        V.set(x, gTop - row, zs, PAL.black);
+      }
+    }
+  }
+  return { V, W, yb, yr, c0, r };
+}
+
+// ---------- Hollowcrown-proportion mannequin (character density), placeholder modern outfit ----------
+function buildMannequin() {
+  const V = new Vox();
+  const fill = (x0, y0, z0, w, h, d, c) => { for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) for (let z = 0; z < d; z++) V.set(x0+x, y0+y, z0+z, c); };
+  // x = width, z = depth (faces +z)
+  fill(0, 0, 0, 4, 2, 4, PAL.sneaker); fill(4, 0, 0, 4, 2, 4, PAL.sneaker);
+  fill(0, 2, 0, 4, 10, 4, PAL.denim); fill(4, 2, 0, 4, 10, 4, PAL.denim);
+  fill(0, 12, 0, 8, 12, 4, PAL.hoodie);
+  fill(-4, 12, 0, 4, 12, 4, PAL.hoodie); fill(8, 12, 0, 4, 12, 4, PAL.hoodie);
+  fill(-4, 12, 0, 4, 2, 4, PAL.skin); fill(8, 12, 0, 4, 2, 4, PAL.skin);
+  fill(2, 16, 4, 4, 3, 1, PAL.midGrey);                // hoodie pocket
+  fill(1, 22, -1, 6, 2, 1, PAL.midGrey);               // hood bunched at back
+  fill(0, 24, -2, 8, 8, 8, PAL.skin);
+  fill(0, 30, -2, 8, 2, 8, PAL.hairDark); fill(0, 26, -2, 8, 4, 1, PAL.hairDark);
+  fill(0, 27, -2, 1, 3, 8, PAL.hairDark); fill(7, 27, -2, 1, 3, 8, PAL.hairDark); fill(0, 29, 5, 8, 1, 1, PAL.hairDark);
+  fill(1, 27, 5, 2, 1, 1, PAL.white); fill(5, 27, 5, 2, 1, 1, PAL.white);
+  fill(2, 27, 5, 1, 1, 1, PAL.black); fill(5, 27, 5, 1, 1, 1, PAL.black);
+  fill(3, 25, 5, 2, 1, 1, PAL.redDark);
+  return V;
+}
+
+// ---------- Scene ----------
+const driver = { skin: PAL.skin, hair: PAL.hairDark, shirt: PAL.hoodie };
+const variants = {
+  stock:    { body: PAL.red,  bodyDark: PAL.redDark,  upgraded: false, livery: false, driver },
+  upgraded: { body: PAL.red,  bodyDark: PAL.redDark,  upgraded: true,  livery: false, driver },
+  livery:   { body: PAL.blue, bodyDark: PAL.blueDark, upgraded: false, livery: true,  driver },
+};
+const car = buildCivix(L, variants[VARIANT]);
+const carG = car.V.toGroup();
+scene.add(carG);
+const W = car.W;
+
+// ground
+const ground = new Vox();
+const chase = VIEW === 'chase';
+const gx0 = chase ? -5 * L : -L, gx1 = chase ? 3 * L : 2 * L, gz0 = chase ? -W - 10 : -L, gz1 = chase ? 3 * W + 12 : 2 * L;
+for (let x = gx0; x < gx1; x++) for (let z = gz0; z < gz1; z++) {
+  let c;
+  if (chase) {
+    c = (((x >> 2) + (z >> 2)) & 1) ? PAL.asphalt : PAL.asphalt2;
+    if (z >= W + 2 && z < W + 4 && (((x >> 3) & 1) === 0)) c = PAL.laneYellow;
+    if (z < -6 || z >= 2 * W + 10) c = PAL.concrete;
+  } else c = (((x >> 2) + (z >> 2)) & 1) ? PAL.concrete : PAL.concrete2;
+  ground.set(x, -1, z, c);
+}
+scene.add(ground.toGroup());
+
+let mannequinBounds = 0;
+if (!chase) {
+  const mq = buildMannequin().toGroup();
+  const k = (0.48 * L) / 32;                   // ~1.3x car height, derived from car length
+  mq.scale.setScalar(k);
+  mq.position.set(L + 0.20 * L, 0, W * 0.25);
+  mq.rotation.y = VIEW === 'front34' ? -0.55 : 0;
+  scene.add(mq);
+  mannequinBounds = 0.45 * L;
+}
+if (chase) {
+  // opponent in next lane, slightly ahead
+  const opp = buildCivix(L, { body: PAL.white, bodyDark: PAL.offWhite, upgraded: false, livery: false, driver: { skin: PAL.skinLight, hair: PAL.hairRed, shirt: PAL.denim } }).V.toGroup();
+  opp.position.set(-0.35 * L, 0, W + 6);
+  scene.add(opp);
+  // distant skyline blocks
+  const sk = [[-4.6, -1.2, 1.4, 1.8], [-4.6, 0.3, 1.0, 2.6], [-4.6, 1.4, 1.2, 1.5], [-4.6, 2.5, 0.9, 2.1], [-4.6, -2.4, 1.0, 1.1], [-4.6, 3.4, 1.3, 1.3]];
+  for (const [bx, bz, bw, bh] of sk) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(bw * L * 0.6, bh * L * 0.6, bw * L * 0.6), mat(PAL.building));
+    m.position.set(bx * L, bh * L * 0.3, bz * L * 0.6 + W); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+  }
+}
+
+// lights
+scene.add(new THREE.HemisphereLight(0xe4f0ff, 0x6b6250, 1.0));
+const sun = new THREE.DirectionalLight(0xfff2dc, 2.3);
+if (chase) sun.position.set(1.4 * L, 3 * L, 2.4 * L); else sun.position.set(-0.6 * L, 3 * L, 2.2 * L); sun.target.position.set(L / 2, 0, W / 2);
+sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -4 * L, right: 4 * L, top: 4 * L, bottom: -4 * L, near: 1, far: 12 * L });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.5;
+scene.add(sun, sun.target);
+
+// camera
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W_, H_); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(renderer.domElement);
+let camera;
+const aspect = W_ / H_;
+if (chase) {
+  camera = new THREE.PerspectiveCamera(42, aspect, 0.5, 40 * L);
+  camera.position.set(L + 1.6 * L, 0.62 * L, W * 0.5 + W * 0.45);
+  camera.lookAt(-0.9 * L, 0.16 * L, W * 0.95);
+} else {
+  const h = (L + mannequinBounds) * (VIEW === 'side' ? 0.72 : 0.82);
+  camera = new THREE.OrthographicCamera(-h * aspect / 2, h * aspect / 2, h / 2, -h / 2, -20 * L, 20 * L);
+  const tgt = new THREE.Vector3(VIEW === 'side' ? (L + mannequinBounds) / 2 : 0.56 * L, 0.22 * L, W / 2);
+  const dir = VIEW === 'side' ? new THREE.Vector3(0, 0.12, 1) : new THREE.Vector3(-1, 0.85, 1.15);
+  camera.position.copy(tgt).add(dir.normalize().multiplyScalar(6 * L));
+  camera.lookAt(tgt);
+}
+renderer.render(scene, camera);
+window.__stats = { voxels: car.V.m.size, W, yb: car.yb, yr: car.yr };
+window.__done = true;
+</script>
+</body>
+</html>

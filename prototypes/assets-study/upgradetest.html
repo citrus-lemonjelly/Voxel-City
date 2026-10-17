@@ -1,0 +1,132 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>upgrade test</title>
+<style>html,body{margin:0;overflow:hidden;background:#9fc7e8}canvas{display:block}</style></head>
+<body>
+<script type="module">
+import * as THREE from './lib/three.module.js';
+const Q = new URLSearchParams(location.search);
+const CAR = Q.get('car') || '190-Berline-5';
+const BODYIDX = Q.get('body') || '238';          // palette index of the paint colour
+const VIEW = Q.get('view') || 'front34';
+const PARTS = new Set((Q.get('parts') || '').split(',').filter(Boolean)); // tires,body,engine,turbo,livery
+const d = await (await fetch(`refcars/${CAR}.json`)).json();
+const [FX, FY, FZ] = d.size;              // file: x width, y up, z length
+const L = FZ, W = FX;
+const V = new Map();
+const key = (x, y, z) => x + ',' + y + ',' + z;
+const set = (x, y, z, hex) => V.set(key(x, y, z), hex);
+const has = (x, y, z) => V.has(key(x, y, z));
+const paint = d.palette[BODYIDX];
+const C = { tire: '#1d1d20', steel: '#8c9096', hubDark: '#2e3036', chrome: '#d0d4d9', black: '#1a1a1e', carbon: '#2a2c31', carbon2: '#34373d',
+            white: '#eeeae0', yellow: '#f2c230', lightGrey: '#9ca1a8', exhaust: '#5a5e66' };
+
+// --- body ---
+const low = PARTS.has('body') ? 1 : 0;
+const topAt = {};
+for (const [fx, y, fz, c] of d.voxels) {
+  const x = fz, z = fx, yy = y - low;
+  let hex = d.palette[c];
+  set(x, yy, z, hex);
+  const k = x + ',' + z; topAt[k] = Math.max(topAt[k] ?? -99, yy);
+}
+const top = (x, z) => topAt[x + ',' + z] ?? -99;
+
+// wheel arches from side profile
+const sideMin = []; for (let x = 0; x < L; x++) { let m = 99; for (let y = -2; y < FY; y++) if (has(x, y, 0) || has(x, y, 1)) { m = y; break; } sideMin.push(m + low); }
+const arches = []; let a0 = -1;
+for (let x = 0; x <= L; x++) { const inA = x < L && sideMin[x] >= 5; if (inA && a0 < 0) a0 = x; if (!inA && a0 >= 0) { if (x - a0 >= 6 && a0 > 0 && x < L) arches.push([a0, x - 1]); a0 = -1; } }
+
+// --- wheels ---
+const wide = PARTS.has('tires');
+const R = wide ? 5.1 : 4.7, WC = 3;                // wheel radius, centre height (ground at y = -2)
+const tw = wide ? 5 : 4;
+for (const [s, e] of arches) {
+  const cx = (s + e + 1) / 2;
+  for (const side of [0, 1]) for (let i = 0; i < tw; i++) {
+    const z = side === 0 ? (wide ? -1 : 0) + i : (wide ? W : W - 1) - i;
+    const outer = i === 0;
+    for (let x = Math.floor(cx - R) - 1; x <= cx + R; x++) for (let y = -3; y <= WC + R; y++) {
+      const dx = x + .5 - cx, dy = y + .5 - WC, r = Math.hypot(dx, dy); if (r >= R) continue;
+      let hex = C.tire;
+      if (outer || i === 1) {
+        if (wide) { if (r < R * 0.74) hex = (Math.abs(dx) < .7 || Math.abs(dy) < .7 || Math.abs(dx - dy) < .7 || r < R * 0.25) ? C.chrome : (outer ? C.hubDark : C.tire); }
+        else if (r < R * 0.55) hex = outer ? (r < R * 0.22 ? C.hubDark : C.steel) : C.tire;
+      }
+      set(x, y, z, hex);
+    }
+  }
+  if (wide) for (const zs of [-1, W]) for (let x = s - 1; x <= e + 1; x++) for (let y = WC; y <= WC + R + 1.5; y++) {
+    const r = Math.hypot(x + .5 - cx, y + .5 - WC); if (r >= R + 0.4 && r < R + 1.5) set(x, y, zs, paint);   // flares
+  }
+}
+
+// --- engine: hood scoop ---
+const front = L - 1, rear = 0;
+if (PARTS.has('engine')) {
+  const x0 = Math.round(L * 0.80), x1 = Math.round(L * 0.90);
+  for (let x = x0; x <= x1; x++) for (let z = W / 2 - 4; z < W / 2 + 4; z++) { const t = top(x, z); set(x, t + 1, z, C.black); if (x >= x0 + 2) set(x, t + 2, z, C.black); }
+  for (let z = W / 2 - 3; z < W / 2 + 3; z++) set(x1 + 1, top(x1, z) + 2, z, C.hubDark);
+}
+// --- turbo: intercooler in front, big exhaust ---
+if (PARTS.has('turbo')) {
+  for (let z = 6; z < W - 6; z++) for (let y = 1 - low; y < 4 - low; y++) set(front + 1, y, z, (y + z) % 2 ? C.lightGrey : C.chrome);
+  for (const zz of [W - 6, W - 5]) for (const yy of [1 - low, 2 - low]) set(rear - 1, yy, zz, C.chrome);
+  set(rear - 1, 1 - low, W - 6, C.exhaust);
+}
+// --- body (weight reduction / aero): carbon hood + wing + splitter + lowered ---
+if (PARTS.has('body')) {
+  for (let x = Math.round(L * 0.76); x < L; x++) for (let z = 2; z < W - 2; z++) { const t = top(x, z); if (t > 4 && V.get(key(x, t, z)) === paint) set(x, t, z, (x + z) % 2 ? C.carbon : C.carbon2); }
+  const tz = top(2, W / 2);
+  for (const zp of [5, W - 6]) for (let y = tz + 1; y <= tz + 3; y++) set(4, y, zp, C.black);          // posts
+  for (let x = 0; x <= 6; x++) for (let z = 1; z < W - 1; z++) set(x, tz + 4 + (x < 2 ? 1 : 0), z, C.black);   // plank with a lip
+  for (const ze of [1, W - 2]) for (let x = 0; x <= 6; x++) for (let y = tz + 3; y <= tz + 6; y++) set(x, y, ze, C.black); // end plates
+  for (let z = 1; z < W - 1; z++) set(front + 1, -low, z, C.black);
+  for (const zs of [-1, W]) for (let x = 0; x < L; x++) if (sideMin[x] <= 3 && sideMin[x] >= 1) set(x, sideMin[x] - low, zs, C.black);   // side skirts
+}
+// --- livery: twin stripes + door number ---
+if (PARTS.has('livery')) {
+  for (const [k, hex] of [...V]) {
+    if (hex !== paint) continue;
+    const [x, y, z] = k.split(',').map(Number);
+    if ([W/2-4, W/2-3, W/2+2, W/2+3].includes(z) && !has(x, y + 1, z)) set(x, y, z, C.white);
+  }
+  const zs = W - 1, x0 = Math.round(L * 0.42);
+  const seven = ['111', '001', '001', '010', '010'];
+  for (let x = x0; x < x0 + 7; x++) for (let y = 2; y < 9; y++) set(x, y - low, zs, C.white);
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) if (seven[r][c] === '1') set(x0 + 2 + c, 7 - r - low, zs, C.black);
+}
+
+// --- scene ---
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x9fc7e8);
+const box = new THREE.BoxGeometry(1, 1, 1), mats = {};
+const mat = h => mats[h] || (mats[h] = new THREE.MeshStandardMaterial({ color: new THREE.Color(h), flatShading: true, roughness: 0.9 }));
+const by = {}; for (const [k, h] of V) (by[h] ||= []).push(k.split(',').map(Number));
+const o = new THREE.Object3D();
+for (const h in by) { const im = new THREE.InstancedMesh(box, mat(h), by[h].length);
+  by[h].forEach(([x, y, z], i) => { o.position.set(x + .5, y + .5, z + .5); o.updateMatrix(); im.setMatrixAt(i, o.matrix); });
+  im.castShadow = im.receiveShadow = true; scene.add(im); }
+const chase = VIEW === 'chase';
+const gr = new THREE.Mesh(new THREE.BoxGeometry(600, 1, 300), mat(chase ? '#45484e' : '#b7b4ab'));
+gr.position.set(L / 2 - (chase ? 200 : 0), -2.5, W / 2); gr.receiveShadow = true; scene.add(gr);
+if (chase) for (let i = 0; i < 20; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(8, 0.2, 2), mat('#f2c230')); m.position.set(L - i * 18, -1.9, W + 8); scene.add(m); }
+scene.add(new THREE.HemisphereLight(0xe4f0ff, 0x6b6250, 1.0));
+const sun = new THREE.DirectionalLight(0xfff2dc, 2.3);
+if (chase) sun.position.set(-L * 1.5, 140, 110); else sun.position.set(L * 1.6, 160, 120); sun.target.position.set(L / 2, 0, W / 2); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -200, right: 200, top: 200, bottom: -200, near: 1, far: 800 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.5;
+scene.add(sun, sun.target);
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+r.setSize(innerWidth, innerHeight); r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap; r.toneMapping = THREE.ACESFilmicToneMapping;
+document.body.appendChild(r.domElement);
+const asp = innerWidth / innerHeight; let cam;
+if (VIEW === 'hero') { cam = new THREE.PerspectiveCamera(30, asp, 0.5, 3000); cam.position.set(L * 1.45, 7, W * 2.6); cam.lookAt(L * 0.5, 6, W * 0.5); }
+else if (VIEW === 'detail') { const h = 22; cam = new THREE.OrthographicCamera(-h * asp / 2, h * asp / 2, h / 2, -h / 2, -2000, 2000);
+  const tgt = new THREE.Vector3(L * 0.78, 6, W); cam.position.copy(tgt).add(new THREE.Vector3(0.5, 0.45, 1).normalize().multiplyScalar(300)); cam.lookAt(tgt); }
+else if (VIEW === 'gallery') { const h = L * 1.9; cam = new THREE.OrthographicCamera(-h * asp / 2, h * asp / 2, h / 2, -h / 2, -2000, 2000);
+  const tgt = new THREE.Vector3(L / 2, 6, W / 2); cam.position.copy(tgt).add(new THREE.Vector3(1, 1.4, 1.1).normalize().multiplyScalar(400)); cam.lookAt(tgt); }
+else if (chase) { cam = new THREE.PerspectiveCamera(40, asp, 0.5, 3000); cam.position.set(-L * 0.95, L * 0.36, W * 0.5 + W * 0.45); cam.lookAt(L * 1.4, 4, W * 0.55); }
+else { const h = L * 0.80; cam = new THREE.OrthographicCamera(-h * asp / 2, h * asp / 2, h / 2, -h / 2, -2000, 2000);
+  const tgt = new THREE.Vector3(L / 2, 6, W / 2);
+  const dir = { front34: [1, 0.8, 1.1], rear34: [-1, 0.8, 1.1], side: [0, 0.08, 1] }[VIEW];
+  cam.position.copy(tgt).add(new THREE.Vector3(...dir).normalize().multiplyScalar(400)); cam.lookAt(tgt); }
+r.render(scene, cam); window.__done = true;
+</script></body></html>

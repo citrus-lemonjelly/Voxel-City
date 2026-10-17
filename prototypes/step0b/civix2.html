@@ -1,0 +1,469 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Panda Civix v2 — modular</title>
+<style>
+html,body{margin:0;overflow:hidden;background:#000}canvas{display:block}
+#hud{position:absolute;left:24px;bottom:22px;font:700 18px/1 system-ui,sans-serif;color:#fff;display:none}
+#hud .bar{width:360px;height:18px;background:rgba(0,0,0,.55);border:2px solid #fff;margin-top:8px;position:relative}
+#hud .fill{position:absolute;left:0;top:0;bottom:0;background:#f2c230}
+#hud .zone{position:absolute;top:-2px;bottom:-2px;left:78%;width:10%;border:2px solid #4ade80}
+#flash{position:absolute;left:50%;top:18%;transform:translateX(-50%);font:900 46px system-ui,sans-serif;color:#4ade80;text-shadow:0 0 18px #4ade80;display:none}
+</style>
+<script type="importmap">{"imports":{"three":"./lib/three.module.js","three/addons/":"./jsm/"}}</script>
+</head><body>
+<div id="hud">RPM<div class="bar"><div class="fill"></div><div class="zone"></div></div></div>
+<div id="flash">PERFECT</div>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const Q = new URLSearchParams(location.search);
+const P = k => Q.get(k);
+const CFG = {
+  view: P('view') || 'front34',            // front34 | side | rear34 | chase | front | rear | wing | hero
+  time: P('time') || 'day',                // day | night
+  scene: P('scene') || 'showroom',         // showroom | street
+  head: P('head') || 'stock',              // stock | projector | slim | round | proj2x
+  tail: P('tail') || 'stock',              // stock | bar | round | smoked
+  grille: P('grille') || 'slats',          // slats | mesh | open | honey2x
+  wing: P('wing') || 'none',               // none | roof | ducktail | gt1x | gt2x | swan2x
+  exhaust: P('exhaust') || 'x1',           // x1 | x2
+  rim: P('rim') || 'steel',                // steel | fivespoke | sixblack | turbofan
+  livery: P('livery') || 'solid',
+  finish: P('finish') || 'gloss',          // gloss | matte | metallic | chrome | pearl | chameleon
+  paint: P('paint') || '#d23a2a',
+  paint2: P('paint2') || '#eeeae0',
+  glow: P('glow') || '',                   // underglow colour hex or ''
+  anim: P('anim') || '',                   // scroll | pulse | rainbow | flicker | reactive | underpulse
+  scale: +(P('scale') || 1),
+  bodyglow: P('bodyglow') === '1',
+  glowlevel: P('glowlevel') || (P('bodyglow') === '1' ? 'full' : 'off'),   // off | low | med | full — premium liveries only
+  dy: +(P('dy') ?? 1), roof: +(P('roof') || 21),                         // v2.1 proportions: ride height +1, roof 21       // RULE (2026-10-16): paint never glows. Only enabled for comparison renders.
+  oh: +(P('oh') || 0), tx: P('tx'), ty: P('ty'),
+};
+
+// ---------------- voxel store ----------------
+// role: paint (body panels; livery applies), trim, glass, light, glow, tire, rim, dark ...
+// size: 1 (car density) or 0.5 (2× parts)
+const VOX = [];
+const at1 = new Map();     // car-density occupancy for the body
+const k3 = (x, y, z) => x + ',' + y + ',' + z;
+const BODY_DY = isNaN(+(new URLSearchParams(location.search).get('dy'))) || new URLSearchParams(location.search).get('dy') === null ? 1 : +(new URLSearchParams(location.search).get('dy'));
+const ROOF = +(new URLSearchParams(location.search).get('roof') || 21);
+function put(x, y, z, c, role = 'trim', extra = {}) { VOX.push({ x, y: y + (role === 'tire' || role === 'rim' ? 0 : BODY_DY), z, c, role, s: 1, ...extra }); }
+function put2(x, y, z, c, role = 'trim', extra = {}) { VOX.push({ x, y: y + (role === 'tire' || role === 'rim' ? 0 : 2 * BODY_DY), z, c, role, s: 0.5, ...extra }); } // x,y,z in half-units
+
+const PAL = {
+  glass: '#10232b', streak: '#2c4a55', frame: '#1a1a1e', trimLight: '#bcd5c2', dark: '#1a1a1e', darkGrey: '#2e3036', midGrey: '#5a5e66',
+  lightGrey: '#9ca1a8', chrome: '#d0d4d9', tire: '#1d1d20', tire2: '#26262a', steel: '#8c9096', hub: '#2e3036',
+  head: '#fff3c4', amber: '#f2a43a', tail: '#e0261c', tailSmoke: '#5a1512', reverse: '#f4f4f4', plate: '#f2f2ea', caliper: '#d23a2a', gold: '#c9a23a', white: '#eeeae0',
+};
+
+// ---------------- body (car density) ----------------
+const L = 58, W = 28;
+const WC = [12, 46];                 // wheel centres (x)
+const WR = 5.2, WY = 5.2;            // wheel radius, centre height (ground y = 0)
+const yBot = 2;
+const lowerTop = x => { if (x <= 0) return 8; if (x === 1) return 9; if (x < 16) return 9 + Math.round((x - 2) / 14 * 2); if (x >= L - 1) return 10; return 11; };
+const gTop = x => { // greenhouse top (exclusive); 0 = none
+  if (x < 16 || x > 56) return 0;
+  if (x <= 25) return 11 + Math.max(1, Math.round((x - 16) / 9 * (ROOF - 11)));
+  if (x <= 45) return ROOF;
+  return ROOF - Math.round((x - 45) / 11 * (ROOF - 12));
+};
+const body = new Map();               // key -> {role, shade}
+for (let x = 0; x < L; x++) {
+  const t = lowerTop(x), bot = (x < 2 || x > L - 3) ? 3 : yBot;
+  for (let y = bot; y < t; y++) for (let z = 0; z < W; z++) {
+    if ((x === 0 || x === L - 1) && (z < 2 || z > W - 3)) continue;           // rounded corners
+    if ((x === 1 || x === L - 2) && (z < 1 || z > W - 2)) continue;
+    if (y === t - 1 && (z === 0 || z === W - 1)) continue;                     // top-edge chamfer
+    let arch = false;
+    for (const wc of WC) { const dx = x + .5 - wc, dy = y + .5 - WY; if ((z < 6 || z > W - 7) && dx * dx + dy * dy < 6.5 * 6.5) arch = true; }
+    if (arch) continue;
+    body.set(k3(x, y, z), { part: 'lower' });
+  }
+  const gt = gTop(x);
+  for (let y = t; y < gt; y++) {
+    const inset = y >= ROOF - 2 ? 3 : 2;
+    for (let z = inset; z < W - inset; z++) body.set(k3(x, y, z), { part: 'green' });
+  }
+}
+const hasB = (x, y, z) => body.has(k3(x, y, z));
+// classify body voxels
+for (const [key, b] of body) {
+  const [x, y, z] = key.split(',').map(Number);
+  const open = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]].filter(([a,c,d]) => !hasB(x+a, y+c, z+d));
+  if (!open.length) continue;                                     // interior, skip
+  const up = !hasB(x, y + 1, z), front = !hasB(x - 1, y, z), back = !hasB(x + 1, y, z);
+  const side = !hasB(x, y, z + 1) || !hasB(x, y, z - 1);
+  let role = 'paint', shade = 'mid', c = null;
+  if (b.part === 'green') {
+    const gt = gTop(x), region = x <= 25 ? 'ws' : x <= 45 ? 'roof' : 'hatch';
+    const edgeZ = z <= 3 || z >= W - 4;
+    if (region === 'roof' && up) { shade = 'light'; }
+    else if (y === lowerTop(x) && (front || region !== 'ws')) { role = 'trim'; c = PAL.frame; }  // window base seal
+    else if (side) {
+      if (region === 'hatch' && x > 50) { shade = 'mid'; }                       // C pillar
+      else if (region === 'ws' && (front || up)) { shade = 'mid'; }               // A pillar
+      else if (x === 35 || x === 36) { role = 'trim'; c = PAL.frame; }           // B pillar (blacked out)
+      else if (up || y === gt - 1) { shade = 'mid'; }                            // roof rail
+      else { role = 'glass'; c = ((x + y) % 10 < 2) ? PAL.streak : PAL.glass; }
+    }
+    else if (region === 'ws') { role = 'glass'; c = (edgeZ ? PAL.frame : (((z + y) % 11) < 2 ? PAL.streak : PAL.glass)); if (edgeZ) role = 'trim'; }
+    else if (region === 'hatch') { role = 'glass'; c = (edgeZ ? PAL.frame : (((z + y) % 11) < 2 ? PAL.streak : PAL.glass)); if (edgeZ) role = 'trim'; }
+  } else {
+    if (up) shade = 'light';
+    else if (y <= 3) shade = 'dark';
+    if (y === yBot && side) { role = 'trim'; c = PAL.trimLight; }               // sill highlight band (pack style)
+    if ((x === 0 || x === L - 1) && y <= 4) { role = 'trim'; c = PAL.darkGrey; } // bumpers lower
+  }
+  // door seams and handle
+  if (role === 'paint' && side && b.part === 'lower' && (x === 24 || x === 37) && y > yBot && y < 11) { role = 'trim'; c = '#0d0d10'; shade = 'seam'; }
+  if (role === 'paint' && side && x === 34 && y === 9) { role = 'trim'; c = PAL.darkGrey; }
+  const edge = up && (side || front || back || !hasB(x, y + 1, z + 1) || !hasB(x, y + 1, z - 1)) && (side || front || back);
+  put(x, y, z, c, role, { shade, edge, u: x / (L - 1), v: (y - yBot) / (ROOF - 2), face: up ? 'top' : front ? 'front' : back ? 'back' : 'side', nz: z });
+}
+// wheel-well liners (dark inner arch)
+for (const wc of WC) for (let a = 0; a < 360; a += 4) {
+  const r = 6.4, x = Math.floor(wc + Math.cos(a * Math.PI / 180) * r), y = Math.floor(WY + Math.sin(a * Math.PI / 180) * r);
+  if (y < yBot || y > lowerTop(x) - 2) continue;
+  for (const z of [6, W - 7]) if (!hasB(x, y, z)) put(x, y, z, '#121214', 'trim');
+}
+// mirrors
+for (const z of [1, W - 2]) { put(17, 12, z, null, 'paint', { shade: 'mid', u: .3, v: .6, face: 'side', nz: z }); put(17, 13, z, null, 'paint', { shade: 'light', u: .3, v: .6, face: 'top', nz: z }); }
+// panda badge + plates
+put(-1, 7, 13, PAL.white); put(-1, 7, 14, PAL.white); put(-1, 6, 13, PAL.dark); put(-1, 6, 14, PAL.dark);
+for (let z = 11; z < 17; z++) { put(-1, 3, z, PAL.plate); put(L, 5, z, PAL.plate); put(L, 4, z, PAL.plate); }
+
+// ---------------- parts ----------------
+const PARTS = {};
+function headlights(kind) {
+  const sides = [[2, 9], [W - 9, W - 2]];
+  for (const [z0, z1] of sides) {
+    const outer = z0 < 10 ? z0 : z1 - 1;
+    if (kind === 'stock') { for (let z = z0; z < z1; z++) for (let y = 5; y < 8; y++) put(-1, y, z, (z === outer) ? PAL.amber : PAL.head, 'light'); }
+    if (kind === 'projector') { for (let z = z0; z < z1; z++) for (let y = 5; y < 8; y++) put(-1, y, z, PAL.darkGrey); for (const zc of [z0 + 1, z0 + 4]) for (const [dz, dy] of [[0,0],[1,0],[0,1],[1,1]]) put(-1.2, 5.5 + dy, zc + dz, PAL.head, 'light'); put(-1.2, 5, outer, PAL.amber, 'light'); }
+    if (kind === 'slim') { for (let z = z0 - 1; z < z1 + 1; z++) put(-1, 7, z, PAL.head, 'light'); for (let z = z0; z < z1; z++) for (let y = 5; y < 7; y++) put(-1, y, z, PAL.darkGrey); }
+    if (kind === 'round') { const zc = (z0 + z1) / 2; for (let z = z0; z < z1; z++) for (let y = 4; y < 9; y++) { const d = Math.hypot(z + .5 - zc, y + .5 - 6.5); if (d < 2.6) put(-1, y, z, d < 1.4 ? PAL.head : PAL.chrome, d < 1.4 ? 'light' : 'trim'); } }
+    if (kind === 'proj2x') {   // 2× density projector cluster: housing, two round lenses, LED brow
+      for (let z = z0 * 2; z < z1 * 2; z++) for (let y = 10; y < 16; y++) put2(-2, y, z, PAL.darkGrey);
+      for (const zc of [z0 * 2 + 3.5, z0 * 2 + 9.5]) for (let z = Math.floor(zc - 3); z < zc + 3; z++) for (let y = 10; y < 16; y++) { const d = Math.hypot(z + .5 - zc, y + .5 - 12.5); if (d < 2.6) put2(-3, y, z, d < 1.6 ? PAL.head : PAL.chrome, d < 1.6 ? 'light' : 'trim'); }
+      for (let z = z0 * 2; z < z1 * 2; z++) put2(-3, 16, z, PAL.head, 'light');
+    }
+  }
+}
+function taillights(kind) {
+  const sides = [[1, 8], [W - 8, W - 1]];
+  for (const [z0, z1] of sides) {
+    if (kind === 'stock') for (let z = z0; z < z1; z++) for (let y = 6; y < 9; y++) put(L, y, z, (y === 6 && (z === z0 + 3 || z === z1 - 4)) ? PAL.reverse : PAL.tail, 'light');
+    if (kind === 'smoked') for (let z = z0; z < z1; z++) for (let y = 6; y < 9; y++) put(L, y, z, PAL.tailSmoke, 'light', { dim: true });
+    if (kind === 'round') for (const zc of [z0 + 2, z0 + 5.5]) for (let z = Math.floor(zc - 2); z < zc + 2; z++) for (let y = 5; y < 10; y++) { const d = Math.hypot(z + .5 - zc, y + .5 - 7.5); if (d < 1.9) put(L, y, z, d < 1.0 ? '#ff6a5a' : PAL.tail, 'light'); }
+  }
+  if (kind === 'bar') { for (let z = 1; z < W - 1; z++) put(L, 8, z, PAL.tail, 'light'); for (const [z0, z1] of sides) for (let z = z0; z < z1; z++) for (let y = 6; y < 8; y++) put(L, y, z, PAL.tail, 'light'); }
+}
+function grille(kind) {
+  const z0 = 10, z1 = W - 10;
+  for (let z = z0; z < z1; z++) for (let y = 4; y < 8; y++) {
+    if ((z === 13 || z === 14) && y >= 6) continue;    // badge
+    let c = PAL.dark;
+    if (kind === 'slats') c = (y % 2 === 0) ? PAL.midGrey : PAL.dark;
+    if (kind === 'mesh') c = ((y + z) % 2) ? PAL.midGrey : PAL.dark;
+    if (kind === 'open') c = (y >= 5 && y <= 6) ? ((z % 2) ? PAL.chrome : PAL.lightGrey) : PAL.dark;
+    if (kind === 'honey2x') { continue; }
+    put(-1, y, z, c);
+  }
+  if (kind === 'honey2x') for (let z = z0 * 2; z < z1 * 2; z++) for (let y = 8; y < 16; y++) {
+    if ((z >= 26 && z < 30) && y >= 12) continue;
+    const row = Math.floor(y / 2), off = row % 2 ? 1 : 0;
+    const cell = ((z + off * 1) % 3 === 0) || (y % 2 === 0 && (z + off) % 3 !== 1);
+    put2(-2, y, z, cell ? PAL.midGrey : PAL.dark);
+  }
+  // lower intake
+  for (let z = 6; z < W - 6; z++) put(-1, 2, z, kind === 'open' ? PAL.lightGrey : PAL.dark);
+}
+function wing(kind) {
+  const tz = 12;                       // hatch-end top
+  if (kind === 'roof') { for (let x = 44; x <= 48; x++) for (let z = 3; z < W - 3; z++) put(x, ROOF, z, null, 'paint', { shade: 'light', u: x / L, v: 1, face: 'top', nz: z }); for (let z = 3; z < W - 3; z++) { put(49, ROOF, z, PAL.dark); put(49, ROOF - 1, z, PAL.dark); } }
+  if (kind === 'ducktail') for (let z = 2; z < W - 2; z++) { put(L - 1, 11, z, null, 'paint', { shade: 'light', u: 1, v: .6, face: 'top', nz: z }); put(L, 11, z, null, 'paint', { shade: 'light', u: 1, v: .6, face: 'top', nz: z }); put(L, 12, z, null, 'paint', { shade: 'light', u: 1, v: .65, face: 'top', nz: z }); }
+  if (kind === 'gt1x') {
+    for (const zp of [6, W - 7]) for (let y = tz; y < tz + 4; y++) put(L - 3, y, zp, PAL.dark);
+    for (let x = L - 5; x <= L; x++) for (let z = 1; z < W - 1; z++) put(x, tz + 4, z, PAL.dark);
+    for (const ze of [0, W - 1]) for (let x = L - 5; x <= L; x++) for (let y = tz + 3; y <= tz + 5; y++) put(x, y, ze, PAL.dark);
+  }
+  if (kind === 'gt2x' || kind === 'swan2x') {
+    // airfoil chord 12 half-blocks: thick leading edge (front), thin trailing edge, slight upward tail
+    const X0 = (L - 6) * 2, Y0 = (tz + 4) * 2;
+    const prof = [3, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1, 1];   // thickness per chord step
+    for (let i = 0; i < prof.length; i++) for (let t = 0; t < prof[i]; t++) for (let z = 1; z < W * 2 - 1; z++)
+      put2(X0 + i, Y0 + t + (i >= 9 ? 1 : 0), z, i === prof.length - 1 && t === prof[i] - 1 ? '#3a3a40' : '#202024');
+    for (const ze of [0, W * 2 - 1]) for (let i = 0; i < prof.length; i++) for (let y = Y0 - 1; y <= Y0 + 3 + (i >= 9 ? 1 : 0); y++) if (!(i < 2 && y > Y0 + 2)) put2(X0 + i, y, ze, '#2a2a30');   // slim end plates
+    for (const zp of [12, W * 2 - 13]) for (let w = 0; w < 2; w++) {
+      if (kind === 'gt2x') for (let y = tz * 2; y < Y0; y++) put2(X0 + 6, y, zp + w, '#2a2a2e');              // straight posts
+      else { for (let y = tz * 2; y < Y0 + 4; y++) { const x = X0 + 8 - Math.round(Math.max(0, y - tz * 2 - 2) * 0.35); put2(x, y, zp + w, '#2a2a2e'); } }  // swan neck: rises behind and hooks over the top
+    }
+    if (kind === 'swan2x') for (const zp of [12, W * 2 - 13]) for (let w = 0; w < 2; w++) for (let x = X0 + 4; x < X0 + 8; x++) put2(x, Y0 + 3, zp + w, '#2a2a2e');
+  }
+}
+function exhaust(kind) {
+  if (kind === 'x1') for (const z of [W - 7, W - 6]) { put(L, 3, z, PAL.chrome); put(L + 1, 3, z, PAL.midGrey); }
+  if (kind === 'x2') { const zc = (W - 6) * 2; for (let z = zc - 3; z < zc + 3; z++) for (let y = 4; y < 9; y++) { const d = Math.hypot((z + .5 - zc) / 1.3, y + .5 - 6.5); if (d < 2.3) put2(L * 2 + 1, y, z, d < 1.3 ? '#0d0d10' : PAL.chrome); if (d < 2.3 && d >= 1.3) put2(L * 2 + 2, y, z, PAL.chrome); } }
+}
+// wheels at 2× (half-size blocks)
+const deg = Math.PI / 180;
+const spoke = (t, n, w, off = 0) => { const s = 2 * Math.PI / n; let a = ((t - off) % s + s) % s; return Math.min(a, s - a) < w; };
+const RIMS = {
+  steel:    { tireT: 2.6, lip: null, face: (dx, dy, r) => r < 2.2 ? PAL.hub : (r > 4 && r < 5.2 && spoke(Math.atan2(dy, dx), 6, 0.16)) ? PAL.midGrey : PAL.steel, recess: 0, caliper: false },
+  fivespoke:{ tireT: 1.8, lip: PAL.chrome, face: (dx, dy, r) => r < 1.8 ? '#9ca1a8' : spoke(Math.atan2(dy, dx), 5, 0.27) ? PAL.chrome : null, recess: 1, caliper: true },
+  sixblack: { tireT: 1.7, lip: '#3d4046', face: (dx, dy, r) => r < 1.8 ? PAL.caliper : spoke(Math.atan2(dy, dx), 6, 0.2) ? '#1a1a1e' : null, recess: 1, caliper: true },
+  turbofan: { tireT: 2.0, lip: null, face: (dx, dy, r) => r < 2.0 ? PAL.hub : (r > 4.2 && spoke(Math.atan2(dy, dx), 12, 0.13)) ? PAL.hub : PAL.white, recess: 0, caliper: false },
+};
+function wheels(kind) {
+  const d = RIMS[kind], R = WR * 2, TW = 8;
+  for (const wc of WC) for (const side of [0, 1]) {
+    const cx = wc * 2, cy = WY * 2;
+    for (let i = 0; i < TW; i++) {
+      const z = side === 1 ? (W * 2 - 1) - i + 1 : i - 1;       // stick out half a block past the body
+      for (let x = Math.floor(cx - R); x <= cx + R; x++) for (let y = Math.floor(cy - R); y <= cy + R; y++) {
+        const dx = x + .5 - cx, dy = y + .5 - cy, r = Math.hypot(dx, dy); if (r >= R) continue;
+        const inner = R - d.tireT * 2;
+        if (r >= inner) { put2(x, y, z, i === 0 || i === TW - 1 ? PAL.tire2 : PAL.tire, 'tire'); continue; }
+        if (i > 4) continue;
+        const outerI = i;                                          // 0 = outer face (both sides)
+        if (d.lip && r >= inner - 1.2) { if (outerI <= 1) put2(x, y, z, d.lip, 'rim'); continue; }
+        const fz = d.recess * 2;
+        if (outerI < fz) continue;
+        if (outerI < fz + 2) { const c = d.face(dx, dy, r); if (c) { put2(x, y, z, c, 'rim'); continue; } }
+        if (outerI === fz + 2) { let c = '#4a4d53'; if (d.caliper && Math.atan2(dy, dx) > 100 * deg && Math.atan2(dy, dx) < 160 * deg && r > inner - 4) c = PAL.caliper; put2(x, y, z, c, 'rim'); }
+      }
+    }
+  }
+}
+headlights(CFG.head); taillights(CFG.tail); grille(CFG.grille); wing(CFG.wing); exhaust(CFG.exhaust); wheels(CFG.rim);
+
+// ---------------- liveries: layered ----------------
+// A livery = base paint + ordered layers. Each layer: mask(u, v, face, nz, x, y, z, t) -> bool, colour, optional glow/effect.
+const hexToC = h => new THREE.Color(h);
+const rnd = (a, b, c = 0) => { const s = Math.sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453; return s - Math.floor(s); };
+const zc = (nz) => (nz - W / 2 + .5);
+const LIVERIES = {
+  solid:   { base: CFG.paint, layers: [] },
+  stripes: { base: CFG.paint, layers: [{ mask: (o) => (o.face === 'top' || o.face === 'front' || o.face === 'back') && [3, 4, 6, 7].includes(Math.abs(Math.round(zc(o.nz)))) , c: '#eeeae0' }] },
+  flames:  { base: '#1a1a1e', layers: [
+      { mask: (o) => flame(o, 0) , c: '#d23a2a' },
+      { mask: (o) => flame(o, 0.07), c: '#f85414' },
+      { mask: (o) => flame(o, 0.15), c: '#f8bf14' } ] },
+  twotone: { base: CFG.paint, layers: [{ mask: (o) => o.v < 0.38 , c: '#1a1a1e' }, { mask: (o) => o.face === 'side' && Math.abs(o.v - 0.40) < 0.035, c: '#f2c230' }] },
+  tiger:   { base: '#f2a43a', layers: [{ mask: (o) => { const s = Math.sin(o.u * 38 + Math.sin(o.v * 6 + o.u * 9) * 1.6 + zc(o.nz) * 0.2); return s > 0.55; }, c: '#1a1a1e' }] },
+  camo:    { base: '#5f6b4a', layers: [{ mask: (o) => rnd(Math.floor(o.x / 4), Math.floor(o.y / 3), Math.floor(o.z / 4)) > 0.62, c: '#3c4530' }, { mask: (o) => rnd(Math.floor(o.x / 3) + 7, Math.floor(o.y / 2), Math.floor(o.z / 3)) > 0.78, c: '#8f8a66' }] },
+  sunset:  { base: '#2a1b4a', layers: [{ mask: (o) => o.v > 0.35, c: '#b83a7a' }, { mask: (o) => o.v > 0.58, c: '#f25a3a' }, { mask: (o) => o.v > 0.78, c: '#f2c230' }] },
+  checker: { base: CFG.paint, layers: [{ mask: (o) => o.u > 0.62 && ((Math.floor(o.x / 3) + Math.floor(o.y / 3) + Math.floor(o.z / 3)) % 2 === 0) && rnd(o.x, 1) < (o.u - 0.55) * 2.6, c: '#eeeae0' }] },
+  circuit: { base: '#14161c', layers: [{ mask: (o) => circuit(o), c: '#39ff88', glow: 2.2 }] },
+  tron:    { base: '#101218', layers: [{ mask: (o) => o.edge || o.shade === 'seam' || (o.face === 'side' && Math.abs(o.v - 0.42) < 0.035), c: '#22e3ff', glow: 2.4 }] },
+  neonline: { base: '#101218', layers: [{ mask: (o) => (o.face === 'side' && (Math.abs(o.v - 0.47) < 0.03 || Math.abs(o.v - 0.30) < 0.03)) || ((o.face === 'top' || o.face === 'front' || o.face === 'back') && [2, 5].includes(Math.abs(Math.round(zc(o.nz))))), c: '#ff3cf2', glow: 2.6 }] },
+};
+function flame(o, shrink) {           // flame tongues licking back from the nose along sides and hood
+  const t = (CFG.anim === 'flicker' ? Math.floor(TIME * FPS) : 0);
+  const lane = o.face === 'top' ? Math.abs(zc(o.nz)) / 14 : o.v;
+  const tongue = 0.42 + 0.16 * Math.sin(lane * 22 + rnd(Math.floor(lane * 7), 3, t) * 2) + 0.06 * rnd(Math.floor(lane * 14), t, 1);
+  return o.u < tongue - shrink && (o.face !== 'top' || o.u < 0.42);
+}
+function circuit(o) {
+  const gx = o.face === 'top' ? o.x : o.x, gy = o.face === 'top' ? o.z : o.y;
+  const cell = rnd(Math.floor(gx / 6), Math.floor(gy / 5), o.face === 'top' ? 9 : 1);
+  if (gy % 5 === 0 && cell > 0.35) return true;
+  if (gx % 6 === 0 && cell > 0.6) return true;
+  return (gx % 6 === 3 && gy % 5 === 2 && cell > 0.5);
+}
+let TIME = 0;
+const RP = +(Q.get('rp') || 2), SB = +(Q.get('sb') || 6), SP = +(Q.get('sp') || 0.5), FPS = +(Q.get('fps') || 10);
+const [SHI, SLO] = Q.get('tone') ? [1.2, 0.8] : [1.6, 0.35];   // toned-down scroll contrast
+const LIV = LIVERIES[CFG.livery] || LIVERIES.solid;
+const lum = c => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+const glowify = (c, strength) => { const target = (night ? 2.4 : 4.2) * strength; return c.clone().multiplyScalar(Math.min(5, target / Math.max(0.12, lum(c)))); };
+const SHADE = { light: 1.12, mid: 0.92, dark: 0.68, seam: 0.5 };
+function paintColor(o, t) {
+  let c = hexToC(LIV.base), glow = 0;
+  for (const layer of LIV.layers) if (layer.mask(o, t)) { c = hexToC(layer.c); glow = CFG.glowlevel === 'off' ? 0 : (layer.glow || 0) * ({ low: 0.45, med: 0.7, full: 1 }[CFG.glowlevel] || 0); }
+  // active effects on paint
+  if (CFG.anim === 'rainbow' && glow) c.setHSL(((o.u * 0.8 + t / RP) % 1 + 1) % 1, Q.get('tone') ? 0.75 : 0.9, 0.6);
+  if (CFG.anim === 'scroll' && LIV.layers.length) { const band = ((o.u * SB - t / SP) % 1 + 1) % 1; if (glow) glow *= band < 0.35 ? SHI : SLO; }
+  if (CFG.anim === 'pulse' && glow) glow *= 0.12 + 1.25 * Math.pow(0.5 + 0.5 * Math.sin(t * Math.PI * 2), 2);
+  if (CFG.anim === 'reactive' && glow) { const r = RPM(t); glow *= 0.15 + 1.3 * r.rpm * r.rpm + r.flash * 0.9; if (r.flash > 0.05) c.lerp(new THREE.Color('#9dffb8'), r.flash * 0.45); }
+  if (CFG.anim === 'reactive_livery' && glow) glow *= 0.55 + 0.45 * smoothRPM(t);   // subtle: brightness follows RPM, never flashes
+  if (!glow) c.multiplyScalar(SHADE[o.shade] || 1);
+  return { c, glow };
+}
+// simulated race for reactive: 4 gears over 4 s, shift at ~83% of the bar
+function smoothRPM(t) { let s = 0; for (let i = 0; i < 12; i++) s += RPM(Math.max(0, t - i * 0.03)).rpm; return s / 12; }
+function RPM(t) { const g = (t % 4); const p = g % 1; const rpm = Math.min(1, 0.25 + p * 0.85); const since = p; const flash = Math.max(0, 1 - since * 5) * (g >= 1 ? 1 : 0); return { rpm, flash, gear: Math.floor(g) + 1 }; }
+
+// ---------------- scene ----------------
+const night = CFG.time === 'night';
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(night ? '#0a0e1c' : '#9fc7e8');
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(innerWidth, innerHeight); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = night ? 1.0 : 1.0;
+document.body.appendChild(renderer.domElement);
+const pm = new THREE.PMREMGenerator(renderer);
+const env = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environment = env;
+scene.environmentIntensity = night ? 0.32 : 1.0;   // reflections follow time of day
+
+const FIN = {
+  gloss:     { roughness: 0.5, metalness: 0.0, clearcoat: 0.35, clearcoatRoughness: 0.3, envMapIntensity: 0.25 },
+  matte:     { roughness: 0.95, metalness: 0.0, clearcoat: 0, envMapIntensity: 0.15 },
+  metallic:  { roughness: 0.32, metalness: 0.65, clearcoat: 0.6, clearcoatRoughness: 0.2, envMapIntensity: 0.9 },
+  chrome:    { roughness: 0.08, metalness: 1.0, clearcoat: 0.3, envMapIntensity: 2.6 },
+  pearl:     { roughness: 0.3, metalness: 0.15, clearcoat: 1.0, clearcoatRoughness: 0.1, iridescence: 0.6, iridescenceIOR: 1.4, sheen: 0.6, sheenColor: new THREE.Color('#ffffff'), envMapIntensity: 0.8 },
+  chameleon: { roughness: 0.25, metalness: 0.55, clearcoat: 1.0, iridescence: 1.0, iridescenceIOR: 2.0, iridescenceThicknessRange: [250, 900], envMapIntensity: 1.1 },
+};
+const box = new THREE.BoxGeometry(1, 1, 1);
+const groups = new Map();   // key -> {mat, items:[]}
+const glowItems = [];
+function addItem(gk, mk, v) { if (!groups.has(gk)) groups.set(gk, { mk, items: [] }); groups.get(gk).items.push(v); }
+for (const v of VOX) {
+  if (v.role === 'paint') addItem('paint', 'paint', v);
+  else if (v.role === 'light') glowItems.push(v);
+  else if (v.role === 'glass') addItem('glass', 'glass', v);
+  else addItem('trim', 'trim', v);
+}
+const matFor = (mk) => {
+  if (mk === 'paint') return new THREE.MeshPhysicalMaterial({ color: '#ffffff', flatShading: true, ...FIN[CFG.finish] });
+  if (mk === 'glass') return new THREE.MeshPhysicalMaterial({ color: '#ffffff', flatShading: true, roughness: 0.15, clearcoat: 1, envMapIntensity: 0.6 });
+  return new THREE.MeshStandardMaterial({ color: '#ffffff', flatShading: true, roughness: 0.85, envMapIntensity: 0.25 });
+};
+const o3 = new THREE.Object3D();
+const S = CFG.scale;
+function buildMesh(items, mat) {
+  const im = new THREE.InstancedMesh(box, mat, items.length);
+  items.forEach((v, i) => { o3.position.set((v.x + .5) * v.s * S, (v.y + .5) * v.s * S, (v.z + .5) * v.s * S); o3.scale.setScalar(v.s * S); o3.updateMatrix(); im.setMatrixAt(i, o3.matrix); im.setColorAt(i, new THREE.Color(v.c || '#ff00ff')); });
+  im.castShadow = true; im.receiveShadow = true; scene.add(im); return im;
+}
+const meshes = {};
+for (const [gk, g] of groups) meshes[gk] = buildMesh(g.items, matFor(g.mk));
+// paint + glowing livery cells are split: glow cells go into an unlit mesh so they bloom
+const paintItems = groups.get('paint').items;
+const paintMesh = meshes.paint;
+const liveryGlowMat = new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false });
+const liveryGlow = buildMesh(paintItems, liveryGlowMat); liveryGlow.castShadow = false;
+const lightMat = new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false });
+const lightMesh = glowItems.length ? buildMesh(glowItems, lightMat) : null;
+const HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
+const baseMat = []; for (let i = 0; i < paintItems.length; i++) { const m = new THREE.Matrix4(); paintMesh.getMatrixAt(i, m); baseMat.push(m); }
+function applyPaint(t) {
+  for (let i = 0; i < paintItems.length; i++) {
+    const { c, glow } = paintColor(paintItems[i], t);
+    if (glow > 0) { paintMesh.setMatrixAt(i, HIDE); liveryGlow.setMatrixAt(i, baseMat[i]); liveryGlow.setColorAt(i, glowify(c, glow / 2.2)); }
+    else { paintMesh.setMatrixAt(i, baseMat[i]); paintMesh.setColorAt(i, c); liveryGlow.setMatrixAt(i, HIDE); }
+  }
+  paintMesh.instanceMatrix.needsUpdate = paintMesh.instanceColor.needsUpdate = true;
+  liveryGlow.instanceMatrix.needsUpdate = liveryGlow.instanceColor.needsUpdate = true;
+  if (lightMesh) {
+    glowItems.forEach((v, i) => { const c = new THREE.Color(v.c); lightMesh.setColorAt(i, night ? glowify(c, v.dim ? 0.45 : 1) : c.multiplyScalar(v.dim ? 0.7 : 1)); });
+    lightMesh.instanceColor.needsUpdate = true;
+  }
+}
+
+// underglow: emissive tubes under the sills + light pool on the ground + coloured point lights
+const ug = { tubes: null, pool: null, lights: [] };
+if (CFG.glow) {
+  const gc = new THREE.Color(CFG.glow);
+  const tubeItems = [];
+  for (let x = 4; x < L - 4; x++) for (const z of [3, W - 4]) tubeItems.push({ x, y: 1.4, z, s: 1, c: CFG.glow });
+  for (let z = 4; z < W - 4; z++) for (const x of [4, L - 5]) tubeItems.push({ x, y: 1.4, z, s: 1, c: CFG.glow });
+  const tm = new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false });
+  ug.tubes = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 0.4, 0.4), tm, tubeItems.length);
+  tubeItems.forEach((v, i) => { o3.position.set((v.x + .5) * S, (1.6 + BODY_DY) * S, (v.z + .5) * S); o3.scale.setScalar(S); o3.updateMatrix(); ug.tubes.setMatrixAt(i, o3.matrix); ug.tubes.setColorAt(i, glowify(gc, 0.6)); });
+  scene.add(ug.tubes);
+  // pool: blocky (voxel) gradient texture so even the light on the ground stays pixel-styled
+  const cv = document.createElement('canvas'); cv.width = 48; cv.height = 24; const g = cv.getContext('2d');
+  for (let i = 0; i < 48; i++) for (let j = 0; j < 24; j++) { const dx = (i - 23.5) / 24, dy = (j - 11.5) / 12; const d = Math.max(Math.abs(dx) ** 3 + Math.abs(dy) ** 3, 0); const a = Math.max(0, 1 - Math.pow(d, 0.45)); g.fillStyle = `rgba(255,255,255,${a.toFixed(3)})`; g.fillRect(i, j, 1, 1); }
+  const tex = new THREE.CanvasTexture(cv); tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter;
+  ug.pool = new THREE.Mesh(new THREE.PlaneGeometry(L * 1.7 * S, W * 2.4 * S), new THREE.MeshBasicMaterial({ map: tex, color: gc, transparent: true, opacity: night ? 0.9 : 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+  ug.pool.rotation.x = -Math.PI / 2; ug.pool.position.set(L / 2 * S, 0.06, W / 2 * S); scene.add(ug.pool);
+  for (const x of [L * 0.25, L * 0.5, L * 0.75]) { const pl = new THREE.PointLight(gc, night ? 900 : 250, 34 * S, 1.6); pl.position.set(x * S, (1.2 + BODY_DY) * S, W / 2 * S); pl.castShadow = true; pl.shadow.mapSize.set(512, 512); pl.shadow.bias = -0.002; pl.shadow.camera.near = 0.3; scene.add(pl); ug.lights.push(pl); }
+}
+function applyUnderglow(t) {
+  if (!CFG.glow) return;
+  let k = 1;                                    // RULE: constant brightness — no pulsing or blinking
+  let col = new THREE.Color(CFG.glow);
+  if (CFG.anim === 'underdrift') col.setHSL(((t / +(Q.get('period') || 6)) % 1 + 1) % 1, 0.95, 0.55);   // slow hue drift, one cycle per period
+  if (CFG.anim === 'reactive') { const r = smoothRPM(t); col.setHSL(0.52 + 0.48 * Math.pow(r, 1.4), 0.95, 0.55); }
+  if (CFG.anim === 'reactive_redline') { const r = smoothRPM(t); const e = Math.min(1, Math.max(0, (r - 0.78) / 0.17)); col.lerp(new THREE.Color('#ff3c3c'), e * e * (3 - 2 * e)); }
+  if (CFG.anim === 'breathe') k = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(2 * Math.PI * t / 3));          // 3 s soft fade
+  if (CFG.anim === 'slowblink') { const ph = t % 3; const f = 0.25; k = ph < 1.5 ? (ph < f ? 0.1 + 0.9 * ph / f : 1) : (ph < 1.5 + f ? 1 - 0.9 * (ph - 1.5) / f : 0.1); }  // on 1.5 s / off 1.5 s, quarter-second fades  // cyan → blue → magenta → red with RPM
+  for (let i = 0; i < ug.tubes.count; i++) ug.tubes.setColorAt(i, glowify(col, 0.6 * Math.max(0.12, k))); ug.tubes.instanceColor.needsUpdate = true;
+  ug.pool.material.color.copy(col); ug.pool.material.opacity = (night ? 0.9 : 0.35) * k;
+  ug.lights.forEach(l => { l.color.copy(col); l.intensity = (night ? 900 : 250) * k; });
+}
+
+// ground + set dressing
+const street = CFG.scene === 'street' || CFG.view === 'chase';
+const gm = new THREE.MeshStandardMaterial({ color: street ? (night ? '#2a2c31' : '#45484e') : (night ? '#3a3a3e' : '#b7b4ab'), roughness: 0.95, envMapIntensity: 0.1 });
+const ground = new THREE.Mesh(new THREE.BoxGeometry(1400, 1, 900), gm); ground.position.set(L / 2 - 300, -0.5, W / 2); ground.receiveShadow = true; scene.add(ground);
+if (street) {
+  const lm = new THREE.MeshBasicMaterial({ color: night ? '#b39020' : '#f2c230' });
+  for (let i = -30; i < 6; i++) { const d = new THREE.Mesh(new THREE.BoxGeometry(10, 0.12, 2), lm); d.position.set(i * 22, 0.06, W + 9); scene.add(d); }
+  // voxel street lamps
+  for (let i = -8; i < 3; i++) {
+    const x = i * 60 + 10, z = -16;
+    const pole = new THREE.Mesh(new THREE.BoxGeometry(2, 40, 2), new THREE.MeshStandardMaterial({ color: '#3d4046' })); pole.position.set(x, 20, z); pole.castShadow = true; scene.add(pole);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 12), new THREE.MeshStandardMaterial({ color: '#3d4046' })); arm.position.set(x, 40, z + 6); scene.add(arm);
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 4), new THREE.MeshBasicMaterial({ color: night ? new THREE.Color('#ffd28a').multiplyScalar(3) : new THREE.Color('#e8e4d8'), toneMapped: !night })); lamp.position.set(x, 38.6, z + 11); scene.add(lamp);
+    if (night && i > -4) { const sl = new THREE.PointLight('#ffd28a', 2600, 90, 1.5); sl.position.set(x, 36, z + 11); scene.add(sl); }
+  }
+  // skyline blocks with lit windows at night
+  for (let i = 0; i < 14; i++) {
+    const w = 30 + rnd(i, 2) * 40, h = 50 + rnd(i, 3) * 120, x = -420 + i * 46, z = -120 - rnd(i, 4) * 80;
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 40), new THREE.MeshStandardMaterial({ color: night ? '#1a2033' : '#8e9bb3', roughness: 0.9 })); b.position.set(x, h / 2, z); scene.add(b);
+    if (night) for (let k = 0; k < 18; k++) { const win = new THREE.Mesh(new THREE.BoxGeometry(3, 3, 0.5), new THREE.MeshBasicMaterial({ color: new THREE.Color(rnd(i, k) > 0.5 ? '#ffd28a' : '#7fd3ff').multiplyScalar(1.4), toneMapped: false })); win.position.set(x - w / 2 + 4 + rnd(k, i) * (w - 8), 6 + rnd(i, k, 2) * (h - 12), z + 20.3); scene.add(win); }
+  }
+}
+// lighting
+scene.add(new THREE.HemisphereLight(night ? '#6a7aa6' : '#e4f0ff', night ? '#1a1a26' : '#6b6250', night ? 0.95 : 1.0));
+const sun = new THREE.DirectionalLight(night ? '#a9bcff' : '#fff2dc', night ? 1.1 : 2.4);   // moonlight at night
+const chaseV = CFG.view === 'chase';
+sun.position.set(chaseV ? L * 2.2 : -L * 0.8, 160, 110); sun.target.position.set(L / 2, 0, W / 2);
+sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); Object.assign(sun.shadow.camera, { left: -150, right: 150, top: 150, bottom: -150, near: 1, far: 600 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.5;
+scene.add(sun, sun.target);
+if (night) { // headlight beams on the ground ahead of the car
+  for (const z of [5.5, W - 5.5]) { const sp = new THREE.SpotLight('#fff3c4', 6000, 140, 0.42, 0.6, 1.4); sp.position.set(-1, 6.5, z); sp.target.position.set(-60, 0, z); scene.add(sp, sp.target); }
+}
+
+// camera
+const asp = innerWidth / innerHeight;
+let cam;
+const ortho = (h, tgt, dir) => { const c = new THREE.OrthographicCamera(-h * asp / 2, h * asp / 2, h / 2, -h / 2, -2000, 2000); c.position.copy(tgt).add(new THREE.Vector3(...dir).normalize().multiplyScalar(400)); c.lookAt(tgt); return c; };
+const T = new THREE.Vector3(L / 2, 9, W / 2);
+switch (CFG.view) {
+  case 'side':   cam = CFG.oh ? ortho(CFG.oh, new THREE.Vector3(+CFG.tx, +CFG.ty, W / 2), [0, 0, 1]) : ortho(L * 0.74, T, [0, 0.05, 1]); break;
+  case 'rear34': cam = ortho(L * 0.92, T, [1, 0.75, 1.1]); break;
+  case 'front':  cam = ortho(W * 1.25, new THREE.Vector3(0, 8, W / 2), [-1, 0.18, 0.28]); break;
+  case 'rear':   cam = ortho(W * 1.25, new THREE.Vector3(L, 9, W / 2), [1, 0.22, 0.28]); break;
+  case 'wing':   cam = ortho(W * 1.15, new THREE.Vector3(L - 4, 13, W / 2), [0.9, 0.55, 1.2]); break;
+  case 'wheel':  cam = ortho(15, new THREE.Vector3(WC[0], WY, W), [-0.35, 0.18, 1]); break;
+  case 'hero':   cam = new THREE.PerspectiveCamera(32, asp, 0.5, 4000); cam.position.set(-L * 0.55, 7, W * 2.7); cam.lookAt(L * 0.42, 8, W * 0.5); break;
+  case 'chase':  cam = new THREE.PerspectiveCamera(42, asp, 0.5, 4000); cam.position.set(L * 2.05, 24, W * 0.5 + 10); cam.lookAt(-L * 0.9, 6, W * 0.62); break;
+  default:       cam = ortho(L * 0.92, T, [-1, 0.75, 1.1]);
+}
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, cam));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), night ? 0.6 : 0.6, 0.22, night ? 1.6 : 3.2);   // threshold above any lit paint: only lights and underglow bloom
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+if (CFG.anim.startsWith('reactive')) document.getElementById('hud').style.display = 'block';
+window.setT = (t) => {
+  TIME = t; applyPaint(t); applyUnderglow(t);
+  if (CFG.anim.startsWith('reactive')) { const r = RPM(t); document.querySelector('#hud .fill').style.width = (r.rpm * 100).toFixed(1) + '%'; }
+  composer.render();
+};
+window.setT(+(Q.get('t') || 0));
+window.__stats = { voxels: VOX.length, paint: paintItems.length };
+window.__done = true;
+</script></body></html>

@@ -1,0 +1,93 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>rim study</title>
+<style>html,body{margin:0;overflow:hidden;background:#b7b4ab}canvas{display:block}</style></head>
+<body>
+<script type="module">
+import * as THREE from './lib/three.module.js';
+const Q = new URLSearchParams(location.search);
+const DESIGN = Q.get('d') || 'steel';
+const ANGLE = Q.get('a') || 'q';          // q = three-quarter, s = straight side
+const C = { tire: '#1d1d20', tire2: '#26262a', steel: '#8c9096', steelDark: '#5a5e66', hub: '#2e3036', chrome: '#d0d4d9', chromeDark: '#9ca1a8',
+  black: '#1a1a1e', gun: '#3d4046', gold: '#c9a23a', white: '#eeeae0', disc: '#5a5e66', caliper: '#d23a2a', bronze: '#9a6a3a' };
+
+// Each design: tire ring thickness, outer radius, and a face function (layer 0 = outer lip, 1 = spoke face, 2 = brake)
+// returns colour or null (null = see-through to the next layer). dx,dy from centre; r radius; t = angle in radians
+const deg = Math.PI / 180;
+const spoke = (t, n, w, off = 0) => { const s = (2 * Math.PI) / n; let a = ((t - off) % s + s) % s; return Math.min(a, s - a) < w; };
+const D = {
+  steel:   { R: 4.7, tireT: 2.0, lip: null, face: (dx, dy, r, t) => r < 1.2 ? C.hub : (r > 2.0 && r < 2.6 && spoke(t, 4, 0.22, 45 * deg)) ? C.steelDark : C.steel, recess: 0, caliper: false },
+  fivespoke: { R: 5.4, tireT: 1.2, lip: C.chrome, face: (dx, dy, r, t) => r < 1.1 ? C.chromeDark : spoke(t, 5, 0.30) ? C.chrome : null, recess: 1, caliper: true },
+  mesh:    { R: 5.4, tireT: 1.2, lip: C.gold, face: (dx, dy, r, t) => r < 1.2 ? C.gold : (((Math.round(dx + dy) % 2) === 0) || ((Math.round(dx - dy) % 2) === 0)) ? C.gold : null, recess: 1, caliper: true },
+  dish:    { R: 5.6, tireT: 1.0, lip: C.chrome, lipW: 1.6, face: (dx, dy, r, t) => r < 1.3 ? C.chromeDark : spoke(t, 8, 0.16) ? C.chromeDark : C.black, recess: 2, caliper: false },
+  turbofan:{ R: 5.2, tireT: 1.3, lip: C.white, face: (dx, dy, r, t) => r < 1.2 ? C.hub : (r > 2.4 && spoke(t, 10, 0.17)) ? C.hub : C.white, recess: 0, caliper: false },
+  sixblack:{ R: 5.6, tireT: 1.0, lip: C.gun, face: (dx, dy, r, t) => r < 1.1 ? C.caliper : spoke(t, 6, 0.24) ? C.black : null, recess: 1, caliper: true },
+};
+// --- hand-drawn 9x9 rim faces (pixel-art). '.' = open (brake shows through) ---
+const MK = { S: C.steel, D: C.steelDark, H: C.hub, K: C.black, C: C.chrome, G: C.gold, W: C.white, R: C.caliper, B: C.bronze, N: C.gun };
+const MASKS = {
+  m_steel:    ['SSSSSSSSS','SSSSSSSSS','SSDSSSDSS','SSSHHHSSS','SSSHKHSSS','SSSHHHSSS','SSDSSSDSS','SSSSSSSSS','SSSSSSSSS'],
+  m_eight:    ['C...C...C','.C..C..C.','..C.C.C..','...CCC...','CCCCHCCCC','...CCC...','..C.C.C..','.C..C..C.','C...C...C'],
+  m_five:     ['...CCC...','....C....','C...C...C','.CC.C.CC.','...CHC...','...C.C...','..C...C..','.C.....C.','CC.....CC'],
+  m_turbofan: ['WWWWWWWWW','WWKWWWKWW','WKWWWWWKW','WWWHHHWWW','WWWHKHWWW','WWWHHHWWW','WKWWWWWKW','WWKWWWKWW','WWWWWWWWW'],
+  m_mesh:     ['G.G.G.G.G','.G.G.G.G.','G.G.G.G.G','.G.GGG.G.','G.GGHGG.G','.G.GGG.G.','G.G.G.G.G','.G.G.G.G.','G.G.G.G.G'],
+  m_dish:     ['KKKKKKKKK','KKKKCKKKK','KKKKCKKKK','KKKCCCKKK','KCCCRCCCK','KKKCCCKKK','KKKKCKKKK','KKKKCKKKK','KKKKKKKKK'],
+  m_bronze6:  ['B...B...B','.B..B..B.','..B.B.B..','...BBB...','....N....','...BBB...','..B.B.B..','.B..B..B.','B...B...B'],
+};
+const maskFace = (m) => (dx, dy, r, t, faceR) => {
+  const mx = Math.min(8, Math.max(0, Math.floor((dx / faceR) * 4.5 + 4.5))), my = Math.min(8, Math.max(0, Math.floor((-dy / faceR) * 4.5 + 4.5)));
+  const ch = MASKS[m][my][mx]; return ch === '.' ? null : MK[ch];
+};
+D.m_steel = { R: 4.9, tireT: 1.4, lip: null, face: maskFace('m_steel'), recess: 0, caliper: false };
+D.m_eight = { R: 5.6, tireT: 1.0, lip: C.chrome, lipW: 0.6, face: maskFace('m_eight'), recess: 1, caliper: true };
+D.m_five = { R: 5.6, tireT: 1.0, lip: C.chrome, lipW: 0.6, face: maskFace('m_five'), recess: 1, caliper: true };
+D.m_turbofan = { R: 5.4, tireT: 1.1, lip: null, face: maskFace('m_turbofan'), recess: 0, caliper: false };
+D.m_mesh = { R: 5.6, tireT: 1.0, lip: C.gold, lipW: 0.6, face: maskFace('m_mesh'), recess: 1, caliper: true };
+D.m_dish = { R: 5.8, tireT: 0.9, lip: C.chrome, lipW: 1.0, face: maskFace('m_dish'), recess: 2, caliper: false };
+D.m_bronze6 = { R: 5.6, tireT: 1.0, lip: C.gun, lipW: 0.6, face: maskFace('m_bronze6'), recess: 1, caliper: true };
+// fixed procedural mesh for the 2x test
+D.mesh.face = (dx, dy, r) => r < 1.2 ? C.gold : (((Math.floor(dx + dy) % 2 + 2) % 2 === 0) || ((Math.floor(dx - dy) % 2 + 2) % 2 === 0)) ? C.gold : null;
+const SUB = +(Q.get('sub') || 1);
+const d0 = D[DESIGN];
+const d = Object.assign({}, d0, { R: d0.R * SUB, tireT: d0.tireT * SUB, lipW: (d0.lipW || 0.8) * SUB });
+if (SUB > 1 && !DESIGN.startsWith('m_')) { const f = d0.face; d.face = (dx, dy, r, t) => f(dx / SUB, dy / SUB, r / SUB, t); }
+const V = new Map();
+const set = (x, y, z, c) => V.set(x + ',' + y + ',' + z, c);
+const R = d.R, N = Math.ceil(R) + 1, TW = 4 * SUB;
+for (let x = -N; x <= N; x++) for (let y = -N; y <= N; y++) {
+  const dx = x + .5, dy = y + .5, r = Math.hypot(dx, dy), t = Math.atan2(dy, dx);
+  if (r >= R) continue;
+  const inner = R - d.tireT;           // rim edge
+  for (let z = 0; z < TW; z++) {        // z = 0 is the outer face
+    if (r >= inner) { set(x, y, z, z === 0 ? C.tire2 : C.tire); continue; }      // tyre sidewall / tread
+    if (d.lip && r >= inner - d.lipW) { if (z <= SUB) set(x, y, z, d.lip); continue; }  // rim lip
+    const faceZ = d.recess * SUB; const faceR = inner - (d.lip ? d.lipW : 0);             // spoke face sits this many blocks in
+    if (z < faceZ) continue;            // open recess (dish depth)
+    if (z >= faceZ && z < faceZ + SUB) { const c = d.face(dx, dy, r, t, faceR); if (c) { set(x, y, z, c); continue; } }
+    if (z > faceZ) {                    // behind the face: brake disc + caliper
+      if (z === faceZ + SUB || z === TW - 1) {
+        let c = C.disc;
+        if (d.caliper && t > 25 * deg && t < 70 * deg && r > inner - 2.3 * SUB) c = C.caliper;
+        set(x, y, z, c); break;
+      }
+    }
+  }
+}
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#b7b4ab');
+const box = new THREE.BoxGeometry(1, 1, 1), mats = {};
+const mat = h => mats[h] || (mats[h] = new THREE.MeshStandardMaterial({ color: new THREE.Color(h), flatShading: true, roughness: h === C.chrome || h === C.gold ? 0.45 : 0.9, metalness: h === C.chrome || h === C.gold ? 0.25 : 0 }));
+const by = {}; for (const [k, h] of V) (by[h] ||= []).push(k.split(',').map(Number));
+const o = new THREE.Object3D();
+for (const h in by) { const im = new THREE.InstancedMesh(box, mat(h), by[h].length);
+  by[h].forEach(([x, y, z], i) => { o.position.set((x + .5) / SUB, (y + .5) / SUB, (-z - .5) / SUB); o.scale.setScalar(1 / SUB); o.updateMatrix(); im.setMatrixAt(i, o.matrix); });
+  im.castShadow = im.receiveShadow = true; scene.add(im); }
+scene.add(new THREE.HemisphereLight(0xe4f0ff, 0x6b6250, 1.1));
+const sun = new THREE.DirectionalLight(0xfff2dc, 2.4); sun.position.set(-20, 30, 40); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -15, right: 15, top: 15, bottom: -15 }); sun.shadow.bias = -0.0005; scene.add(sun);
+const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+r.setSize(innerWidth, innerHeight); r.shadowMap.enabled = true; r.toneMapping = THREE.ACESFilmicToneMapping; document.body.appendChild(r.domElement);
+const h = 15, a = innerWidth / innerHeight;
+const cam = new THREE.OrthographicCamera(-h * a / 2, h * a / 2, h / 2, -h / 2, -200, 200);
+const dir = ANGLE === 's' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(-0.55, 0.35, 1);
+cam.position.copy(dir.normalize().multiplyScalar(60)); cam.lookAt(0, 0, -1.5);
+r.render(scene, cam); window.__done = true;
+</script></body></html>
