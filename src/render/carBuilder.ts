@@ -19,7 +19,7 @@ export const WHEEL_R = 5.2, WHEEL_Y = 5.2;
 export const CAR_L = L, CAR_W = W;
 const yBot = 2;
 
-interface WheelVox { cx: number; side: 0 | 1; items: Vox[] }
+export interface WheelVox { cx: number; side: 0 | 1; items: Vox[] }
 
 export function buildCarVoxels(look: CarLook): { body: Vox[]; wheels: WheelVox[] } {
   const body: Vox[] = [];
@@ -144,13 +144,15 @@ export function buildCarVoxels(look: CarLook): { body: Vox[]; wheels: WheelVox[]
 const spoke = (t: number, n: number, w: number) => { const s = 2 * Math.PI / n; const a = ((t % s) + s) % s; return Math.min(a, s - a) < w; };
 const RIMS: Record<string, { tireT: number; lip: string | null; face: (dx: number, dy: number, r: number) => string | null; recess: number; caliper: boolean }> = {
   steel: { tireT: 2.6, lip: null, face: (dx, dy, r) => r < 2.2 ? PAL.hub : (r > 4 && r < 5.2 && spoke(Math.atan2(dy, dx), 6, 0.16)) ? PAL.midGrey : PAL.steel, recess: 0, caliper: false },
+  gold5: { tireT: 1.8, lip: '#b8901c', face: (dx, dy, r) => r < 1.8 ? '#8a6c1c' : spoke(Math.atan2(dy, dx), 5, 0.27) ? '#d4a62a' : null, recess: 1, caliper: true },   // rally-style gold five-spoke
   fivespoke: { tireT: 1.8, lip: PAL.chrome, face: (dx, dy, r) => r < 1.8 ? '#9ca1a8' : spoke(Math.atan2(dy, dx), 5, 0.27) ? PAL.chrome : null, recess: 1, caliper: true },
   sixblack: { tireT: 1.7, lip: '#3d4046', face: (dx, dy, r) => r < 1.8 ? PAL.caliper : spoke(Math.atan2(dy, dx), 6, 0.2) ? '#1a1a1e' : null, recess: 1, caliper: true },
   turbofan: { tireT: 2.0, lip: null, face: (dx, dy, r) => r < 2.0 ? PAL.hub : (r > 4.2 && spoke(Math.atan2(dy, dx), 12, 0.13)) ? PAL.hub : PAL.white, recess: 0, caliper: false },
 };
-function buildWheels(kind: string): WheelVox[] {
-  const d = RIMS[kind] || RIMS.steel, R = WHEEL_R * 2, TW = 8, out: WheelVox[] = [];
-  for (const wc of WHEEL_CENTRES) for (const side of [0, 1] as const) {
+/** Wheels for a body: rim style, wheel centres (x, body blocks), wheel radius (body blocks), body width. */
+export function buildWheels(kind: string, centres: number[] = WHEEL_CENTRES, radius = WHEEL_R, W = CAR_W): WheelVox[] {
+  const d = RIMS[kind] || RIMS.steel, R = radius * 2, TW = 8, out: WheelVox[] = [];
+  for (const wc of centres) for (const side of [0, 1] as const) {
     const items: Vox[] = [];
     for (let i = 0; i < TW; i++) {
       const z = side === 1 ? (W * 2 - 1) - i + 1 : i - 1;

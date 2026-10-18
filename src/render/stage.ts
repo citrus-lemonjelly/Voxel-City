@@ -34,10 +34,14 @@ const Ymap = (h: number) => h <= 1.5 ? h : 1.5 + (h - 1.5) * ARCH_K;   // ground
 interface Block { x: number; y: number; z: number; sx: number; sy: number; sz: number; c: string; it?: [number, number, number, number] }  // it = human-sized prop: [anchor x, y, z, own scale]
 type R = () => number;
 interface Placement { kind: 'car' | 'vox' | 'tanker' | 'tree'; look?: CarLook; name?: string; x: number; y: number; z: number; rotY: number }
-interface Ctx { B: Block[]; GL: Block[]; LIT: Block[]; pools: { x: number; z: number; r: number; c: string }[]; vehicles: Placement[]; rng: R; night: boolean; reserved: [number, number][]; usedNames: Set<string> }
+interface Ctx { B: Block[]; GL: Block[]; LIT: Block[]; pools: { x: number; z: number; r: number; c: string }[]; vehicles: Placement[]; rng: R; night: boolean; reserved: [number, number][]; usedNames: Set<string>; walkGaps: [number, number][] }
 const pick = <T,>(rng: R, a: T[]) => a[Math.floor(rng() * a.length)];
 /** Mark the last n blocks as one human-sized prop that scales by its own factor around an anchor (design coords). */
 const prop = (arr: Block[], n: number, ax: number, ay: number, az: number, k: number) => { for (let i = arr.length - n; i < arr.length; i++) arr[i].it = [ax, ay, az, k]; };
+/** Contact shadow (breakdown: "make props feel grounded"): a thin darker slab on the pavement just around a footprint.
+ *  Push it BEFORE a prop's blocks and count it in that prop's n, so it scales with the prop. Returns 1 (blocks added). */
+const SHADOW = '#8a877f';
+const contact = (arr: Block[], x: number, z: number, sx: number, sz: number, y = 1, pad = 0.6) => { arr.push({ x: x - pad, y, z: z - pad, sx: sx + 2 * pad, sy: 0.06, sz: sz + 2 * pad, c: SHADOW }); return 1; };
 
 /** Map a design-space block to real scale. side: 'far' pivots on the far kerb, 'near' on the near kerb. */
 function toReal(b: Block, side: 'far' | 'near'): Block {
@@ -168,7 +172,7 @@ export class Stage {
     const rng = makeRng(1000 + idx * 7919);
     const x0 = -(idx + 1) * CHUNK, x1 = -idx * CHUNK;          // real
     const d0 = x0 / ARCH_K, d1 = x1 / ARCH_K;                  // design (300 wide)
-    const mk = (): Ctx => ({ B: [], GL: [], LIT: [], pools: [], vehicles: [], rng, night: this.night, reserved: [], usedNames: new Set() });
+    const mk = (): Ctx => ({ B: [], GL: [], LIT: [], pools: [], vehicles: [], rng, night: this.night, reserved: [], usedNames: new Set(), walkGaps: [] });
     const c = mk(), far = mk(), near = mk();
     far.usedNames = c.usedNames;
 
@@ -176,8 +180,6 @@ export class Stage {
     this.road(c, x0, x1);
     this.startFinish(c, x0, x1);
     // design-space far side: kerb, sidewalk, frontage segments, street furniture, skyline
-    far.B.push({ x: d0, y: -1, z: CURB_Z, sx: d1 - d0, sy: 2.2, sz: 2, c: '#b9b19a' });
-    for (let x = Math.floor(d0 / 10) * 10; x < d1; x += 10) far.B.push({ x, y: -1, z: WALK_Z, sx: 10, sy: 2, sz: FACADE_Z - WALK_Z, c: ((x / 10) & 1) ? '#b7b4ab' : '#aaa79e' });
     const types: [string, number][] = [['shops', 5], ['brick', 3], ['glass', 2], ['warehouse', 1.2], ['diner', 1], ['side', 1.4], ['park', 1.3], ['gas', 0.6], ['lot', 1], ['build', 0.6], ['alley', 1.2]];
     const total = types.reduce((a, t) => a + t[1], 0);
     let x = d0, lastType = '';
@@ -193,6 +195,16 @@ export class Stage {
       lastType = type;
       x += w + (type === 'alley' || type === 'side' ? 0 : 2);
     }
+    // far kerb + pavement, cut open where a side street meets the main road (owner Q67: no pavement across the side road)
+    const inGap = (a: number, b: number) => far.walkGaps.some(([g0, g1]) => b > g0 && a < g1);
+    const spans: [number, number][] = []; let s0 = d0;
+    for (const [g0, g1] of [...far.walkGaps].sort((p, q) => p[0] - q[0])) { if (g0 > s0) spans.push([s0, Math.min(g0, d1)]); s0 = Math.max(s0, g1); }
+    if (s0 < d1) spans.push([s0, d1]);
+    for (const [a, b] of spans) far.B.push({ x: a, y: -1, z: CURB_Z, sx: b - a, sy: 2.2, sz: 2, c: '#b9b19a' });
+    for (let x = Math.floor(d0 / 10) * 10; x < d1; x += 10) {
+      for (const [a, b] of spans) { const xa = Math.max(x, a), xb = Math.min(x + 10, b); if (xb - xa > 0.01) far.B.push({ x: xa, y: -1, z: WALK_Z, sx: xb - xa, sy: 2, sz: FACADE_Z - WALK_Z, c: ((x / 10) & 1) ? '#b7b4ab' : '#aaa79e' }); }
+    }
+    void inGap;
     this.streetFurniture(far, d0, d1);
     this.skyline(far, d0, d1);
     // design-space near side
@@ -210,7 +222,7 @@ export class Stage {
     this.parkedCars(c, x0, x1);
 
     // flat ground pieces (road, sidewalks, markings, lawns) receive shadows but don't cast — halves the shadow pass
-    const flat = (b: Block) => b.y <= 0.6 && b.y + b.sy <= 1.6;
+    const flat = (b: Block) => (b.y <= 0.6 && b.y + b.sy <= 1.6) || (b.sy <= 0.2 && b.y <= 1.3);   // incl. contact shadows
     const cast = c.B.filter(b => !flat(b)), still = c.B.filter(flat);
     g.add(instanced(cast, this.mat));
     const ground = instanced(still, this.mat, false); g.add(ground);
@@ -276,14 +288,15 @@ export class Stage {
       // K-rail: real ~0.7 m tall, 3 m sections with small gaps; VOX OIL hazard bands on every fourth
       const KR = 3.5, step = (13 * KR + 3) / ARCH_K;
       for (let x = x0; x < x1; x += step) {
+        contact(B, x, -31, 13, 4, 1, 0.5);
         B.push({ x, y: 1, z: -31, sx: 13, sy: 1.6, sz: 4, c: '#c9c6bd' });
         B.push({ x, y: 2.6, z: -30.5, sx: 13, sy: 1.4, sz: 3, c: '#d6d3ca' });
-        let n = 2;
+        let n = 3;
         if ((Math.round(x / step) & 3) === 0) for (let k = 0; k < 12; k += 2) { B.push({ x: x + k, y: 1.6, z: -31.4, sx: 2, sy: 2.2, sz: 0.4, c: (k / 2) & 1 ? '#1a1a1e' : '#f2c230' }); n++; }
         prop(B, n, x, 1, -29, KR);
       }
     } else {
-      for (let x = x0 + 10; x < x1; x += 40) { B.push({ x, y: 1, z: -31, sx: 2, sy: 4, sz: 2, c: '#3d4046' }); B.push({ x, y: 4.2, z: -31, sx: 2, sy: 0.8, sz: 2, c: '#f2c230' }); prop(B, 2, x + 1, 1, -30, 2.4); }
+      for (let x = x0 + 10; x < x1; x += 40) { const n = contact(B, x, -31, 2, 2); B.push({ x, y: 1, z: -31, sx: 2, sy: 4, sz: 2, c: '#3d4046' }); B.push({ x, y: 4.2, z: -31, sx: 2, sy: 0.8, sz: 2, c: '#f2c230' }); prop(B, 2 + n, x + 1, 1, -30, 2.4); }
     }
     for (let x = x0 + 25; x < x1; x += 100) B.push({ x, y: 1.05, z: -36, sx: 6, sy: 0.2, sz: 4, c: '#5a5e66' });
     // verge texture behind the wall: muted grass tufts, flower beds in low brick planters
@@ -297,9 +310,25 @@ export class Stage {
         B.push({ x: x + 1.5 + f, y: 4.6, z: fz, sx: 1, sy: 1, sz: 1, c: pick(rng, ['#e0261c', '#f2c230', '#eeeae0', '#d0567a', '#6a3ad2', '#f2a43a']) });
       }
     }
-    for (let x = x0 + 30 + rng() * 60; x < x1 - 20; x += 150 + rng() * 100) {
-      if (rng() < 0.5) { for (let k = 0; k < 4; k++) { B.push({ x: x + k * 4, y: 1, z: -34, sx: 0.8, sy: 4, sz: 0.8, c: '#9ca1a8' }); B.push({ x: x + k * 4, y: 1, z: -31, sx: 0.8, sy: 4, sz: 0.8, c: '#9ca1a8' }); B.push({ x: x + k * 4, y: 4.2, z: -34, sx: 0.8, sy: 0.8, sz: 3.8, c: '#9ca1a8' }); } prop(B, 12, x + 6, 1, -32.5, 2.8); }
-      else { for (const [k, col] of [[0, '#2f6fd6'], [4, '#d23a2a'], [8, '#f2c230']] as [number, string][]) { B.push({ x: x + k, y: 1, z: -36, sx: 3, sy: 5, sz: 3, c: col }); B.push({ x: x + k + 0.5, y: 4, z: -36.2, sx: 2, sy: 1, sz: 0.3, c: '#cfe0ea' }); } prop(B, 6, x + 5.5, 1, -34.5, 3); }
+    // pavement clusters (breakdown: group props instead of scattering them): bike rack · news boxes · bin, with contact shadows
+    for (let x = x0 + 30 + rng() * 60; x < x1 - 40; x += 160 + rng() * 110) {
+      const kind = rng();
+      if (barrierHere) continue;                                                     // the K-rail stands where these would go
+      let cx = x;
+      if (kind < 0.7) {                                                              // bike rack (4 hoops)
+        let n = contact(B, cx - 0.4, -34, 13.6, 3.8);
+        for (let k = 0; k < 4; k++) { B.push({ x: cx + k * 4, y: 1, z: -34, sx: 0.8, sy: 4, sz: 0.8, c: '#9ca1a8' }); B.push({ x: cx + k * 4, y: 1, z: -31, sx: 0.8, sy: 4, sz: 0.8, c: '#9ca1a8' }); B.push({ x: cx + k * 4, y: 4.2, z: -34, sx: 0.8, sy: 0.8, sz: 3.8, c: '#9ca1a8' }); n += 3; }
+        prop(B, n, cx + 6, 1, -32.5, 2.8); cx += 22;
+      }
+      if (kind > 0.35) {                                                             // news boxes — smaller than before (k 3 → 2.2), on a dark plinth
+        let n = contact(B, cx - 0.5, -36.5, 12, 4);
+        for (const [k, col] of [[0, '#2f6fd6'], [4, '#d23a2a'], [8, '#f2c230']] as [number, string][]) {
+          B.push({ x: cx + k - 0.2, y: 1, z: -36.2, sx: 3.4, sy: 0.6, sz: 3.4, c: '#2e3036' });
+          B.push({ x: cx + k, y: 1.6, z: -36, sx: 3, sy: 4.4, sz: 3, c: col }); B.push({ x: cx + k + 0.5, y: 4, z: -36.2, sx: 2, sy: 1, sz: 0.3, c: '#cfe0ea' }); n += 3;
+        }
+        prop(B, n, cx + 5.5, 1, -34.5, 2.2); cx += 14;
+      }
+      { const n = contact(B, cx, -36, 3, 3); B.push({ x: cx, y: 1, z: -36, sx: 3, sy: 4, sz: 3, c: '#4f7a5a' }); B.push({ x: cx - 0.3, y: 5, z: -36.3, sx: 3.6, sy: 0.6, sz: 3.6, c: '#2e3036' }); B.push({ x: cx + 0.8, y: 5.6, z: -35.2, sx: 1.4, sy: 0.4, sz: 1.4, c: '#2e3036' }); prop(B, 3 + n, cx + 1.5, 1, -34.5, 2.2); }   // litter bin (green, dark lid + handle)
     }
   }
 
@@ -328,8 +357,22 @@ export class Stage {
   // ---------------- far-side street furniture + parked cars ----------------
   private streetFurniture(c: Ctx, x0: number, x1: number) {
     const { B, LIT, rng, pools, vehicles, night } = c;
+    const clear = (a: number, b: number) => !c.walkGaps.some(([g0, g1]) => b > g0 - 4 && a < g1 + 4);
     for (let x = Math.ceil(x0 / 110) * 110; x < x1; x += 110) {
+      if (!clear(x - 6, x + 6)) continue;
+      contact(B, x - 1, WALK_Z + 1, 4, 4, 1, 0.8);
       B.push({ x: x - 1, y: 1, z: WALK_Z + 1, sx: 4, sy: 3, sz: 4, c: '#2e3036' });
+      if (Math.round(x / 110) % 2 === 0) {                                             // one-way sign on every other lamp post (arrow = race direction)
+        // owner Q67: real size (≈ 1.0 × 0.35 m, 2.3 m up) — built in real blocks around the pole as a k = 1 prop
+        const ax = x + 1, ay = 16, az = WALK_Z + 2, n0 = B.length;
+        B.push({ x: ax - 7, y: ay, z: az - 1.6, sx: 14, sy: 5, sz: 0.6, c: '#2f6fd6' });
+        B.push({ x: ax - 6.5, y: ay + 0.5, z: az - 1.9, sx: 13, sy: 4, sz: 0.3, c: '#eeeae0' });            // white border
+        B.push({ x: ax - 6, y: ay + 1, z: az - 2.1, sx: 12, sy: 3, sz: 0.3, c: '#2f6fd6' });
+        B.push({ x: ax - 3, y: ay + 2, z: az - 2.4, sx: 8, sy: 1, sz: 0.3, c: '#eeeae0' });                  // shaft
+        B.push({ x: ax - 4, y: ay + 1, z: az - 2.4, sx: 1, sy: 3, sz: 0.3, c: '#eeeae0' });                  // arrowhead (points −x = race direction)
+        B.push({ x: ax - 5, y: ay + 2, z: az - 2.4, sx: 1, sy: 1, sz: 0.3, c: '#eeeae0' });
+        prop(B, B.length - n0, ax, ay, az, 1);
+      }
       B.push({ x, y: 1, z: WALK_Z + 2, sx: 2, sy: 54, sz: 2, c: '#3d4046' });
       B.push({ x, y: 53, z: WALK_Z - 16, sx: 2, sy: 2, sz: 19, c: '#3d4046' });
       B.push({ x: x - 1, y: 50, z: WALK_Z - 18, sx: 4, sy: 3, sz: 5, c: '#2e3036' });
@@ -338,12 +381,44 @@ export class Stage {
     }
     for (let x = Math.ceil(x0 / 110) * 110 + 55; x < x1 - 10; x += 110) {
       const k = rng();
-      if (k < 0.45) { B.push({ x: x - 4, y: 1, z: WALK_Z + 8, sx: 9, sy: 0.3, sz: 9, c: '#6a5a46' }); this.plant(c, STREET_TREES, x, 1.3, WALK_Z + 12.5); }
-      else if (k < 0.55) this.planter(c, x, WALK_Z + 18);
-      else if (k < 0.72) { for (const lx of [x - 7, x + 5]) B.push({ x: lx, y: 1, z: WALK_Z + 16, sx: 2, sy: 4, sz: 5, c: '#2e3036' }); B.push({ x: x - 8, y: 5, z: WALK_Z + 15, sx: 16, sy: 1.5, sz: 6, c: '#8a5a32' }); B.push({ x: x - 8, y: 6.5, z: WALK_Z + 20, sx: 16, sy: 5, sz: 1.5, c: '#8a5a32' }); prop(B, 4, x, 1, WALK_Z + 18, 1.5); }
-      else if (k < 0.86) { B.push({ x, y: 1, z: WALK_Z + 3, sx: 3, sy: 6, sz: 3, c: '#d23a2a' }); B.push({ x: x + 0.5, y: 7, z: WALK_Z + 3.5, sx: 2, sy: 1.5, sz: 2, c: '#d23a2a' }); prop(B, 2, x + 1.5, 1, WALK_Z + 4.5, 1.4); }
-      else { B.push({ x: x - 3, y: 1, z: WALK_Z + 14, sx: 6, sy: 8, sz: 6, c: '#2f5a3e' }); B.push({ x: x - 3.5, y: 9, z: WALK_Z + 13.5, sx: 7, sy: 1, sz: 7, c: '#244630' }); prop(B, 2, x, 1, WALK_Z + 17, 1.4); }
+      if (!clear(x - 18, x + 18)) continue;
+      if (k < 0.42) { B.push({ x: x - 4, y: 1, z: WALK_Z + 8, sx: 9, sy: 0.3, sz: 9, c: '#6a5a46' }); this.plant(c, STREET_TREES, x, 1.3, WALK_Z + 12.5); }
+      else if (k < 0.52) { contact(B, x - 3, WALK_Z + 15, 6, 6, 1, 0.8); this.planter(c, x, WALK_Z + 18); }
+      else if (k < 0.66) {                                                             // bench + bin: a little seating corner
+        let n = contact(B, x - 8, WALK_Z + 15, 16, 6);
+        for (const lx of [x - 7, x + 5]) B.push({ x: lx, y: 1, z: WALK_Z + 16, sx: 2, sy: 4, sz: 5, c: '#2e3036' }); B.push({ x: x - 8, y: 5, z: WALK_Z + 15, sx: 16, sy: 1.5, sz: 6, c: '#8a5a32' }); B.push({ x: x - 8, y: 6.5, z: WALK_Z + 20, sx: 16, sy: 5, sz: 1.5, c: '#8a5a32' }); n += 4;
+        prop(B, n, x, 1, WALK_Z + 18, 1.5);
+        const m = contact(B, x + 10, WALK_Z + 17, 4, 4); B.push({ x: x + 10, y: 1, z: WALK_Z + 17, sx: 4, sy: 6, sz: 4, c: '#2f5a3e' }); B.push({ x: x + 9.6, y: 7, z: WALK_Z + 16.6, sx: 4.8, sy: 0.8, sz: 4.8, c: '#244630' }); prop(B, 2 + m, x + 12, 1, WALK_Z + 19, 1.4);
+      }
+      else if (k < 0.8) { const n = contact(B, x, WALK_Z + 3, 3, 3); B.push({ x, y: 1, z: WALK_Z + 3, sx: 3, sy: 6, sz: 3, c: '#d23a2a' }); B.push({ x: x + 0.5, y: 7, z: WALK_Z + 3.5, sx: 2, sy: 1.5, sz: 2, c: '#d23a2a' }); prop(B, 2 + n, x + 1.5, 1, WALK_Z + 4.5, 1.4); }
+      else if (k < 0.9) { const n = contact(B, x - 3, WALK_Z + 14, 6, 6); B.push({ x: x - 3, y: 1, z: WALK_Z + 14, sx: 6, sy: 8, sz: 6, c: '#2f5a3e' }); B.push({ x: x - 3.5, y: 9, z: WALK_Z + 13.5, sx: 7, sy: 1, sz: 7, c: '#244630' }); prop(B, 2 + n, x, 1, WALK_Z + 17, 1.4); }
+      else if (k > 0.965) this.busStop(c, x);                                         // rare, so it reads as a landmark
+      else { const n = contact(B, x, WALK_Z + 3, 3, 3); B.push({ x, y: 1, z: WALK_Z + 3, sx: 3, sy: 6, sz: 3, c: '#d23a2a' }); B.push({ x: x + 0.5, y: 7, z: WALK_Z + 3.5, sx: 2, sy: 1.5, sz: 2, c: '#d23a2a' }); prop(B, 2 + n, x + 1.5, 1, WALK_Z + 4.5, 1.4); }
     }
+  }
+
+  /** Bus stop (breakdown: a few distinctive landmarks): glass shelter with a roof, bench inside, BUS sign, bin. */
+  private busStop(c: Ctx, x: number) {
+    const { B, GL, LIT, night } = c, z0 = WALK_Z + 9, x0 = x - 15, w = 30;
+    this.landmarks.push({ kind: 'busstop', x: x * ARCH_K });
+    c.reserved.push([x - 24, x + 18]);                                                  // no parked cars across the bus stop
+    contact(B, x0, z0, w, 12, 1, 1);
+    for (const px of [x0, x0 + w - 1.2]) for (const pz of [z0, z0 + 11]) B.push({ x: px, y: 1, z: pz, sx: 1.2, sy: 14, sz: 1.2, c: '#3d4046' });
+    B.push({ x: x0 - 1, y: 15, z: z0 - 1, sx: w + 2, sy: 1, sz: 14, c: '#2e3036' });                   // roof
+    B.push({ x: x0 - 1, y: 14.2, z: z0 - 1.2, sx: w + 2, sy: 0.8, sz: 0.4, c: '#f2c230' });           // roof edge stripe
+    GL.push({ x: x0 + 1.2, y: 2, z: z0 + 11.4, sx: w - 2.4, sy: 12, sz: 0.4, c: '#9fb3c4' });         // back glass
+    GL.push({ x: x0 + w - 1, y: 2, z: z0 + 1.5, sx: 0.4, sy: 12, sz: 9.5, c: '#9fb3c4' });            // side glass
+    B.push({ x: x0 + 4, y: 5, z: z0 + 7.5, sx: w - 8, sy: 1, sz: 3.5, c: '#8a5a32' });                 // bench
+    for (const bx of [x0 + 5, x0 + w - 6]) B.push({ x: bx, y: 1, z: z0 + 8.5, sx: 1, sy: 4, sz: 2, c: '#2e3036' });
+    if (night) LIT.push({ x: x0 + 2, y: 14, z: z0 + 2, sx: w - 4, sy: 0.4, sz: 8, c: '#ffe2a8' });
+    c.pools.push({ x: x, z: z0 + 4, r: 26, c: '#ffd28a' });
+    const sx = x0 - 6;                                                                                     // BUS sign on its own pole (owner Q67: real size)
+    contact(B, sx - 0.5, WALK_Z + 2.5, 2, 2);
+    B.push({ x: sx, y: 1, z: WALK_Z + 3, sx: 1.2, sy: 15, sz: 1.2, c: '#3d4046' });
+    { const ax = sx + 0.6, ay = 13.5, az = WALK_Z + 3, n0 = B.length, tw = textCells('BUS').width;
+      B.push({ x: ax - tw / 2 - 1.5, y: ay, z: az - 1.2, sx: tw + 3, sy: 8, sz: 0.6, c: '#2f7a4a' });
+      this.sign(B, 'BUS', ax - tw / 2, ay + 1.5, az - 1.6, 1, '#eeeae0');
+      prop(B, B.length - n0, ax, ay, az, 1); }
   }
 
   /** Parked cars in the kerb lane (real scale; ~1 in 5 is a VOX OIL company car). */
@@ -512,10 +587,13 @@ export class Stage {
   private seg_side(c: Ctx, x: number, w: number) {
     const { B, LIT, rng } = c;
     c.reserved.push([x - 6, x + w + 6]);
+    c.walkGaps.push([x + 12, x + w - 12]);                                                     // main pavement + kerb open here
     // a side street running away from the camera, sidewalks either side, buildings lining it
     B.push({ x: x + 12, y: -1, z: CURB_Z, sx: w - 24, sy: 1.02, sz: 900, c: '#45484e' });
     for (let z = CURB_Z + 30; z < 1000; z += 30) B.push({ x: x + w / 2 - 1, y: 0.05, z, sx: 2, sy: 0.12, sz: 14, c: '#f2c230' });
-    for (const sx of [x, x + w - 12]) B.push({ x: sx, y: -1, z: CURB_Z + 2, sx: 12, sy: 2, sz: 900, c: '#b7b4ab' });
+    for (const sx of [x, x + w - 12]) B.push({ x: sx, y: -1, z: WALK_Z, sx: 12, sy: 2, sz: 900, c: '#b7b4ab' });
+    for (const kx of [x + 10.5, x + w - 12]) B.push({ x: kx, y: -1, z: CURB_Z, sx: 1.5, sy: 2.2, sz: 900, c: '#b9b19a' });   // side-street kerbs turn the corner
+    for (let sxp = x + 14; sxp < x + w - 15; sxp += 4) B.push({ x: sxp, y: 0.04, z: WALK_Z + 1, sx: 2, sy: 0.14, sz: FACADE_Z - WALK_Z - 2, c: '#eeeae0' });   // crosswalk across the side-street mouth
     for (let z = FACADE_Z + 20; z < 900; z += 90 + rng() * 40) for (const side of [0, 1]) {
       const bh = 80 + rng() * 200, bw = 60, col = pick(rng, FACADES);
       const bx = side ? x + w : x - bw;
@@ -526,16 +604,20 @@ export class Stage {
     for (let z = -12; z < ROAD_EDGE; z += 6) B.push({ x: x + 14, y: 0, z, sx: w - 28, sy: 0.16, sz: 3, c: '#eeeae0' });
     B.push({ x: x + 12, y: 0, z: PARK_Z, sx: w - 24, sy: 0.16, sz: CURB_Z - PARK_Z, c: '#45484e' });
     for (const tx of [x + 6, x + w - 8]) {
+      contact(B, tx, WALK_Z + 2, 2, 2);
       B.push({ x: tx, y: 1, z: WALK_Z + 2, sx: 2, sy: 34, sz: 2, c: '#2e3036' });
       B.push({ x: tx - 1, y: 26, z: WALK_Z - 1, sx: 4, sy: 12, sz: 3, c: '#1d1f24' });
       const state = Math.floor(rng() * 3);
       ['#e0261c', '#f2a43a', '#4ade80'].forEach((col, i) => (state === i ? LIT : B).push({ x: tx - 0.5, y: 34 - i * 4, z: WALK_Z - 1.6, sx: 3, sy: 3, sz: 0.6, c: state === i ? col : '#2b2e38' }));
     }
-    const nm = pick(rng, ['GRID ST', 'PISTON AVE', 'GEAR ST', 'CLUTCH LN', 'OAK ST', 'MAIN ST']), tw = textCells(nm).width * 1.2;
+    // street-name sign on top of the traffic-light pole — owner Q67: real size (text 1 block per cell)
+    const nm = pick(rng, ['GRID ST', 'PISTON AV', 'GEAR ST', 'CLUTCH LN', 'OAK ST', 'MAIN ST']), tw = textCells(nm).width;
     const sxp = x + w - 8;
-    B.push({ x: sxp, y: 35, z: WALK_Z + 2, sx: 2, sy: 6, sz: 2, c: '#2e3036' });
-    B.push({ x: sxp - tw / 2 - 1, y: 41, z: WALK_Z + 2, sx: tw + 4, sy: 8, sz: 1, c: '#2f7a4a' });
-    this.sign(B, nm, sxp - tw / 2 + 1, 42.2, WALK_Z + 1.4, 1.2, '#eeeae0');
+    B.push({ x: sxp, y: 35, z: WALK_Z + 2, sx: 2, sy: 3, sz: 2, c: '#2e3036' });
+    { const ax = sxp + 1, ay = 38, az = WALK_Z + 3, n0 = B.length;
+      B.push({ x: ax - tw / 2 - 1.5, y: ay, z: az - 1, sx: tw + 3, sy: 8, sz: 0.6, c: '#2f7a4a' });
+      this.sign(B, nm, ax - tw / 2, ay + 1.5, az - 1.4, 1, '#eeeae0');
+      prop(B, B.length - n0, ax, ay, az, 1); }
   }
   private seg_park(c: Ctx, x: number, w: number) {
     const { B, rng } = c;
