@@ -3,15 +3,18 @@ import { World } from './render/scene';
 import { prewarmVehicles } from './render/stage';
 import { STOCK_LOOK, CarLook } from './render/carBuilder';
 import { CSS } from './ui/styles';
-import { renderGarage, Hud, renderResults, ResultData } from './ui/screens';
+import { renderGarage, renderResults, ResultData } from './ui/screens';
+import { Hud } from './ui/hud';
 import { loadSave, writeSave, SaveV1 } from './save/save';
 import { STAGES, START_STAGE } from './data/stages';
 import { OPPONENTS, ECONOMY } from './data/economy';
 import { ENGINE, TRANSMISSION, Tier } from './data/parts';
-import { CARS } from './data/cars';
+import { carPaint } from './data/cars';
 import { Race, Racer, Controller } from './game/race';
 import { AIController } from './game/ai';
 import { carStats } from './game/stats';
+import { DEV, devOppSkill, initDevConsole } from './ui/devConsole';
+import { freshSave } from './save/save';
 
 const params = new URLSearchParams(location.search);
 const AUTOPLAY = params.has('autoplay');          // test hook: the player car drives itself
@@ -37,19 +40,34 @@ if (params.get('lyaw')) world.camFrame.levelYaw = +params.get('lyaw')!;
 if (params.get('dmin')) { world.camFrame.dMin = +params.get('dmin')!; world.camFrame.dMax = Math.max(world.camFrame.dMax, world.camFrame.dMin); }
 const stage = STAGES[START_STAGE];
 const opp = OPPONENTS[0];
-const playerLook = (): CarLook => ({ ...STOCK_LOOK, paint: CARS[save.carId].paint });
+const playerLook = (): CarLook => ({ ...STOCK_LOOK, paint: carPaint(save.carId) });
 const oppLook: CarLook = { ...STOCK_LOOK, paint: opp.paint };
 
 // ---------------- input: SPACE or the on-screen Shift button ----------------
-const input = { held: false, shiftQueued: false };
+const input = { held: false, shiftQueued: false, downQueued: false };
 let playerRacer: Racer | null = null;
-function press() { input.held = true; if (playerRacer?.launched) input.shiftQueued = true; }
-function release() { input.held = false; }
-window.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) press(); } });
-window.addEventListener('keyup', e => { if (e.code === 'Space') { e.preventDefault(); release(); } });
+// Space = gas before the launch (owner: gas pedal for launch control), upshift after it
+function press() { input.held = true; if (playerRacer?.launched) { input.shiftQueued = true; hud?.setPressed(true); } else hud?.setGas(true); }
+function release() { input.held = false; hud?.setPressed(false); hud?.setGas(false); }
+/** The "+" paddle only shifts — before the launch it does nothing (the gas pedal revs). */
+function paddlePress() { hud?.setPressed(true); if (playerRacer?.launched) input.shiftQueued = true; }
+function paddleRelease() { hud?.setPressed(false); }
+// downshift (left "−" paddle): Shift or ↓ — owner request, for when an upshift came too early
+const DOWN_KEYS = ['ShiftLeft', 'ShiftRight', 'ArrowDown'];
+function downPress() { if (playerRacer?.launched) input.downQueued = true; hud?.setDownPressed(true); }
+function downRelease() { hud?.setDownPressed(false); }
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) press(); }
+  else if (DOWN_KEYS.includes(e.code) && screen === 'race') { e.preventDefault(); if (!e.repeat) downPress(); }
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space') { e.preventDefault(); release(); }
+  else if (DOWN_KEYS.includes(e.code)) downRelease();
+});
 class PlayerController implements Controller {
   held() { return input.held; }
   shift() { const q = input.shiftQueued; input.shiftQueued = false; return q; }
+  downshift() { const q = input.downQueued; input.downQueued = false; return q; }
 }
 
 // ---------------- screens ----------------
@@ -73,8 +91,9 @@ function buyOrEquip(kind: 'engine' | 'trans', tier: Tier) {
   const def = (kind === 'engine' ? ENGINE.D : TRANSMISSION.D)[tier - 1];
   let msg: string | undefined;
   if (!save.owned[kind].includes(tier)) {
-    if (save.voxels < def.price) return showGarage(`Need ${(def.price - save.voxels).toLocaleString()} more VX for ${def.label}`);
-    save.voxels -= def.price; save.owned[kind] = [...save.owned[kind], tier].sort() as Tier[];
+    if (!DEV.unlimited && save.voxels < def.price) return showGarage(`Need ${(def.price - save.voxels).toLocaleString()} more VX for ${def.label}`);
+    if (!DEV.unlimited) save.voxels -= def.price;                 // test console: unlimited = free purchases
+    save.owned[kind] = [...save.owned[kind], tier].sort() as Tier[];
     msg = `Bought ${def.label}`;
   }
   save.equipped[kind] = tier; writeSave(save);
@@ -83,16 +102,23 @@ function buyOrEquip(kind: 'engine' | 'trans', tier: Tier) {
 
 function startRace() {
   screen = 'race';
-  input.held = false; input.shiftQueued = false;
+  input.held = false; input.shiftQueued = false; input.downQueued = false;
   race = new Race(stage.distanceM);
   const seed = (Date.now() & 0xffff) || 1;
-  playerRacer = race.add('player', carStats(save.carId, save.equipped.engine, save.equipped.trans, stage), AUTOPLAY ? new AIController(1, [0.15, 0.15], 3) : new PlayerController());
-  oppRacer = race.add(opp.id, carStats(opp.carId, opp.engineTier as Tier, opp.transTier as Tier, stage), new AIController(opp.skill, opp.reaction, seed));
+  playerRacer = race.add('player', carStats(save.carId, save.equipped.engine, save.equipped.trans, stage), AUTOPLAY || (DEV.enabled && DEV.autoDrive) ? new AIController(1, [0.15, 0.15], 3) : new PlayerController());
+  oppRacer = race.add(opp.id, carStats(opp.carId, opp.engineTier as Tier, opp.transTier as Tier, stage), new AIController(devOppSkill() ?? opp.skill, opp.reaction, seed));
   world.setupRace(stage, stage.distanceM, playerLook(), oppLook, { time: save.settings.time, near: save.settings.nearSide });
-  hud = new Hud(ui, race, playerRacer, oppRacer);
+  // the "Space or click" hint shows for the player's first 3 races (owner Q29)
+  hud = new Hud(ui, race, playerRacer, oppRacer, { oppName: opp.name, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
   const btn = hud.shiftBtn;
-  btn.addEventListener('pointerdown', e => { e.preventDefault(); btn.setPointerCapture(e.pointerId); press(); });
-  btn.addEventListener('pointerup', release); btn.addEventListener('pointercancel', release);
+  btn.addEventListener('pointerdown', e => { e.preventDefault(); btn.setPointerCapture(e.pointerId); paddlePress(); });
+  btn.addEventListener('pointerup', paddleRelease); btn.addEventListener('pointercancel', paddleRelease);
+  const gas = hud.gasBtn;
+  gas.addEventListener('pointerdown', e => { e.preventDefault(); gas.setPointerCapture(e.pointerId); if (!playerRacer?.launched) { input.held = true; hud?.setGas(true); } });
+  gas.addEventListener('pointerup', release); gas.addEventListener('pointercancel', release);
+  const dbtn = hud.downBtn;
+  dbtn.addEventListener('pointerdown', e => { e.preventDefault(); dbtn.setPointerCapture(e.pointerId); downPress(); });
+  dbtn.addEventListener('pointerup', downRelease); dbtn.addEventListener('pointercancel', downRelease);
   finishedAt = 0;
 }
 
@@ -108,7 +134,7 @@ function finishRace() {
   if (me.launchGrade === 'Perfect') earnings.push(['Perfect launch', ECONOMY.perfectLaunchBonus]);
   if (newBest) earnings.push(['New best time', ECONOMY.newBestBonus]);
   const total = earnings.reduce((a, [, v]) => a + v, 0);
-  save.voxels += total; save.races += 1; if (won) save.wins += 1; if (newBest) save.bestTime = me.finish!;
+  save.voxels += total; save.races += 1; save.perfectShifts += perfects; if (won) save.wins += 1; if (newBest) save.bestTime = me.finish!;
   writeSave(save);
   const data: ResultData = { won, myTime: me.finish!, oppTime: them.finish!, oppName: opp.name, launch: me.launchGrade || 'Bog', shifts: me.shifts.map(s => s.grade), earnings, total, newBest };
   renderResults(ui, data, { again: startRace, garage: () => showGarage() });
@@ -135,6 +161,7 @@ function frame(now: number) {
     if (race.done && !paused) { finishedAt ||= now; if (now - finishedAt > 1200) finishRace(); }
   }
   if (!(NO_RENDER && screen === 'race')) world.render(dt);
+  dev.tick();
   requestAnimationFrame(frame);
 }
 /** Preview hook: freeze the race and place both cars (metres from the start) to frame camera shots. */
@@ -144,7 +171,16 @@ function pose(playerM: number, oppM: number, speedMs = 30, t = 10) {
   race!.t = t; playerRacer!.x = playerRacer!.px = playerM; oppRacer!.x = oppRacer!.px = oppM; playerRacer!.v = oppRacer!.v = speedMs;
   playerRacer!.launched = oppRacer!.launched = t > 3;
 }
-(window as any).__vc = { get screen() { return screen; }, get race() { return race; }, get save() { return save; }, startRace, showGarage, buyOrEquip, pose, setCam: (m: string) => (world.camMode = m as any), setSetting, world, setNoRender: (b: boolean) => (NO_RENDER = b), setPaused: (b: boolean) => (paused = b) };
+(window as any).__vc = { get screen() { return screen; }, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
+  /** preview hook: rebuild the race HUD with another paddle shape/skin (review renders) */
+  hudPreview: (shape: string, skin: string, pedalStyle?: string) => { if (race && playerRacer && oppRacer) { hud = new Hud(ui, race, playerRacer, oppRacer, { oppName: opp.name, paddle: skin, paint: playerLook().paint, showKeyHint: true, paddleShape: shape as any, pedal: (pedalStyle || params.get('pedal') || 'alloy') as any }); hud.update(); } }, startRace, showGarage, buyOrEquip, pose, setCam: (m: string) => (world.camMode = m as any), setSetting, world, setNoRender: (b: boolean) => (NO_RENDER = b), setPaused: (b: boolean) => (paused = b) };
+// test console (owner Q58): ?dev once turns it on for this browser; ` opens it
+const dev = initDevConsole({
+  save: () => save, write: () => writeSave(save),
+  refresh: (msg?: string) => { if (screen === 'garage') showGarage(msg); },
+  resetSave: () => { save = freshSave(); writeSave(save); },
+  race: () => race, screen: () => screen,
+}, params.has('dev'));
 showGarage();
 prewarmVehicles(world.mats);
 requestAnimationFrame(frame);

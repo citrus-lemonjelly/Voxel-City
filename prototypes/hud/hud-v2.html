@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Race HUD v2 — compact gauge + paddle</title>
+<style>
+  :root { --asphalt: #2b2e38; --asphalt-dk: #1d1f26; --kerb: #eeeae0; --vox: #f2c230; --signal: #4ade80; --brake: #e0261c; --unlit: #474c5a; --dim: #a7adbb; }
+  html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; background: #000; font-family: "DejaVu Sans", "Segoe UI", system-ui, sans-serif; }
+  #bg { position: absolute; inset: 0; width: 1600px; height: 900px; object-fit: cover; }
+  .hud { position: absolute; inset: 0; }
+  svg { display: block; overflow: visible; }
+  .race-strip { position: absolute; left: 24px; top: 20px; width: 440px; height: 76px; background: #2b2e38e6; clip-path: polygon(0 8px, 8px 8px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 8px, 100% 8px, 100% 100%, 0 100%); }
+  .race-strip .road { position: absolute; left: 16px; right: 28px; top: 46px; height: 12px; background: var(--asphalt-dk); }
+  .race-strip .tick { position: absolute; top: 42px; width: 3px; height: 22px; background: #5a5f6d; }
+  .race-strip .flag { position: absolute; right: 14px; top: 38px; width: 14px; height: 30px; background: repeating-conic-gradient(#111 0 25%, #f4f4f0 0 50%) 0 0/7px 7px; }
+  .race-strip .car { position: absolute; top: 46px; width: 26px; height: 12px; }
+  .race-strip .car::before { content: ""; position: absolute; left: 6px; top: -6px; width: 12px; height: 6px; background: inherit; filter: brightness(.85); }
+  .race-strip .gap { position: absolute; left: 16px; top: 12px; font-size: 16px; font-weight: 700; color: var(--kerb); }
+  .race-strip .gap span { color: var(--signal); }
+  .tag { position: absolute; right: 24px; top: 24px; color: #fff; background: #000c; padding: 6px 12px; font: 700 18px "DejaVu Sans", sans-serif; }
+  .grade { position: absolute; left: 50%; transform: translateX(-50%); filter: drop-shadow(0 3px 0 #000a); }
+  .keyhint { position: absolute; color: #eeeae0; font-size: 13px; font-weight: 600; text-align: center; width: 100%; text-shadow: 0 1px 0 #000, 0 0 4px #000; }
+</style>
+</head>
+<body>
+<img id="bg" alt="">
+<div class="hud" id="hud"></div>
+<script>
+const NS = 'http://www.w3.org/2000/svg';
+const F = { E:['111','100','110','100','111'],F:['111','100','110','100','100'],C:['011','100','100','100','011'],H:['101','101','111','101','101'],I:['111','010','010','010','111'],P:['110','101','110','100','100'],R:['110','101','110','101','101'],S:['011','100','010','001','110'],T:['111','010','010','010','010'],' ':['000','000','000','000','000'] };
+const F7 = { '0':['01110','10001','10011','10101','11001','10001','01110'],'1':['00100','01100','00100','00100','00100','00100','01110'],'2':['01110','10001','00001','00010','00100','01000','11111'],'3':['11110','00001','00001','01110','00001','00001','11110'],'4':['00010','00110','01010','10010','11111','00010','00010'],'5':['11111','10000','11110','00001','00001','10001','01110'],'6':['00110','01000','10000','11110','10001','10001','01110'],'7':['11111','00001','00010','00100','01000','01000','01000'],'8':['01110','10001','10001','01110','10001','10001','01110'],'9':['01110','10001','10001','01111','00001','00010','01100'],'N':['10001','11001','10101','10011','10001','10001','10001'],' ':['00000','00000','00000','00000','00000','00000','00000'] };
+const svgEl = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+function cells(str, font, gw, gh, cell, color, x0, y0, parent, shadow = 0) {
+  [...str].forEach((ch, i) => (font[ch] || font[' ']).forEach((row, r) => [...row].forEach((b, c) => {
+    if (b !== '1') return;
+    if (shadow) svgEl('rect', { x: x0 + (i * (gw + 1) + c) * cell, y: y0 + r * cell + shadow, width: cell, height: cell, fill: '#0009' }, parent);
+    svgEl('rect', { x: x0 + (i * (gw + 1) + c) * cell, y: y0 + r * cell, width: cell - 0.4, height: cell - 0.4, fill: color }, parent);
+  })));
+  return (str.length * (gw + 1) - 1) * cell;
+}
+const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+const P = new URLSearchParams(location.search), G = P.get('g') || 'voxel', PAD = P.get('paddle') || 'stock', STATE = P.get('state') || 'shift';
+document.getElementById('bg').src = P.get('bg');
+const hud = document.getElementById('hud');
+const S = STATE === 'launch' ? { rpm: 0.63, z0: 0.55, z1: 0.72, gear: 'N', mph: 0, pos: 0, rival: 0, gap: null }
+        : { rpm: 0.89, z0: 0.85, z1: 0.95, gear: '3', mph: 68, pos: 0.33, rival: 0.31, gap: '0.18 s' };
+const inZone = S.rpm >= S.z0 && S.rpm <= S.z1;
+const SWEEP0 = 210, SWEEP = 240;                      // gauge: 240° sweep starting lower-left
+const ang = (f) => (SWEEP0 - f * SWEEP) * Math.PI / 180;
+
+// ---------------- race strip (unchanged from v1) ----------------
+(() => {
+  const s = el(`<div class="race-strip"><div class="road"></div><div class="flag"></div></div>`);
+  for (let m = 100; m < 800; m += 100) s.appendChild(el(`<div class="tick" style="left:calc(16px + ${m / 800} * (100% - 44px))"></div>`));
+  s.appendChild(el(`<div class="car" style="left:calc(16px + ${S.rival} * (100% - 44px) - 13px);background:#eeeae0"></div>`));
+  s.appendChild(el(`<div class="car" style="left:calc(16px + ${S.pos} * (100% - 44px) - 13px);background:#d23a2a"></div>`));
+  s.appendChild(el(S.gap ? `<div class="gap">Rico is <span>${S.gap}</span> behind you</div>` : `<div class="gap">You vs Rico, 800 m</div>`));
+  hud.appendChild(s);
+})();
+
+// ---------------- gauges (all ~230 px across, bottom centre) ----------------
+const D = 236, GX = G === 'mix' ? 800 - 215 : 800 - D / 2, GY = G === 'mix' ? 900 - D - 44 : 900 - D - 10;
+const svg = svgEl('svg', { width: D, height: D, style: `position:absolute;left:${GX}px;top:${GY}px` }); hud.appendChild(svg);
+const cx = D / 2, cy = D / 2;
+
+function voxelGauge() {
+  // stepped dark disc: a pixel circle so even the background is made of blocks
+  const step = 6, R0 = D / 2 - 2;
+  for (let y = -R0; y < R0; y += step) { const half = Math.floor(Math.sqrt(Math.max(0, R0 * R0 - (y + step / 2) ** 2)) / step) * step; svgEl('rect', { x: cx - half, y: cy + y, width: half * 2, height: step, fill: '#1d1f26', 'fill-opacity': 0.82 }, svg); }
+  // ring of small blocks
+  const N = 31, B = 9, R = 94;
+  for (let i = 0; i < N; i++) {
+    const f = i / (N - 1), a = ang(f), x = Math.round((cx + Math.cos(a) * R - B / 2) / 2) * 2, y = Math.round((cy - Math.sin(a) * R - B / 2) / 2) * 2;
+    const zone = f >= S.z0 && f <= S.z1, red = f > 0.965, lit = f <= S.rpm;
+    let fill = lit ? '#eeeae0' : '#474c5a';
+    if (zone) fill = lit ? '#4ade80' : '#2d5a3e';
+    if (red) fill = lit ? '#e0261c' : '#5a2a2c';
+    svgEl('rect', { x, y, width: B, height: B, fill }, svg);
+  }
+  // stepped block needle from the hub to the ring
+  const a = ang(S.rpm);
+  for (let r = 18; r < 82; r += 4) svgEl('rect', { x: Math.round((cx + Math.cos(a) * r - 2) / 2) * 2, y: Math.round((cy - Math.sin(a) * r - 2) / 2) * 2, width: 5, height: 5, fill: inZone ? '#4ade80' : '#f2c230' }, svg);
+  svgEl('rect', { x: cx - 7, y: cy - 7, width: 14, height: 14, fill: '#2b2e38' }, svg);
+  // gear + speed in block numerals
+  const gw = 5 * 6;
+  const g = svgEl('g', {}, svg); cells(S.gear, F7, 5, 7, 6, inZone && STATE !== 'launch' ? '#4ade80' : '#eeeae0', cx - gw / 2, cy + 18, g, 3);
+  const sp = String(S.mph); const spw = (sp.length * 6 - 1) * 2.5;
+  cells(sp, F7, 5, 7, 2.5, '#eeeae0', cx - spw / 2 - 14, cy + 72, svg, 0);
+  svgEl('text', { x: cx + spw / 2 - 8, y: cy + 89, fill: '#a7adbb', 'font-size': 12, 'font-family': 'DejaVu Sans' }, svg).textContent = 'mph';
+}
+
+function sleekGauge() {
+  // CSR-style overlay: smooth glass disc, thin ring, zone band, tick marks, needle
+  svgEl('circle', { cx, cy, r: D / 2 - 2, fill: '#14161c', 'fill-opacity': 0.72, stroke: '#ffffff30', 'stroke-width': 2 }, svg);
+  const R = 96, arc = (f0, f1, r, w, col, op = 1) => {
+    const a0 = ang(f0), a1 = ang(f1), large = (f1 - f0) * SWEEP > 180 ? 1 : 0;
+    svgEl('path', { d: `M ${cx + Math.cos(a0) * r} ${cy - Math.sin(a0) * r} A ${r} ${r} 0 ${large} 1 ${cx + Math.cos(a1) * r} ${cy - Math.sin(a1) * r}`, stroke: col, 'stroke-width': w, fill: 'none', 'stroke-opacity': op, 'stroke-linecap': 'butt' }, svg);
+  };
+  arc(0, 1, R, 8, '#ffffff', 0.12);
+  arc(0, Math.min(S.rpm, 1), R, 8, inZone ? '#4ade80' : '#eeeae0', 0.95);
+  arc(S.z0, S.z1, R + 9, 5, '#4ade80', 0.9);
+  arc(0.965, 1, R, 8, '#e0261c', 0.9);
+  for (let k = 0; k <= 8; k++) { const a = ang(k / 8); svgEl('line', { x1: cx + Math.cos(a) * (R - 10), y1: cy - Math.sin(a) * (R - 10), x2: cx + Math.cos(a) * (R - 18), y2: cy - Math.sin(a) * (R - 18), stroke: '#ffffffaa', 'stroke-width': 2 }, svg);
+    const t = svgEl('text', { x: cx + Math.cos(a) * (R - 30), y: cy - Math.sin(a) * (R - 30) + 4, fill: '#ffffff99', 'font-size': 11, 'text-anchor': 'middle', 'font-family': 'DejaVu Sans' }, svg); t.textContent = k; }
+  const a = ang(S.rpm);
+  svgEl('line', { x1: cx - Math.cos(a) * 12, y1: cy + Math.sin(a) * 12, x2: cx + Math.cos(a) * (R - 4), y2: cy - Math.sin(a) * (R - 4), stroke: '#f2c230', 'stroke-width': 4, 'stroke-linecap': 'round' }, svg);
+  svgEl('circle', { cx, cy, r: 8, fill: '#2b2e38', stroke: '#f2c230', 'stroke-width': 2 }, svg);
+  const gt = svgEl('text', { x: cx, y: cy + 62, fill: inZone && STATE !== 'launch' ? '#4ade80' : '#eeeae0', 'font-size': 48, 'font-weight': 700, 'font-style': 'italic', 'text-anchor': 'middle', 'font-family': 'DejaVu Sans' }, svg); gt.textContent = S.gear;
+  const st = svgEl('text', { x: cx, y: cy + 88, fill: '#eeeae0', 'font-size': 16, 'font-weight': 700, 'font-style': 'italic', 'text-anchor': 'middle', 'font-family': 'DejaVu Sans' }, svg); st.textContent = `${S.mph} mph`;
+}
+
+function hybridGauge() {
+  // smooth glass disc and geometry, but the ring is short block-dashes and the numerals are our block font
+  svgEl('circle', { cx, cy, r: D / 2 - 2, fill: '#14161c', 'fill-opacity': 0.72, stroke: '#ffffff26', 'stroke-width': 2 }, svg);
+  const N = 36, R = 96;
+  for (let i = 0; i < N; i++) {
+    const f = i / (N - 1), a = ang(f), zone = f >= S.z0 && f <= S.z1, red = f > 0.965, lit = f <= S.rpm;
+    let col = lit ? '#eeeae0' : '#474c5a';
+    if (zone) col = lit ? '#4ade80' : '#2d5a3e';
+    if (red) col = lit ? '#e0261c' : '#5a2a2c';
+    const w = 9, h = 14, deg = 90 - (SWEEP0 - f * SWEEP);
+    svgEl('rect', { x: -w / 2, y: -h / 2, width: w, height: h, fill: col, transform: `translate(${cx + Math.cos(a) * R} ${cy - Math.sin(a) * R}) rotate(${deg})` }, svg);
+  }
+  const a = ang(S.rpm);
+  svgEl('line', { x1: cx, y1: cy, x2: cx + Math.cos(a) * (R - 14), y2: cy - Math.sin(a) * (R - 14), stroke: inZone ? '#4ade80' : '#f2c230', 'stroke-width': 4 }, svg);
+  svgEl('rect', { x: cx - 7, y: cy - 7, width: 14, height: 14, fill: '#2b2e38', stroke: inZone ? '#4ade80' : '#f2c230', 'stroke-width': 2 }, svg);
+  const gw = (6 * 1 - 1) * 6, g = svgEl('g', {}, svg); cells(S.gear, F7, 5, 7, 6, inZone && STATE !== 'launch' ? '#4ade80' : '#eeeae0', cx - gw / 2, cy + 18, g, 3);
+  const sp = String(S.mph), spw = (sp.length * 6 - 1) * 2.5;
+  cells(sp, F7, 5, 7, 2.5, '#eeeae0', cx - spw / 2 - 14, cy + 72, svg, 0);
+  svgEl('text', { x: cx + spw / 2 - 8, y: cy + 89, fill: '#a7adbb', 'font-size': 12, 'font-family': 'DejaVu Sans' }, svg).textContent = 'mph';
+}
+function mixGauge() {
+  // owner mix: hybrid glass dial + block-dash ring + block numerals, with the sleek gauge's golden needle and 0–8 rev numbers
+  svgEl('circle', { cx, cy, r: D / 2 - 2, fill: '#14161c', 'fill-opacity': 0.74, stroke: '#ffffff26', 'stroke-width': 2 }, svg);
+  const N = 36, R = 100;
+  for (let i = 0; i < N; i++) {
+    const f = i / (N - 1), a = ang(f), zone = f >= S.z0 && f <= S.z1, red = f > 0.965, lit = f <= S.rpm;
+    let col = lit ? '#eeeae0' : '#474c5a';
+    if (zone) col = lit ? '#4ade80' : '#2d5a3e';
+    if (red) col = lit ? '#e0261c' : '#5a2a2c';
+    svgEl('rect', { x: -4.5, y: -7, width: 9, height: 14, fill: col, transform: `translate(${cx + Math.cos(a) * R} ${cy - Math.sin(a) * R}) rotate(${90 - (SWEEP0 - f * SWEEP)})` }, svg);
+  }
+  // thin zone band just outside the ring
+  const a0 = ang(S.z0), a1 = ang(S.z1), rb = R + 12;
+  svgEl('path', { d: `M ${cx + Math.cos(a0) * rb} ${cy - Math.sin(a0) * rb} A ${rb} ${rb} 0 0 1 ${cx + Math.cos(a1) * rb} ${cy - Math.sin(a1) * rb}`, stroke: '#4ade80', 'stroke-width': 4, fill: 'none' }, svg);
+  // tick marks between the ring and the numbers: long at each thousand, short at each half
+  for (let k = 0; k <= 16; k++) { const a = ang(k / 16), r0 = R - 11, r1 = k % 2 ? R - 15 : R - 19;
+    svgEl('line', { x1: cx + Math.cos(a) * r0, y1: cy - Math.sin(a) * r0, x2: cx + Math.cos(a) * r1, y2: cy - Math.sin(a) * r1, stroke: '#ffffffb0', 'stroke-width': k % 2 ? 1.5 : 2.5 }, svg); }
+  // rev numbers 0–8 (×1000)
+  for (let k = 0; k <= 8; k++) { const a = ang(k / 8); const t = svgEl('text', { x: cx + Math.cos(a) * (R - 30), y: cy - Math.sin(a) * (R - 30) + 4, fill: '#ffffffa8', 'font-size': 12, 'font-weight': 700, 'text-anchor': 'middle', 'font-family': 'DejaVu Sans' }, svg); t.textContent = k; }
+  // golden needle
+  const a = ang(S.rpm);
+  svgEl('line', { x1: cx - Math.cos(a) * 12, y1: cy + Math.sin(a) * 12, x2: cx + Math.cos(a) * (R - 6), y2: cy - Math.sin(a) * (R - 6), stroke: '#f2c230', 'stroke-width': 4, 'stroke-linecap': 'round' }, svg);
+  svgEl('circle', { cx, cy, r: 8, fill: '#2b2e38', stroke: '#f2c230', 'stroke-width': 2 }, svg);
+  // gear + speed in block numerals
+  const g = svgEl('g', {}, svg); cells(S.gear, F7, 5, 7, 6, inZone && STATE !== 'launch' ? '#4ade80' : '#eeeae0', cx - 15, cy + 20, g, 3);
+  const sp = String(S.mph), spw = (sp.length * 6 - 1) * 2.5;
+  cells(sp, F7, 5, 7, 2.5, '#eeeae0', cx - spw / 2 - 14, cy + 74, svg, 0);
+  svgEl('text', { x: cx + spw / 2 - 8, y: cy + 91, fill: '#a7adbb', 'font-size': 12, 'font-family': 'DejaVu Sans' }, svg).textContent = 'mph';
+}
+({ voxel: voxelGauge, sleek: sleekGauge, hybrid: hybridGauge, mix: mixGauge })[G]?.();
+
+// ---------------- voxel paddle shifter "+" (skins are cosmetic) ----------------
+const SKINS = {
+  stock: { name: 'Stock carbon', face: ['#30333d', '#2a2d36'], light: '#4a4f5c', dark: '#16181e', plus: '#eeeae0', plusShade: '#9aa0ad', stalk: '#1d1f26' },
+  vox: { name: 'VOX OIL', face: ['#f2c230', '#f2c230'], light: '#ffe27a', dark: '#b8901c', plus: '#1a1a1e', plusShade: '#5a4a1a', stalk: '#1a1a1e', stripe: '#1a1a1e' },
+  chrome: { name: 'Chrome', face: ['#c4ccd2', '#b4bcc4'], light: '#f4f8fb', dark: '#6f7780', plus: '#2b2e38', plusShade: '#8a929b', stalk: '#3d4046' },
+};
+/** CSR-style vertical half-moon paddle: flat edge toward the gauge, rounded edge outward, engraved "+". */
+function halfMoon(skin, x, y, cell = 5, pressed = false, parent = hud) {
+  const k = SKINS[skin], H = 44, W = 22, cy0 = H / 2;
+  const inside = (c, r) => { const dy = (r + 0.5 - cy0) / cy0, dx = (c + 0.5) / W; return c >= 0 && r >= 0 && r < H && dx * dx + dy * dy <= 1; };
+  const p = svgEl('svg', { width: W * cell, height: H * cell, style: `position:absolute;left:${x}px;top:${y + (pressed ? 4 : 0)}px;${pressed ? 'filter:brightness(.78)' : ''}` });
+  for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+    if (!inside(c, r)) continue;
+    let fill = k.face[(r + c) & 1];
+    if (!inside(c, r - 1) || c === 0) fill = k.light;                 // lit top edge and the flat mounting edge
+    if (!inside(c + 1, r) || !inside(c, r + 1)) fill = k.dark;        // shaded rounded edge
+    if (k.stripe && fill === k.face[(r + c) & 1] && (c === 3 || c === 4)) fill = k.stripe;   // VOX stripe along the flat edge
+    svgEl('rect', { x: c * cell, y: r * cell, width: cell, height: cell, fill }, p);
+  }
+  const pc = 8, pr = Math.floor(cy0) - 1;
+  for (let i = -4; i <= 4; i++) for (let t = -1; t <= 1; t++) for (const [c, r] of [[pc + i, pr + t], [pc + t, pr + i]]) {
+    svgEl('rect', { x: c * cell + 1, y: r * cell + 2, width: cell, height: cell, fill: k.plusShade }, p);
+    svgEl('rect', { x: c * cell, y: r * cell, width: cell, height: cell, fill: k.plus }, p);
+  }
+  parent.appendChild(p);
+  return { w: W * cell, h: H * cell };
+}
+function paddle(skin, x, y, cell = 6, pressed = false, parent = hud, mirror = false) {
+  // F1-style paddle: a wide rounded blade on the left tapering to a neck, on a stalk to the steering column (right)
+  const k = SKINS[skin], W = 34, H = 26;
+  const yc = (c) => 12.5 + 3.2 * ((W - c) / W) ** 2;                         // blade droops slightly toward its tip
+  const hh = (c) => { let h = 3.6 + 6.4 * Math.min(1, (W - c) / (W * 0.58)); if (c < 7) h *= Math.sqrt(Math.max(0, 1 - ((7 - c) / 7.6) ** 2)); return h; };
+  const bladeD = (c, r) => c >= 0 && c < W && Math.abs(r + 0.5 - yc(c)) < hh(c);
+  const OX = mirror ? 7 : 0;                                                   // mirrored: stalk sits on the left
+  const blade = (c, r) => bladeD(mirror ? W - 1 - (c - OX) : c - OX, r);
+  const p = svgEl('svg', { width: (W + 7) * cell, height: (H + 2) * cell, style: `position:absolute;left:${x}px;top:${y + (pressed ? 4 : 0)}px;${pressed ? 'filter:brightness(.78)' : ''}` });
+  // stalk first (blade overlaps it)
+  const sy = Math.round(yc(W - 1));
+  for (let r = sy - 2; r <= sy + 2; r++) for (let c0 = W - 3; c0 < W + 7; c0++) { const c = mirror ? W + 6 - c0 : c0; svgEl('rect', { x: c * cell, y: r * cell, width: cell, height: cell, fill: r === sy - 2 ? k.light : r === sy + 2 ? k.dark : k.stalk }, p); }
+  for (let r = 0; r < H; r++) for (let c = 0; c < W + 7; c++) {
+    if (!blade(c, r)) continue;
+    let fill = k.face[(r + c) & 1];
+    if (!blade(c - 1, r) || !blade(c, r - 1)) fill = k.light;
+    if (!blade(c + 1, r) || !blade(c, r + 1)) fill = k.dark;
+    const cd = mirror ? W - 1 - (c - OX) : c - OX;
+    if (k.stripe && fill === k.face[(r + c) & 1] && Math.abs(r + 0.5 - yc(cd) - hh(cd) * 0.62) < 0.8) fill = k.stripe;   // racing stripe along the lower edge
+    svgEl('rect', { x: c * cell, y: r * cell, width: cell, height: cell, fill }, p);
+  }
+  // engraved "+" on the wide part
+  const pc = mirror ? OX + W - 1 - 11 : 11, pr = Math.round(yc(11) - 0.5);
+  for (let i = -4; i <= 4; i++) for (let t = -1; t <= 1; t++) for (const [c, r] of [[pc + i, pr + t], [pc + t, pr + i]]) {
+    svgEl('rect', { x: c * cell + 1, y: r * cell + 2, width: cell, height: cell, fill: k.plusShade }, p);
+    svgEl('rect', { x: c * cell, y: r * cell, width: cell, height: cell, fill: k.plus }, p);
+  }
+  parent.appendChild(p);
+  return p;
+}
+if (G === 'paddles') {          // skin sheet: the three designs, plus the stock paddle pressed
+  const panel = el(`<div style="position:absolute;inset:0;background:#1d1f26"></div>`); hud.appendChild(panel);
+  [['stock', 120, 220, false], ['vox', 620, 220, false], ['chrome', 1120, 220, false], ['stock', 620, 560, true]].forEach(([sk, x, y, pr]) => {
+    paddle(sk, x, y, 8, pr, hud);
+    hud.appendChild(el(`<div style="position:absolute;left:${x}px;top:${y + 230}px;width:330px;color:#eeeae0;font:700 20px 'DejaVu Sans'">${SKINS[sk].name}${pr ? ' — pressed' : ''}</div>`));
+  });
+  svg.remove();
+}
+if (G === 'mix') {
+  // paddle mounted on the dial's right edge: a collar on the rim, the stalk runs into it
+  // vertical half-moon beside the dial; a bracket from the dial's lower-right rim (below the redline) holds it
+  const cell = 5, ph = 44 * cell, px = GX + D + 18, py = GY + D / 2 - ph / 2;
+  const am = -48 * Math.PI / 180, ax = GX + cx + Math.cos(am) * (D / 2 - 6), ay = GY + cy - Math.sin(am) * (D / 2 - 6);
+  const br = svgEl('svg', { width: px - ax + 12, height: 22, style: `position:absolute;left:${ax - 6}px;top:${ay - 11}px` }); hud.appendChild(br);
+  svgEl('rect', { x: 0, y: 0, width: px - ax + 12, height: 22, fill: '#2b2e38' }, br); svgEl('rect', { x: 0, y: 0, width: px - ax + 12, height: 4, fill: '#4a4f5c' }, br); svgEl('rect', { x: 0, y: 18, width: px - ax + 12, height: 4, fill: '#16181e' }, br);
+  halfMoon(PAD, px, py, cell, STATE === 'perfect');
+  if (P.get('hint') !== '0') hud.appendChild(el(`<div class="keyhint" style="left:${px - 20}px;top:${py + ph + 4}px;width:150px">Space or click</div>`));
+} else if (G !== 'paddles') {
+  paddle(PAD, 1600 - 270, 900 - 190, 6, STATE === 'perfect');
+  hud.appendChild(el(`<div class="keyhint" style="left:${1600 - 270}px;top:${900 - 30}px;width:200px">Space or click</div>`));
+}
+if (STATE === 'perfect') { const gsvg = svgEl('svg', { width: 400, height: 40, style: `position:absolute;left:${800 - 200}px;top:${GY - 50}px` }); hud.appendChild(gsvg); const w = cells('PERFECT SHIFT', F, 3, 5, 5, '#4ade80', 0, 0, svgEl('g', {}, null)); gsvg.innerHTML = ''; cells('PERFECT SHIFT', F, 3, 5, 5, '#4ade80', (400 - w) / 2, 4, gsvg, 3); }
+const tags = { voxel: 'Gauge 1 · Voxel compact', sleek: 'Gauge 2 · Sleek overlay', hybrid: 'Gauge 3 · Hybrid', mix: 'Gauge + paddle cluster' };
+if (P.get('tag') !== '0') hud.appendChild(el(`<div class="tag">${tags[G] || ''}</div>`));
+window.__done = true;
+</script>
+</body>
+</html>

@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Race HUD concepts</title>
+<style>
+  /* Tokens: every colour already exists in the street */
+  :root {
+    --asphalt: #2b2e38; --asphalt-dk: #1d1f26; --kerb: #eeeae0; --vox: #f2c230; --vox-dk: #b8901c;
+    --signal: #4ade80; --brake: #e0261c; --unlit: #3a3e4a; --ink: #14161c; --dim: #a7adbb;
+  }
+  html, body { margin: 0; width: 1600px; height: 900px; overflow: hidden; background: #000; font-family: "DejaVu Sans", "Segoe UI", system-ui, sans-serif; }
+  #bg { position: absolute; inset: 0; width: 1600px; height: 900px; object-fit: cover; }
+  .hud { position: absolute; inset: 0; }
+  svg.block-text { display: block; }
+  /* stepped "voxel" bezel: corners cut in 8px steps, like a block silhouette */
+  .bezel { position: absolute; background: var(--asphalt); clip-path: polygon(0 16px, 8px 16px, 8px 8px, 16px 8px, 16px 0, calc(100% - 16px) 0, calc(100% - 16px) 8px, calc(100% - 8px) 8px, calc(100% - 8px) 16px, 100% 16px, 100% 100%, 0 100%); }
+  .bezel::before { content: ""; position: absolute; inset: 0; box-shadow: inset 0 4px 0 #444a58, inset 0 -6px 0 var(--asphalt-dk); pointer-events: none; }
+  .lbl { color: var(--dim); font-size: 15px; }
+  .shift { position: absolute; background: var(--vox); color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; font-size: 30px;
+           clip-path: polygon(0 12px, 12px 12px, 12px 0, calc(100% - 12px) 0, calc(100% - 12px) 12px, 100% 12px, 100% 100%, 0 100%); box-shadow: inset 0 -10px 0 var(--vox-dk); }
+  .shift small { font-size: 14px; font-weight: 600; opacity: .7; margin-top: 2px; }
+  .shift.ready { background: var(--signal); box-shadow: inset 0 -10px 0 #2f9a5a; }
+  .nitro { position: absolute; background: var(--asphalt); color: var(--dim); display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 700; font-size: 20px;
+           clip-path: polygon(0 12px, 12px 12px, 12px 0, calc(100% - 12px) 0, calc(100% - 12px) 12px, 100% 12px, 100% 100%, 0 100%); outline: 3px dashed #545a69; outline-offset: -10px; }
+  .nitro small { font-size: 13px; font-weight: 500; margin-top: 4px; }
+  .race-strip { position: absolute; left: 24px; top: 20px; width: 440px; height: 76px; background: var(--asphalt); clip-path: polygon(0 8px, 8px 8px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 8px, 100% 8px, 100% 100%, 0 100%); }
+  .race-strip .road { position: absolute; left: 16px; right: 28px; top: 46px; height: 12px; background: var(--asphalt-dk); }
+  .race-strip .tick { position: absolute; top: 42px; width: 3px; height: 22px; background: #5a5f6d; }
+  .race-strip .flag { position: absolute; right: 14px; top: 38px; width: 14px; height: 30px; background: repeating-conic-gradient(#111 0 25%, #f4f4f0 0 50%) 0 0/7px 7px; }
+  .race-strip .car { position: absolute; top: 46px; width: 26px; height: 12px; }
+  .race-strip .car::before { content: ""; position: absolute; left: 6px; top: -6px; width: 12px; height: 6px; background: inherit; filter: brightness(.85); }
+  .race-strip .gap { position: absolute; left: 16px; top: 12px; font-size: 16px; font-weight: 700; color: var(--kerb); }
+  .race-strip .gap span { color: var(--signal); }
+  .grade { position: absolute; left: 50%; transform: translateX(-50%); color: var(--signal); filter: drop-shadow(0 4px 0 #000a); }
+  .count { position: absolute; left: 50%; top: 90px; transform: translateX(-50%); filter: drop-shadow(0 6px 0 #000a); }
+  .hintline { position: absolute; left: 50%; transform: translateX(-50%); color: var(--kerb); font-size: 17px; background: #14161ccc; padding: 8px 14px; white-space: nowrap; }
+  .hintline b { color: var(--signal); }
+  .tag { position: absolute; right: 24px; top: 24px; color: #fff; background: #000c; padding: 6px 12px; font: 700 18px "DejaVu Sans", sans-serif; }
+</style>
+</head>
+<body>
+<img id="bg" alt="">
+<div class="hud" id="hud"></div>
+<script>
+// ---- the game's own 3×5 block font (src/render/blockFont.ts) ----
+const F = { A:['010','101','111','101','101'],B:['110','101','110','101','110'],C:['011','100','100','100','011'],D:['110','101','101','101','110'],E:['111','100','110','100','111'],F:['111','100','110','100','100'],G:['011','100','101','101','011'],H:['101','101','111','101','101'],I:['111','010','010','010','111'],K:['101','110','100','110','101'],L:['100','100','100','100','111'],M:['101','111','111','101','101'],N:['110','101','101','101','101'],O:['111','101','101','101','111'],P:['110','101','110','100','100'],R:['110','101','110','101','101'],S:['011','100','010','001','110'],T:['111','010','010','010','010'],U:['101','101','101','101','111'],V:['101','101','101','101','010'],W:['101','101','111','111','101'],X:['101','101','010','101','101'],Y:['101','101','010','010','010'],
+  '0':['111','101','101','101','111'],'1':['010','110','010','010','111'],'2':['110','001','010','100','111'],'3':['110','001','010','001','110'],'4':['101','101','111','001','001'],'5':['111','100','110','001','110'],'6':['011','100','110','101','010'],'7':['111','001','010','010','010'],'8':['010','101','010','101','010'],'9':['010','101','011','001','110'],'!':['010','010','010','000','010'],' ':['000','000','000','000','000'],'+':['000','010','111','010','000'],'.':['000','000','000','000','010'] };
+// HUD numerals: the same block style at 5×7 so speed and gear read at a glance
+const F7 = { '0':['01110','10001','10011','10101','11001','10001','01110'],'1':['00100','01100','00100','00100','00100','00100','01110'],'2':['01110','10001','00001','00010','00100','01000','11111'],'3':['11110','00001','00001','01110','00001','00001','11110'],'4':['00010','00110','01010','10010','11111','00010','00010'],'5':['11111','10000','11110','00001','00001','10001','01110'],'6':['00110','01000','10000','11110','10001','10001','01110'],'7':['11111','00001','00010','00100','01000','01000','01000'],'8':['01110','10001','10001','01110','10001','10001','01110'],'9':['01110','10001','10001','01111','00001','00010','01100'],'N':['10001','11001','10101','10011','10001','10001','10001'],' ':['00000','00000','00000','00000','00000','00000','00000'] };
+function numText(str, cell, color, shadow = true) { return blockText(str, cell, color, shadow, F7, 5, 7); }
+function blockText(str, cell, color, shadow = true, font = F, gw = 3, gh = 5) {
+  const w = str.length * (gw + 1) - 1, ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('width', w * cell); svg.setAttribute('height', gh * cell + (shadow ? cell * .5 : 0)); svg.classList.add('block-text');
+  [...str].forEach((ch, i) => (font[ch] || font[' ']).forEach((row, r) => [...row].forEach((b, c) => {
+    if (b !== '1') return;
+    for (const [dy, fill] of shadow ? [[cell * .5, '#0008'], [0, color]] : [[0, color]]) {
+      const rc = document.createElementNS(ns, 'rect');
+      rc.setAttribute('x', (i * (gw + 1) + c) * cell); rc.setAttribute('y', r * cell + dy); rc.setAttribute('width', cell - .5); rc.setAttribute('height', cell - .5); rc.setAttribute('fill', fill);
+      svg.appendChild(rc);
+    }
+  })));
+  return svg;
+}
+const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+const P = new URLSearchParams(location.search), C = P.get('c') || 'A', STATE = P.get('state') || 'shift';
+document.getElementById('bg').src = P.get('bg');
+const hud = document.getElementById('hud');
+
+// Example race state (stock Civix, T1 box: shift zone 0.85–0.95 of redline; launch zone 0.55–0.72)
+const S = STATE === 'launch' ? { rpm: 0.63, z0: 0.55, z1: 0.72, gear: 'N', mph: 0, pos: 0, rival: 0, gap: null, note: 'launch' }
+        : { rpm: 0.89, z0: 0.85, z1: 0.95, gear: '3', mph: 68, pos: 0.33, rival: 0.31, gap: '+0.18 s', note: 'shift' };
+const inZone = S.rpm >= S.z0 && S.rpm <= S.z1;
+
+function raceStrip() {
+  const s = el(`<div class="race-strip"><div class="road"></div><div class="flag"></div></div>`);
+  for (let m = 100; m < 800; m += 100) s.appendChild(el(`<div class="tick" style="left:calc(16px + ${m / 800} * (100% - 44px))"></div>`));
+  s.appendChild(el(`<div class="car" style="left:calc(16px + ${S.rival} * (100% - 44px) - 13px);background:#eeeae0"></div>`));
+  s.appendChild(el(`<div class="car" style="left:calc(16px + ${S.pos} * (100% - 44px) - 13px);background:#d23a2a"></div>`));
+  s.appendChild(el(S.gap ? `<div class="gap">Rico is <span>${S.gap.replace("+", "")}</span> behind you</div>` : `<div class="gap">You vs Rico, 800 m</div>`));
+  return s;
+}
+function shiftButton(x, y, w, h) {
+  const b = el(`<div class="shift${inZone && STATE !== 'launch' ? ' ready' : ''}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">${STATE === 'launch' ? 'Hold' : 'Shift'}<small>Space</small></div>`);
+  return b;
+}
+function nitroSlot(x, y, w, h) { return el(`<div class="nitro" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">Nitrous<small>coming later</small></div>`); }
+function gradeAndCount(topForGrade) {
+  if (STATE === 'perfect') { const g = el(`<div class="grade" style="top:${topForGrade}px"></div>`); g.appendChild(blockText('PERFECT SHIFT', 9, '#4ade80')); hud.appendChild(g); }
+  if (STATE === 'launch') {
+    const c = el(`<div class="count"></div>`); c.appendChild(numText('2', 18, '#eeeae0')); hud.appendChild(c);
+  }
+}
+
+// ======================= A · Block dash: stepped voxel tach arc =======================
+function conceptA() {
+  const W = 760, H = 236, X = (1600 - W) / 2, Y = 900 - H;
+  const dash = el(`<div class="bezel" style="left:${X}px;top:${Y}px;width:${W}px;height:${H + 10}px"></div>`); hud.appendChild(dash);
+  // arc of axis-aligned blocks (a pixel-art circle), 210° sweep
+  const cx = W / 2, cy = 168, R = 176, N = 26, B = 22;
+  for (let i = 0; i < N; i++) {
+    const f = i / (N - 1), a = Math.PI * (200 / 180 - f * 220 / 180);   // a 220° gauge sweep, left → top → right
+    const bx = Math.round((cx + Math.cos(a) * R - B / 2) / 4) * 4, by = Math.round((cy - Math.sin(a) * R * 0.78 - B / 2) / 4) * 4;
+    const zone = f >= S.z0 && f <= S.z1, red = f > 0.965, lit = f <= S.rpm;
+    let bg = lit ? '#eeeae0' : 'var(--unlit)', ring = '';
+    if (zone) { bg = lit ? 'var(--signal)' : 'var(--unlit)'; ring = 'box-shadow:inset 0 0 0 3px var(--signal);'; }
+    if (red) bg = lit ? 'var(--brake)' : '#5a2a2c';
+    dash.appendChild(el(`<div style="position:absolute;left:${bx}px;top:${by}px;width:${B}px;height:${B}px;background:${bg};${ring}"></div>`));
+  }
+  const gear = el(`<div style="position:absolute;left:${cx - 30}px;top:64px"></div>`); gear.appendChild(numText(S.gear, 12, inZone && STATE !== 'launch' ? '#4ade80' : '#eeeae0')); dash.appendChild(gear);
+  const spd = el(`<div style="position:absolute;left:${cx - 62}px;top:168px;display:flex;align-items:flex-end;gap:8px"></div>`);
+  spd.appendChild(numText(String(S.mph).padStart(3, ' '), 5, '#eeeae0', false)); spd.appendChild(el(`<span class="lbl">mph</span>`)); dash.appendChild(spd);
+  dash.appendChild(el(`<div class="lbl" style="position:absolute;left:24px;top:26px">${S.note === 'launch' ? 'Launch zone' : 'Shift zone'} <span style="color:var(--signal)">■</span></div>`));
+
+  hud.appendChild(shiftButton(X + W + 26, 900 - 196, 250, 176));
+  hud.appendChild(nitroSlot(X - 26 - 210, 900 - 156, 210, 136));
+  hud.appendChild(raceStrip());
+  gradeAndCount(Y - 74);
+  if (STATE === 'launch') hud.appendChild(el(`<div class="hintline" style="top:${Y - 60}px">Hold <b>Space</b> to keep the revs in the green. Let go when the light turns green.</div>`));
+}
+
+// ======================= B · Shift-light rail (race-wheel display) =======================
+function conceptB() {
+  const W = 980, H = 168, X = (1600 - W) / 2, Y = 900 - H;
+  const dash = el(`<div class="bezel" style="left:${X}px;top:${Y}px;width:${W}px;height:${H + 10}px"></div>`); hud.appendChild(dash);
+  const N = 20, B = 38, G = 6, rowW = N * B + (N - 1) * G, rx = (W - rowW) / 2;
+  for (let i = 0; i < N; i++) {
+    const f = (i + .5) / N, zone = f >= S.z0 && f <= S.z1, red = f > 0.96, lit = (i + 1) / N <= S.rpm + 0.001;
+    let bg = lit ? '#eeeae0' : 'var(--unlit)', ring = '';
+    if (zone) { bg = lit ? 'var(--signal)' : 'var(--unlit)'; ring = 'box-shadow:inset 0 0 0 4px var(--signal);'; }
+    if (red) bg = lit ? 'var(--brake)' : '#5a2a2c';
+    dash.appendChild(el(`<div style="position:absolute;left:${rx + i * (B + G)}px;top:26px;width:${B}px;height:${B}px;background:${bg};${ring}"></div>`));
+  }
+  const gear = el(`<div style="position:absolute;left:${W / 2 - 25}px;top:76px"></div>`); gear.appendChild(numText(S.gear, 10, inZone && STATE !== 'launch' ? '#4ade80' : '#eeeae0')); dash.appendChild(gear);
+  const spd = el(`<div style="position:absolute;left:${rx}px;top:86px;display:flex;align-items:flex-end;gap:10px"></div>`);
+  spd.appendChild(numText(String(S.mph).padStart(3, ' '), 7, '#eeeae0', false)); spd.appendChild(el(`<span class="lbl">mph</span>`)); dash.appendChild(spd);
+  dash.appendChild(el(`<div class="lbl" style="position:absolute;right:${rx}px;top:104px;text-align:right">${S.note === 'launch' ? 'Launch zone' : 'Shift zone'} <span style="color:var(--signal)">■</span><br>Gear ${S.gear === 'N' ? 'neutral' : S.gear + ' of 5'}</div>`));
+  hud.appendChild(shiftButton(X + W + 20, 900 - 168, 260, 148));
+  hud.appendChild(nitroSlot(X - 20 - 0 - 0 - 0 - 270 + 60, 900 - 128, 210, 108));
+  hud.appendChild(raceStrip());
+  gradeAndCount(Y - 74);
+  if (STATE === 'launch') hud.appendChild(el(`<div class="hintline" style="top:${Y - 60}px">Hold <b>Space</b> to keep the revs in the green. Let go when the light turns green.</div>`));
+}
+
+// ======================= C · Kerb strip: the race kerb is the tach =======================
+function conceptC() {
+  const H = 64, Y = 900 - H, N = 50, B = 1600 / N;
+  const strip = el(`<div style="position:absolute;left:0;top:${Y}px;width:1600px;height:${H}px;background:var(--asphalt-dk)"></div>`); hud.appendChild(strip);
+  for (let i = 0; i < N; i++) {
+    const f = (i + .5) / N, zone = f >= S.z0 && f <= S.z1, red = f > 0.96, lit = (i + 1) / N <= S.rpm + 0.001;
+    let bg = lit ? (i & 1 ? '#eeeae0' : '#d23a2a') : (i & 1 ? '#4b4e58' : '#3d3236');
+    if (zone) bg = lit ? 'var(--signal)' : '#2f4a3a';
+    if (red) bg = lit ? 'var(--brake)' : '#4a2326';
+    strip.appendChild(el(`<div style="position:absolute;left:${i * B}px;top:10px;width:${B - 2}px;height:${H - 20}px;background:${bg}"></div>`));
+  }
+  const chip = el(`<div class="bezel" style="left:${1600 - 440}px;top:${900 - H - 128}px;width:170px;height:124px"></div>`); hud.appendChild(chip);
+  const g = el(`<div style="position:absolute;left:20px;top:24px"></div>`); g.appendChild(numText(S.gear, 10, inZone && STATE !== 'launch' ? '#4ade80' : '#eeeae0')); chip.appendChild(g);
+  const sp = el(`<div style="position:absolute;left:84px;top:40px"></div>`); sp.appendChild(numText(String(S.mph), 4, '#eeeae0', false)); chip.appendChild(sp);
+  chip.appendChild(el(`<span class="lbl" style="position:absolute;left:86px;top:78px">mph</span>`));
+  hud.appendChild(shiftButton(1600 - 254, 900 - H - 140, 230, 128));
+  hud.appendChild(nitroSlot(24, 900 - H - 120, 190, 104));
+  hud.appendChild(raceStrip());
+  gradeAndCount(900 - H - 200);
+}
+({ A: conceptA, B: conceptB, C: conceptC })[C]();
+const tagText = { A: 'A · Block dash', B: 'B · Shift-light rail', C: 'C · Kerb strip' }[C];
+if (P.get('tag') !== '0') hud.appendChild(el(`<div class="tag">${tagText}</div>`));
+window.__done = true;
+</script>
+</body>
+</html>

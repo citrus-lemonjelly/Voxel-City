@@ -26,6 +26,8 @@ export type NearStyle = 'curb' | 'barrier' | 'mixed';
 export const ARCH_K = 2.2;                        // design → real scale for the street's buildings and furniture
 const CHUNK = 660, VIEW_BEHIND = 2, VIEW_AHEAD = 3;   // real blocks per chunk (= 300 design); chunks kept visible
 const BOX = new THREE.BoxGeometry(1, 1, 1);
+/** Back of the widened near pavement, where the low wall stands (design units, near side). */
+const WALL_Z = 44;
 export const ROAD_EDGE = 90, PARK_Z = 92, CURB_Z = 127, WALK_Z = CURB_Z + 2, FACADE_Z = CURB_Z + 28, NEAR_Z = -16;
 const Ymap = (h: number) => h <= 1.5 ? h : 1.5 + (h - 1.5) * ARCH_K;   // ground stays put; height above the kerb scales
 
@@ -261,9 +263,12 @@ export class Stage {
   private nearSide(c: Ctx, x0: number, x1: number) {
     const { B, LIT, rng, pools, night } = c, W = x1 - x0;
     B.push({ x: x0, y: -1, z: -16, sx: W, sy: 2.2, sz: 2, c: '#b9b19a' });
+    // owner Q44: wider pavement (two offset rows of slabs) up to a low wall; the grass behind it is muted so it stops pulling focus
     for (let x = Math.floor(x0 / 10) * 10; x < x1; x += 10) B.push({ x, y: -1, z: -40, sx: 10, sy: 2, sz: 24, c: ((x / 10) & 1) ? '#b7b4ab' : '#aaa79e' });
-    B.push({ x: x0, y: -1.5, z: -120, sx: W, sy: 2, sz: 80, c: '#6f8f4a' });
-    B.push({ x: x0, y: -2, z: -420, sx: W, sy: 2, sz: 300, c: '#7f8a5e' });
+    for (let x = Math.floor(x0 / 10) * 10 - 5; x < x1; x += 10) B.push({ x: Math.max(x, x0), y: -1, z: -WALL_Z, sx: Math.min(10, x1 - Math.max(x, x0)), sy: 2, sz: WALL_Z - 40, c: ((Math.floor((x + 5) / 10)) & 1) ? '#adaaa1' : '#b4b1a8' });
+    B.push({ x: x0, y: -1.5, z: -120, sx: W, sy: 2, sz: 120 - WALL_Z, c: '#53663f' });
+    B.push({ x: x0, y: -2, z: -420, sx: W, sy: 2, sz: 300, c: '#646d4c' });
+    this.lowWall(c, x0, x1);
     const rx0 = x0 * ARCH_K;
     const barrierHere = this.near === 'barrier' || (this.near === 'mixed' && (rx0 >= -1320 || rx0 <= -this.finishBlocks + 660));
     if (this.near !== 'barrier') for (let x = Math.floor(x0 / 3) * 3; x < x1; x += 3) B.push({ x, y: 1.2, z: -16, sx: 3, sy: 0.3, sz: 2, c: ((x / 3) & 1) ? '#d23a2a' : '#eeeae0' });
@@ -280,13 +285,11 @@ export class Stage {
     } else {
       for (let x = x0 + 10; x < x1; x += 40) { B.push({ x, y: 1, z: -31, sx: 2, sy: 4, sz: 2, c: '#3d4046' }); B.push({ x, y: 4.2, z: -31, sx: 2, sy: 0.8, sz: 2, c: '#f2c230' }); prop(B, 2, x + 1, 1, -30, 2.4); }
     }
-    for (let x = x0 + rng() * 60; x < x1; x += 90 + rng() * 60) { B.push({ x, y: 1, z: -29, sx: 3, sy: 3, sz: 3, c: '#f2a43a' }); B.push({ x: x + 0.5, y: 4, z: -28.5, sx: 2, sy: 1, sz: 2, c: '#eeeae0' }); prop(B, 2, x + 1.5, 1, -27.5, 2.2); }
     for (let x = x0 + 25; x < x1; x += 100) B.push({ x, y: 1.05, z: -36, sx: 6, sy: 0.2, sz: 4, c: '#5a5e66' });
-    for (let x = x0 + rng() * 40; x < x1 - 20; x += 50 + rng() * 40) { const hw = 14 + rng() * 14; B.push({ x, y: -0.5, z: -52, sx: hw, sy: 4, sz: 6, c: pick(rng, ['#4f8a3a', '#477d34', '#5a9640']) }); prop(B, 1, x + hw / 2, -0.5, -49, 2.6); }
-    // verge texture: two-tone grass tufts, flower beds, low brick planter walls, bike racks, news boxes
-    for (let k = 0; k < 40; k++) B.push({ x: x0 + rng() * W, y: 0.5, z: -118 + rng() * 64, sx: 2 + rng() * 6, sy: 0.12, sz: 2 + rng() * 5, c: pick(rng, ['#7fa055', '#668a42', '#76994c', '#5f8240']) });
+    // verge texture behind the wall: muted grass tufts, flower beds in low brick planters
+    for (let k = 0; k < 40; k++) B.push({ x: x0 + rng() * W, y: 0.5, z: -118 + rng() * (118 - WALL_Z - 8), sx: 2 + rng() * 6, sy: 0.12, sz: 2 + rng() * 5, c: pick(rng, ['#5a6f45', '#506640', '#576c44', '#4d633c']) });
     for (let x = x0 + rng() * 50; x < x1 - 30; x += 70 + rng() * 60) {
-      const bw = 18 + Math.floor(rng() * 14), bz = -66 - Math.floor(rng() * 10);
+      const bw = 18 + Math.floor(rng() * 14), bz = -WALL_Z - 26 - Math.floor(rng() * 10);
       B.push({ x, y: 0, z: bz, sx: bw, sy: 2.5, sz: 8, c: pick(rng, BRICKS) });
       B.push({ x: x + 1, y: 2.5, z: bz + 1, sx: bw - 2, sy: 0.6, sz: 6, c: '#5a3a24' });
       for (let f = 0; f < bw - 3; f += 2) for (const fz of [bz + 2, bz + 5]) if (rng() < 0.7) {
@@ -298,10 +301,27 @@ export class Stage {
       if (rng() < 0.5) { for (let k = 0; k < 4; k++) { B.push({ x: x + k * 4, y: 1, z: -34, sx: 0.8, sy: 4, sz: 0.8, c: '#9ca1a8' }); B.push({ x: x + k * 4, y: 1, z: -31, sx: 0.8, sy: 4, sz: 0.8, c: '#9ca1a8' }); B.push({ x: x + k * 4, y: 4.2, z: -34, sx: 0.8, sy: 0.8, sz: 3.8, c: '#9ca1a8' }); } prop(B, 12, x + 6, 1, -32.5, 2.8); }
       else { for (const [k, col] of [[0, '#2f6fd6'], [4, '#d23a2a'], [8, '#f2c230']] as [number, string][]) { B.push({ x: x + k, y: 1, z: -36, sx: 3, sy: 5, sz: 3, c: col }); B.push({ x: x + k + 0.5, y: 4, z: -36.2, sx: 2, sy: 1, sz: 0.3, c: '#cfe0ea' }); } prop(B, 6, x + 5.5, 1, -34.5, 3); }
     }
-    for (let x = x0 + 60; x < x1; x += 180) {           // bollard lights: light the near kerb at night without blocking the view
-      B.push({ x, y: 1, z: -44, sx: 2, sy: 10, sz: 2, c: '#3d4046' });
-      LIT.push({ x: x - 0.5, y: 11, z: -44.5, sx: 3, sy: 2, sz: 3, c: night ? '#ffd28a' : '#efe9d8' });
-      pools.push({ x, z: -30, r: 26, c: '#ffd28a' });
+  }
+
+  /** Low wall along the back of the near pavement (owner Q44): brick panels between stone pillars with a stone coping.
+   *  The tall bollard lights are gone — small lamps set into the coping light the pavement at night instead. */
+  private lowWall(c: Ctx, x0: number, x1: number) {
+    const { B, LIT, pools, night } = c, P = 64, z = -WALL_Z, d = 5;
+    for (let x = Math.floor(x0 / P) * P; x < x1; x += P) {
+      const a = Math.max(x, x0), b = Math.min(x + P, x1), brick = BRICKS[Math.abs(Math.floor(x / P)) % BRICKS.length];
+      if (b - a > 4) {
+        B.push({ x: a, y: 1, z, sx: b - a, sy: 3.6, sz: d, c: '#' + new THREE.Color(brick).lerp(new THREE.Color('#8a8478'), 0.5).getHexString() });   // dusty brick panel (muted)
+        B.push({ x: a, y: 4.6, z: z - 0.5, sx: b - a, sy: 0.8, sz: d + 1, c: '#c9c3b5' });                 // coping
+      }
+      if (x >= x0 && x + 4 <= x1) {
+        B.push({ x, y: 1, z: z - 0.5, sx: 4, sy: 4.8, sz: d + 1, c: '#b4ae9f' });                             // pillar
+        B.push({ x: x - 0.5, y: 5.8, z: z - 1, sx: 5, sy: 0.8, sz: d + 2, c: '#d2ccbe' });                      // pillar cap
+      }
+      const lx = x + P / 2;
+      if (lx >= x0 && lx + 3 <= x1 && (Math.floor(x / P) & 1)) {
+        LIT.push({ x: lx, y: 4.2, z: z + d + 0.1, sx: 3, sy: 0.6, sz: 0.4, c: night ? '#ffd28a' : '#d8d2c2' });  // lamp facing the pavement
+        pools.push({ x: lx + 1.5, z: -36, r: 24, c: '#ffd28a' });
+      }
     }
   }
 

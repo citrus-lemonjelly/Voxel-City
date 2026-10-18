@@ -1,7 +1,8 @@
 // The three Step 1 screens as plain DOM overlays: Garage Terminal, race HUD, results.
 import { SaveV1 } from '../save/save';
 import { ENGINE, TRANSMISSION, TIERS, Tier, LAUNCH } from '../data/parts';
-import { CARS } from '../data/cars';
+import { CARS, carBrand, carName } from '../data/cars';
+import { DEV } from './devConsole';
 import { OpponentDef } from '../data/economy';
 import { StageDef } from '../data/stages';
 import { carStats, displayStats } from '../game/stats';
@@ -25,7 +26,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
     const table = kind === 'engine' ? ENGINE.D : TRANSMISSION.D;
     const def = table[t - 1];
     const owned = save.owned[kind].includes(t), eq = save.equipped[kind] === t;
-    const afford = save.voxels >= def.price;
+    const afford = save.voxels >= def.price || DEV.unlimited;
     const cls = eq ? 'equipped' : owned ? 'owned' : afford ? '' : 'locked';
     const sub = eq ? 'Equipped' : owned ? 'Equip' : `${def.price.toLocaleString()} VX`;
     return `<button class="tier ${cls}" data-kind="${kind}" data-tier="${t}" title="${def.label}"><b>T${t}</b>${sub}</button>`;
@@ -34,8 +35,8 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   root.innerHTML = '';
   const el = h(`
   <div id="terminal" class="blk">
-    <div class="row"><span class="hd screen-title">Garage Terminal</span><span class="voxels">${save.voxels.toLocaleString()} VX</span></div>
-    <div><div class="hd screen-title">${car.brand} · League ${car.league}</div><h1 class="hd">${car.name}</h1></div>
+    <div class="row"><span class="hd screen-title">Garage Terminal</span><span class="voxels">${DEV.unlimited ? '∞' : save.voxels.toLocaleString()} VX</span></div>
+    <div><div class="hd screen-title">${carBrand(save.carId)} · League ${car.league}</div><h1 class="hd">${carName(save.carId)}</h1></div>
     <div class="stats">
       <div class="stat"><b>${st.hp}</b><span>horsepower</span></div>
       <div class="stat"><b>${st.shifts}</b><span>shifts</span></div>
@@ -44,12 +45,12 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
     </div>
     <div class="upg"><h3 class="hd">Engine</h3><div class="desc">${eqE.label} — +${Math.round((eqE.hpMult - 1) * 100)}% power</div><div class="tiers">${TIERS.map(t => tierBtn('engine', t)).join('')}</div></div>
     <div class="upg"><h3 class="hd">Transmission</h3><div class="desc">${eqT.label} — ${eqT.ratios.length} gears, ${eqT.shiftTime.toFixed(2)} s shifts, ${Math.round(eqT.zoneWidth * 100)}% shift zone</div><div class="tiers">${TIERS.map(t => tierBtn('trans', t)).join('')}</div></div>
-    <div class="next"><b>Next race:</b> ${opp.name} · ${CARS[opp.carId].brand} ${CARS[opp.carId].name} · ${stage.name} (${stage.distanceM} m)<br>
+    <div class="next"><b>Next race:</b> ${opp.name} · ${carBrand(opp.carId)} ${carName(opp.carId)} · ${stage.name} (${stage.distanceM} m)<br>
       <span style="color:var(--dim)">Best ${save.bestTime ? fmtTime(save.bestTime) : '—'} · Record ${save.wins}–${save.races - save.wins}</span></div>
     <div class="settings"><h3 class="hd">Settings</h3>${SETTING_ROWS.map(([key, label, opts]) => `<div class="setrow"><span>${label}</span><div class="seg">${opts.map(([v, t]) => `<button class="${(save.settings as any)[key] === v ? 'on' : ''}" data-set="${key}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>
     <div class="spacer"></div>
     <button class="btn race" id="raceBtn">Race ▸</button>
-    <div style="font-size:12px;color:var(--dim)">Hold <b>SPACE</b> (or the Shift button) to rev · release on <b style="color:var(--good)">green</b> to launch · tap to shift in the green zone</div>
+    <div style="font-size:12px;color:var(--dim)">Hold <b>SPACE</b> (or the gas pedal) to rev · release on <b style="color:var(--good)">green</b> to launch · <b>SPACE</b> shifts up in the green zone · <b>SHIFT</b> shifts down</div>
   </div>`);
   root.appendChild(el);
   if (toast) root.appendChild(h(`<div class="toast blk">${toast}</div>`));
@@ -58,61 +59,6 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   el.querySelector('#raceBtn')!.addEventListener('click', on.onRace);
 }
 
-// ---------------- Race HUD (R10: tach with shift zone, gear, grades; R8: on-screen Shift button) ----------------
-export class Hud {
-  el: HTMLElement;
-  private segs: HTMLElement[];
-  private lights: HTMLElement[];
-  private gradeEl: HTMLElement; private hint: HTMLElement; private gear: HTMLElement; private speed: HTMLElement;
-  private me: HTMLElement; private them: HTMLElement;
-  shiftBtn: HTMLButtonElement;
-  constructor(root: HTMLElement, private race: Race, private player: Racer, private opp: Racer) {
-    root.innerHTML = '';
-    this.el = h(`<div class="overlay">
-      <div id="progress" class="blk"><div class="row"><span class="hd">You</span><span class="hd">${race.distanceM} m</span></div><div class="track"><i class="me"></i><i class="them"></i></div></div>
-      <div id="lights" class="blk"><i></i><i></i><i></i></div>
-      <div id="hint" class="blk">Hold <b>SPACE</b> to rev · keep the needle in the <b style="color:var(--good)">green</b> · release on GO</div>
-      <div id="grade" class="hd"></div>
-      <div id="tach" class="blk"><div class="segs">${'<i></i>'.repeat(40)}</div><div class="lbl"><span>RPM</span><span id="tachNote">Launch zone</span></div></div>
-      <div id="gearbox" class="blk"><b>N</b><span>0 mph</span></div>
-      <button id="shiftBtn" class="btn">Shift</button>
-    </div>`);
-    root.appendChild(this.el);
-    this.segs = [...this.el.querySelectorAll<HTMLElement>('#tach .segs i')];
-    this.lights = [...this.el.querySelectorAll<HTMLElement>('#lights i')];
-    this.gradeEl = this.el.querySelector('#grade')!; this.hint = this.el.querySelector('#hint')!;
-    this.gear = this.el.querySelector('#gearbox b')!; this.speed = this.el.querySelector('#gearbox span')!;
-    this.me = this.el.querySelector('.me')!; this.them = this.el.querySelector('.them')!;
-    this.shiftBtn = this.el.querySelector('#shiftBtn')!;
-  }
-  update() {
-    const r = this.player, s = r.stats, t = this.race.t;
-    // countdown lights: red, amber, amber… green at COUNTDOWN
-    const lit = Math.min(3, Math.floor(t));
-    this.lights.forEach((l, i) => { l.className = this.race.green ? 'green' : i < lit ? (i === 0 ? 'red' : 'amber') : ''; });
-    if (r.launched) this.hint.style.display = 'none';
-    // tach: launch zone before launch, shift zone after
-    const frac = Math.min(1, r.rpm / s.redline);
-    const [z0, z1] = r.launched ? [s.trans.zoneCentre - s.trans.zoneWidth / 2, s.trans.zoneCentre + s.trans.zoneWidth / 2] : [LAUNCH.perfectMin, LAUNCH.perfectMax];
-    this.segs.forEach((seg, i) => {
-      const a = i / 40, b = (i + 1) / 40;
-      const zone = b > z0 && a < z1, red = a >= 0.97;
-      seg.className = (frac >= b - 0.0001 ? 'on ' : '') + (zone ? 'zone' : red ? 'red' : '');
-    });
-    (this.el.querySelector('#tachNote') as HTMLElement).textContent = r.launched ? 'Shift zone' : 'Launch zone';
-    this.gear.textContent = r.launched ? String(r.gear + 1) : 'N';
-    this.speed.textContent = Math.round(r.v * 2.237) + ' mph';
-    const L = this.race.distanceM;
-    this.me.style.left = `calc(${Math.min(1, r.x / L) * 100}% - 4px)`; this.them.style.left = `calc(${Math.min(1, this.opp.x / L) * 100}% - 4px)`;
-    const ev = r.lastEvent;
-    if (ev && t - ev.t < 0.9) {
-      this.gradeEl.style.opacity = '1'; this.gradeEl.textContent = ev.text;
-      this.gradeEl.style.color = /Perfect/.test(ev.text) ? 'var(--good)' : /Good/.test(ev.text) ? 'var(--blue)' : 'var(--amber)';
-    } else if (!this.race.green && t > 0.2) { this.gradeEl.style.opacity = '1'; this.gradeEl.style.color = 'var(--text)'; this.gradeEl.textContent = String(Math.max(1, Math.ceil(COUNTDOWN - t))); }
-    else if (this.race.green && !r.launched) { this.gradeEl.style.opacity = '1'; this.gradeEl.style.color = 'var(--good)'; this.gradeEl.textContent = 'GO!'; }
-    else this.gradeEl.style.opacity = '0';
-  }
-}
 
 // ---------------- Results (R13) ----------------
 export interface ResultData { won: boolean; myTime: number; oppTime: number; oppName: string; launch: string; shifts: string[]; earnings: [string, number][]; total: number; newBest: boolean }

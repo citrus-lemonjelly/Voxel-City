@@ -12,6 +12,8 @@ export interface Controller {
   held(r: Racer, race: Race): boolean;
   /** Return true once to request a gear change. */
   shift(r: Racer, race: Race): boolean;
+  /** Return true once to request a downshift (owner: recover from an upshift made too early). AI never downshifts. */
+  downshift?(r: Racer, race: Race): boolean;
 }
 
 export interface Racer {
@@ -29,7 +31,10 @@ export interface Racer {
   launchGrade?: LaunchGrade;
   launchTimer: number;     // seconds since launch
   shifting: number;        // seconds left in the current gear change
+  shiftDir: 1 | -1;        // direction of the gear change in progress
+  downshifts: number;      // downshifts used this race
   boost: number;           // seconds of Perfect-shift torque bonus remaining
+  /** One graded upshift per gear (redoing a gear after a downshift replaces its grade, so bonuses can't be farmed). */
   shifts: { gear: number; grade: ShiftGrade; rpmFrac: number }[];
   finish?: number;         // finish time after green (s)
   lastEvent?: { text: string; t: number };
@@ -38,6 +43,13 @@ export interface Racer {
 export const COUNTDOWN = 3.0;        // seconds of lights before green
 /** How long the gear change takes, relative to the transmission's shift time, by grade. */
 export const SHIFT_TIME_MULT: Record<ShiftGrade, number> = { Perfect: 0.55, Good: 0.85, Early: 1.25, Late: 1.25 };
+/** Downshift: takes this × the transmission's shift time. No safety net (owner): drop a gear too fast and the engine
+ *  over-revs — it sits on the limiter making no power, and engine braking slows the car until the revs come back down. */
+export const DOWNSHIFT = { timeMult: 0.35, engineBrake: 0.45 };
+/** Lugging: in 2nd gear and up, below `below` × redline the engine is out of its power band and torque falls off
+ *  (× max(floor, 1 − slope × (below − rpm share))). Normal driving never gets this low; it is what makes a badly early
+ *  upshift worth fixing with a quick downshift. */
+export const LUG = { below: 0.55, slope: 1.5, floor: 0.4 };
 const DRIVELINE = 0.88;
 const G = 9.81, AIR = 1.2;
 
@@ -51,7 +63,7 @@ export class Race {
   get raceTime() { return Math.max(0, this.t - COUNTDOWN); }
 
   add(id: string, stats: CarStats, ctl: Controller): Racer {
-    const r: Racer = { id, stats, ctl, x: 0, v: 0, gear: 0, rpm: stats.idleRpm, wasHeld: false, launched: false, launchTime: 0, launchTimer: 0, shifting: 0, boost: 0, shifts: [] };
+    const r: Racer = { id, stats, ctl, x: 0, v: 0, gear: 0, rpm: stats.idleRpm, wasHeld: false, launched: false, launchTime: 0, launchTimer: 0, shifting: 0, shiftDir: 1, downshifts: 0, boost: 0, shifts: [] };
     this.racers.push(r);
     return r;
   }
@@ -84,7 +96,12 @@ export class Race {
     // ---- shifting ----
     if (r.shifting > 0) {
       r.shifting -= dt;
-      if (r.shifting <= 0) r.gear = Math.min(r.gear + 1, s.trans.ratios.length - 1);
+      if (r.shifting <= 0) {
+        r.gear = Math.max(0, Math.min(r.gear + r.shiftDir, s.trans.ratios.length - 1));
+        if (r.shiftDir < 0 && wheelRpm(s, r.v, r.gear) > s.redline) r.lastEvent = { text: 'Over-rev', t: this.t };
+      }
+    } else if (r.gear > 0 && r.ctl.downshift?.(r, this)) {
+      r.shiftDir = -1; r.shifting = s.trans.shiftTime * DOWNSHIFT.timeMult; r.boost = 0; r.downshifts++; r.lastEvent = { text: 'Downshift', t: this.t };
     } else if (r.gear < s.trans.ratios.length - 1 && r.ctl.shift(r, this)) {
       const frac = r.rpm / s.redline;
       const half = s.trans.zoneWidth / 2, c = s.trans.zoneCentre;
@@ -92,9 +109,12 @@ export class Race {
       if (Math.abs(frac - c) <= half) grade = 'Perfect';
       else if (Math.abs(frac - c) <= half + s.trans.zoneWidth * 0.6) grade = 'Good';
       else grade = frac < c ? 'Early' : 'Late';
-      r.shifts.push({ gear: r.gear + 1, grade, rpmFrac: frac });
+      const prev = r.shifts.findIndex(e => e.gear === r.gear + 1), wasPerfect = prev >= 0 && r.shifts[prev].grade === 'Perfect';
+      if (prev >= 0) r.shifts[prev] = { gear: r.gear + 1, grade, rpmFrac: frac };   // redo after a downshift replaces that gear's grade
+      else r.shifts.push({ gear: r.gear + 1, grade, rpmFrac: frac });
+      r.shiftDir = 1;
       r.shifting = s.trans.shiftTime * SHIFT_TIME_MULT[grade];
-      if (grade === 'Perfect') r.boost = 0.8;
+      if (grade === 'Perfect' && !wasPerfect) r.boost = 0.8;                   // no boost farming: redoing a gear only earns it if that gear wasn't Perfect already
       r.lastEvent = { text: grade, t: this.t };
     }
 
@@ -106,6 +126,7 @@ export class Race {
     let drive = 0;
     if (r.shifting <= 0 && r.rpm < s.redline) {
       let tq = torqueAt(s, r.rpm);
+      if (r.gear > 0) { const f = r.rpm / s.redline; if (f < LUG.below) tq *= Math.max(LUG.floor, 1 - LUG.slope * (LUG.below - f)); }
       if (r.boost > 0) { tq *= 1 + s.trans.perfectBoost; r.boost -= dt; }
       drive = tq * s.trans.ratios[r.gear] * s.finalDrive * DRIVELINE / s.wheelRadiusM;
       let traction = s.tractionN;
@@ -113,7 +134,11 @@ export class Race {
       if (r.launchGrade === 'Bog' && r.launchTimer < 1.0) drive *= LAUNCH.bogPenalty;
       drive = Math.min(drive, traction);
     }
-    if (r.rpm >= s.redline) r.rpm = s.redline;                           // bouncing off the limiter = no drive
+    if (r.rpm >= s.redline) {                                          // on the limiter = no drive
+      // over-revved (a downshift at too high a speed): engine braking drags the car until the revs fall below redline
+      if (r.shifting <= 0 && rpmWheel > s.redline) drive = -DOWNSHIFT.engineBrake * torqueAt(s, s.redline) * s.trans.ratios[r.gear] * s.finalDrive * DRIVELINE / s.wheelRadiusM * Math.min(1, (rpmWheel / s.redline - 1) * 4 + 0.25);
+      r.rpm = s.redline;
+    }
     const resist = 0.5 * AIR * s.dragArea * r.v * r.v + s.rollingCoeff * s.massKg * G;
     const a = (drive - resist) / s.massKg;
     r.v = Math.max(0, r.v + a * dt);
