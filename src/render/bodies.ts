@@ -119,6 +119,9 @@ export function buildBodyVoxels(P: BodyProfile): { body: Vox[]; wheels: WheelVox
   }
   // hood parts: vents (two rows of fins) and a raised centre bulge, along the hood (x 3 … windscreen)
   const hx1 = P.green[0][0] - 2;
+  // vents: three slim slots per side, behind the front wheel centre line, inboard of the arches / fenders
+  const ventX: [number, number] = [Math.max(4, Math.round(P.wheels[0] - 2)), Math.max(4, Math.round(P.wheels[0] - 2)) + 4];
+  const ventZ = archD + 2 + (P.flares ? 0 : 0);
   if (P.hood === 'bulge') for (let x = 4; x <= hx1; x++) for (let z = Math.floor(W / 2) - 5; z < Math.floor(W / 2) + 5; z++) shell.set(key(x, lowerTop(x), z), 'lower');
   // hood scoop: a raised block on the hood centre line, open (dark) at the front
   if (P.scoop) for (let x = P.scoop[0]; x <= P.scoop[1]; x++) for (let z = Math.floor(W / 2) - 3; z < Math.floor(W / 2) + 3; z++) shell.set(key(x, lowerTop(x), z), 'lower');
@@ -153,7 +156,10 @@ export function buildBodyVoxels(P: BodyProfile): { body: Vox[]; wheels: WheelVox
       if (up) shade = 'light'; else if (y <= yBot + 1) shade = 'dark';
       if (P.crease && side && y === t - P.crease) shade = 'light';                 // body line catches the light
       if (y === yBot && side) { role = 'trim'; c = P.rocker; }
-      if (P.hood === 'carbon' && up && x >= 2 && x < P.green[0][0] - 1 && z > 0 && z < W - 1) { role = 'trim'; c = HOOD_CARBON(x, z); }
+      // carbon hood / vents (owner Q116): only the hood panel — never the raised front wings over the wheels
+      const hoodSkin = up && y === t - 1 && x >= 2 && x < P.green[0][0] - 1 && z > 0 && z < W - 1;
+      if (P.hood === 'carbon' && hoodSkin) { role = 'trim'; c = HOOD_CARBON(x, z); }
+      if (P.hood === 'vents' && hoodSkin && x >= ventX[0] && x <= ventX[1] && (x - ventX[0]) % 2 === 0 && ((z >= ventZ && z < ventZ + 4) || (z > W - 1 - ventZ - 4 && z <= W - 1 - ventZ))) { role = 'trim'; c = '#26282d'; }
       if (P.cladding && side) {                                                    // black plastic sills + arch surrounds
         const nearArch = P.wheels.some(wc => { const d = Math.hypot(x + .5 - wc, y + .5 - wheelY); return d < archR + 1.6; });
         if (y <= yBot + 1 || nearArch) { role = 'trim'; c = '#26272b'; }
@@ -181,7 +187,6 @@ export function buildBodyVoxels(P: BodyProfile): { body: Vox[]; wheels: WheelVox
     if (d < archR || d > archR + 1.6 || y >= sideTop(x)) continue;
     for (let f = 1; f <= P.flares; f++) { put(x, y, -f, null, 'paint', f === P.flares ? 'mid' : 'light'); put(x, y, W - 1 + f, null, 'paint', 'mid'); }
   }
-  if (P.hood === 'vents') for (let x = 6; x <= hx1 - 2; x += 2) for (const [a, b] of [[4, 9], [W - 9, W - 4]]) for (let z = a; z < b; z++) put(x, lowerTop(x), z, PAL.dark);
   // mirrors at the foot of the A-pillar
   if (P.mirrors) { const mx = P.green[0][0] + 3, my = lowerTop(mx); for (const z of [-1, -2, W, W + 1]) { put(mx, my, z, PAL.dark); if (P.mirrorColor) put(mx, my + 1, z, P.mirrorColor); else put(mx, my + 1, z, null, 'paint', z === -2 || z === W + 1 ? 'mid' : 'light'); } }
   // ---- front: headlights, grille, plate ----
@@ -439,8 +444,23 @@ export function profileFor(look: CarLook): BodyProfile | null {
   if (on(parts.spoiler)) P = { ...P, wing: parts.spoiler as BodyProfile['wing'] };
   if (on(parts.exhaust)) P = { ...P, exhaust: parts.exhaust as BodyProfile['exhaust'], quadExhaust: false };
   if (on(parts.wheels)) P = { ...P, rim: parts.wheels! };
+  // body kit (kit.ts draws it): a fitted bumper / diffuser replaces the body's own splitter / diffuser
+  if (on(parts.bumper)) P = { ...P, splitter: false };
+  if (on(parts.diffuser)) P = { ...P, diffuser: false };
   if (on(parts.hood)) { const hx1 = P.green[0][0] - 3; P = parts.hood === 'scoop' ? { ...P, scoop: [5, Math.max(8, hx1 - 2)], hood: undefined } : { ...P, hood: parts.hood as BodyProfile['hood'], scoop: undefined }; }
   if (o.roof && o.roof in ROOF) { const rc = ROOF[o.roof]; P = { ...P, roofColor: rc, mirrorColor: base.mirrorColor === base.roofColor ? (rc ?? undefined) : P.mirrorColor }; }
   return P;
 }
-setBodyBuilder(look => { const P = profileFor(look); if (!P) return null; const r = buildBodyVoxels(P); return { ...r, L: P.L, W: P.W }; });
+setBodyBuilder(look => {
+  const P = profileFor(look); if (!P) return null;
+  const r = buildBodyVoxels(P);
+  return { ...r, L: P.L, W: P.W, dims: { L: P.L, W: P.W, yb: P.yBot + P.ride, wheels: P.wheels, archR: P.wheelR + 0.9, belt: x => lerpPts(P.lower, Math.max(0, Math.min(P.L - 1, x))) - 1 + P.ride, hoodEnd: P.green[0][0] } };
+});
+
+/** The part values a body comes with from the factory (owner Q114: a part identical to these is the Factory part). */
+export function stockParts(body?: string): Record<'spoiler' | 'exhaust' | 'hood' | 'wheels' | 'bumper' | 'diffuser', string> {
+  const P = body && body !== 'civix' ? BODY_PROFILES[body] : undefined;
+  if (!P) return { spoiler: 'none', exhaust: 'dual', hood: 'none', wheels: 'steel', bumper: 'none', diffuser: 'none' };   // Panda Civix
+  return { spoiler: P.wing ?? 'none', exhaust: P.exhaust ?? (P.quadExhaust ? 'quad' : 'dual'), hood: P.scoop ? 'scoop' : (P.hood ?? 'none'), wheels: P.rim,
+    bumper: P.splitter === true ? 'lip' : 'none', diffuser: P.diffuser ? 'fins' : 'none' };
+}

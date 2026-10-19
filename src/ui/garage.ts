@@ -9,11 +9,11 @@ import { DEV } from './devConsole';
 import { OpponentDef } from '../data/economy';
 import { StageDef } from '../data/stages';
 import { carStats, displayStats } from '../game/stats';
-import { BODY_OPTIONS } from '../render/bodies';
+import { BODY_OPTIONS, stockParts } from '../render/bodies';
 import { infoRows } from '../game/carInfo';
 import { STRIP, levelInfo, decalName } from '../game/strip';
 import { DIFFICULTY, Difficulty, racePay, cosmeticPrice } from '../data/economy';
-import { PART_SLOTS, SOON_SLOTS, partsFor, PART_BY_ID, STOCK_PART, SLOT_VIEW, PartSlot, lookParts, VISUAL_PARTS } from '../data/visualParts';
+import { PART_SLOTS, SOON_SLOTS, partsFor, PART_BY_ID, STOCK_PART, SLOT_VIEW, PartSlot, lookParts, VISUAL_PARTS, ownsPart, isFactory, VisualPart } from '../data/visualParts';
 import { CarLook, STOCK_LOOK } from '../render/carBuilder';
 import { CHANGELOG, VERSION } from '../data/changelog';
 
@@ -41,7 +41,7 @@ export interface GarageHandlers {
   /** Street Race difficulty (Easy / Medium / Hard). */
   onDifficulty(d: Difficulty): void;
   /** 3D still of a car (Catalog cards, Q78; Parts cards aim at the part, Q113). */
-  thumb(look: CarLook, view?: 'front' | 'rear' | 'tail' | 'hood' | 'wheel'): string;
+  thumb(look: CarLook, view?: import('../data/visualParts').ThumbView): string;
   /** Visual parts: buy (then fit) / fit an owned part on the car in use. */
   onBuyPart(id: string): void;
   onFitPart(id: string): void;
@@ -193,29 +193,41 @@ let catScroll = 0, partScroll = 0;
 function partLook(on: GarageHandlers, id: string): CarLook {
   const base = on.playerLook(), p = PART_BY_ID[id]; if (!p) return base;
   const parts = { ...(base.parts || {}) };
-  if (p.value === 'stock' || p.value === 'gloss') delete parts[p.slot]; else parts[p.slot] = p.value;
+  if (isFactory(p)) delete parts[p.slot]; else parts[p.slot] = p.value;
   return { ...base, parts };
 }
 const RARITY: Record<string, string> = { common: 'Common', rare: 'Rare', epic: 'Epic' };
 /** Parts screen (owner 2026-10-19): side banner tabs by slot, 3D close-up cards of your car wearing each part, buy / fit. */
+/** The car's own factory part for a slot, when a catalogue part is the same thing (owner Q114: no duplicates). */
+export function factoryTwin(carId: string, slot: PartSlot): VisualPart | undefined {
+  const v = (stockParts(profileOf(carId)) as Record<string, string>)[slot];
+  return v ? partsFor(slot).find(p => !isFactory(p) && p.value === v) : undefined;
+}
 function partsHtml(save: SaveV1, on: GarageHandlers): string {
-  const slot = ui.part.slot, fitted = save.cars[save.carId]?.parts[slot] ?? STOCK_PART[slot], sel = PART_BY_ID[ui.part.sel] ?? PART_BY_ID[fitted];
-  const owns = (id: string) => { const p = PART_BY_ID[id]; return p.value === 'stock' || p.value === 'gloss' || save.partsOwned.includes(id); };
+  const slot = ui.part.slot, twin = factoryTwin(save.carId, slot);
+  let fitted = save.cars[save.carId]?.parts[slot] ?? STOCK_PART[slot];
+  if (twin && fitted === twin.id) fitted = STOCK_PART[slot];                       // fitting the factory twin = factory
+  const sel = PART_BY_ID[ui.part.sel === twin?.id ? STOCK_PART[slot] : ui.part.sel] ?? PART_BY_ID[fitted];
+  ui.part.sel = sel.id;
+  const owns = (id: string) => ownsPart(id, save.partsOwned, save.decals);
   const priceTag = (id: string) => { const c = cosmeticPrice(id); return c.currency === 'crowns' ? `${crownIcon()}${c.price} Crowns` : `${c.price.toLocaleString()} VX`; };
   const can = (id: string) => { const c = cosmeticPrice(id); return DEV.unlimited || (c.currency === 'crowns' ? save.crowns : save.voxels) >= c.price; };
   const tabs = PART_SLOTS.map(t => `<button class="pt-tab ${t.id === slot ? 'on' : ''}" data-slot="${t.id}">${t.label}</button>`).join('')
     + SOON_SLOTS.map(t => `<span class="pt-tab soon" title="Coming soon">${t}</span>`).join('');
-  const cards = partsFor(slot).map(p => {
-    const tag = fitted === p.id ? '<em class="cat-tag use">Fitted</em>' : owns(p.id) ? '<em class="cat-tag own">Owned</em>' : `<em class="cat-tag ${can(p.id) ? '' : 'short'} ${cosmeticPrice(p.id).currency === 'crowns' ? 'cr' : ''}">${priceTag(p.id)}</em>`;
-    return `<button class="cat-card pt-card ${p.id === sel.id ? 'on' : ''}" data-part="${p.id}"><img class="cat-thumb" alt="" src="${on.thumb(partLook(on, p.id), SLOT_VIEW[slot])}">
-      <span class="cat-row"><b>${p.name}</b>${tag}</span><span class="pt-rar ${p.rarity}">${RARITY[p.rarity]}</span></button>`;
-  }).join('');
+  const nameOf = (p: VisualPart) => isFactory(p) && twin ? (twin.value === 'none' ? `${p.name} · none` : `${p.name} · ${twin.name}`) : p.name;
+  const shown = partsFor(slot).filter(p => p !== twin && (!p.won || owns(p.id)));    // boss decals appear once won
+  const lockedWon = partsFor(slot).filter(p => p.won && !owns(p.id)).length;
+  const cards = shown.map(p => {
+    const tag = fitted === p.id ? '<em class="cat-tag use">Fitted</em>' : owns(p.id) ? `<em class="cat-tag own">${p.won ? 'Won' : 'Owned'}</em>` : `<em class="cat-tag ${can(p.id) ? '' : 'short'} ${cosmeticPrice(p.id).currency === 'crowns' ? 'cr' : ''}">${priceTag(p.id)}</em>`;
+    return `<button class="cat-card pt-card ${p.id === sel.id ? 'on' : ''}" data-part="${p.id}"><img class="cat-thumb" alt="" src="${on.thumb(partLook(on, p.id), p.view ?? SLOT_VIEW[slot])}">
+      <span class="cat-row"><b>${nameOf(p)}</b>${tag}</span><span class="pt-rar ${p.rarity}">${p.won ? 'Strip boss' : RARITY[p.rarity]}</span></button>`;
+  }).join('') + (lockedWon ? `<div class="pt-more g-note">${lockedWon} boss decals left to win — beat the boss on every 10th Strip level.</div>` : '');
   const action = fitted === sel.id ? `<button class="btn cat-act" disabled>Fitted</button>`
     : owns(sel.id) ? `<button class="btn race cat-act" id="fitPart">Fit to ${carName(save.carId)}</button>`
     : `<button class="btn race cat-act" id="buyPart" ${can(sel.id) ? '' : 'disabled'}>Buy · ${priceTag(sel.id)}</button>`;
   return `<div class="pt-tabs blk">${tabs}</div><div class="cat-list pt-list blk">${cards}</div>
     <div class="cat-under"><button class="g-close" aria-label="Close">✕</button>
-      <div class="cat-name"><b class="hd">${sel.name}</b><span>${PART_SLOTS.find(t => t.id === slot)!.label} · ${RARITY[sel.rarity]} · ${sel.blurb}</span></div>
+      <div class="cat-name"><b class="hd">${nameOf(sel)}</b><span>${PART_SLOTS.find(t => t.id === slot)!.label} · ${sel.won ? 'Strip boss decal' : RARITY[sel.rarity]} · ${isFactory(sel) && twin ? (twin.value === 'none' ? 'This car has none from the factory.' : `This car comes with the ${twin.name} from the factory.`) : sel.blurb}</span></div>
       <div class="cat-buy">${action}<span class="g-note">Bought once, fits every car · looks only — no effect on speed</span></div>
     </div>`;
 }

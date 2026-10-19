@@ -4,7 +4,7 @@ import { prewarmVehicles } from './render/stage';
 import { STOCK_LOOK, CarLook } from './render/carBuilder';
 import { CSS } from './ui/styles';
 import { renderResults, ResultData } from './ui/screens';
-import { renderGarage, garageInCatalog, garageOpenStrip } from './ui/garage';
+import { renderGarage, garageInCatalog, garageOpenStrip, factoryTwin } from './ui/garage';
 import { Hud } from './ui/hud';
 import { VERSION } from './data/changelog';
 import { loadSave, writeSave, SaveV1, addCar, switchCar, RaceDist } from './save/save';
@@ -13,10 +13,10 @@ import { ECONOMY, DIFFICULTY, racePay, Difficulty, partPrice, cosmeticPrice } fr
 import { ENGINE, TRANSMISSION, Tier } from './data/parts';
 import { CARS, carBody, carName, carPaint } from './data/cars';
 import { makeRival, Rival } from './game/rivals';
-import { PART_BY_ID, lookParts } from './data/visualParts';
+import { PART_BY_ID, lookParts, ownsPart, isFactory, randomParts } from './data/visualParts';
 import { stripRung, STRIP, Rung, levelReward, decalName } from './game/strip';
 import { Race, Racer, Controller } from './game/race';
-import { AIController } from './game/ai';
+import { AIController, makeRng } from './game/ai';
 import { carStats } from './game/stats';
 import { DEV, devOppSkill, initDevConsole } from './ui/devConsole';
 import { freshSave } from './save/save';
@@ -58,7 +58,8 @@ const playerLook = (): CarLook => {
   const c = save.cars[save.carId];
   return { ...STOCK_LOOK, body: carBody(save.carId).profile ?? 'civix', paint: c?.paint || carPaint(save.carId), opts: { ...(c?.opts || {}) }, parts: lookParts(c?.parts) };
 };
-const oppLook = (): CarLook => ({ ...STOCK_LOOK, body: carBody(opp.carId).profile ?? 'civix', paint: opp.paint });
+// rivals wear random visual parts (owner Q118), rolled from their seed so a rival looks the same all race
+const oppLook = (): CarLook => ({ ...STOCK_LOOK, body: carBody(opp.carId).profile ?? 'civix', paint: opp.paint, parts: randomParts(makeRng((opp as any).seed ^ 0x5eed)) });
 
 // ---------------- input: SPACE or the on-screen Shift button ----------------
 const input = { held: false, shiftQueued: false, downQueued: false };
@@ -117,7 +118,8 @@ function useCar(id: string) {
 /** Visual parts (owner 2026-10-19): buy once for every car; fit to the car in use. Factory parts are free. */
 function buyPart(id: string) {
   const p = PART_BY_ID[id]; if (!p) return;
-  if (!save.partsOwned.includes(id) && p.value !== 'stock' && p.value !== 'gloss') {
+  if (p.won && !ownsPart(id, save.partsOwned, save.decals)) return showGarage(`${p.name} is won on the Strip, not sold`);
+  if (!ownsPart(id, save.partsOwned, save.decals)) {
     const c = cosmeticPrice(id), crowns = c.currency === 'crowns', have = crowns ? save.crowns : save.voxels;
     if (!DEV.unlimited && have < c.price) return showGarage(`Need ${(c.price - have).toLocaleString()} more ${crowns ? 'Crowns' : 'VX'} for ${p.name}`);
     if (!DEV.unlimited) { if (crowns) save.crowns -= c.price; else save.voxels -= c.price; }
@@ -127,7 +129,7 @@ function buyPart(id: string) {
 }
 function fitPart(id: string, msg?: string) {
   const p = PART_BY_ID[id], c = save.cars[save.carId]; if (!p || !c) return;
-  if (p.value === 'stock' || p.value === 'gloss') delete c.parts[p.slot]; else if (save.partsOwned.includes(id)) c.parts[p.slot] = id; else return;
+  if (isFactory(p) || factoryTwin(save.carId, p.slot)?.id === id) delete c.parts[p.slot]; else if (ownsPart(id, save.partsOwned, save.decals)) c.parts[p.slot] = id; else return;
   writeSave(save); world.setGarageCar(playerLook()); showGarage(msg ?? `Fitted ${p.name}`);
 }
 /** Paint / body options on an owned car save straight away (visual only). */

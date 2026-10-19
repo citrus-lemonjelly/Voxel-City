@@ -24,6 +24,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.2.0', date: '2026-10-19', title: 'Parts v2: Decals, Underglow, Body kit',
+    added: [
+      'Decals tab: Side stripe, Checker band, Race number, Racing stripes and Flames. Stripe colours pick white or black to stand out on your paint.',
+      'Boss decals: the decal from every Strip boss (Rook, Brass, Viper, Nova, Apex · I – VI) now shows in Decals once won, and fits for free. Emblem on both doors and the hood.',
+      'Underglow tab: Ice blue, Neon green, Violet, Red, Hot pink, White and a blue / pink Two-tone. Steady glow, never blinks or pulses.',
+      'Body kit tabs: Front bumper (Front lip, Aero bumper, Track splitter), Side skirts (Black, Body-colour, Carbon) and Rear diffuser (Street, Race).',
+      'Rivals now wear random visual parts (spoilers, wheels, decals, underglow …). Looks only, no effect on speed.',
+      'New part-card close-ups for the side, nose, sills and underside.',
+    ],
+    changed: [
+      'Parts no longer sells what your car already has: a part that matches the car\'s factory part is folded into its Factory card (e.g. "Factory · GT wing" on the Tuner coupe).',
+      'Vented hood is subtler: slim dark slots set into the hood, kept inside the front fenders on every car.',
+      'Carbon hood covers only the hood panel, not the raised fenders over the wheels.',
+    ],
+    fixed: [
+      'Hood vents clipped through the wheel arches / fenders on some cars.',
+    ],
+  },
+  {
     version: '0.1.2', date: '2026-10-19', title: 'Race button fix',
     changed: [
       'The Race button now closes whatever is open (Profile, Upgrades, Parts, Catalog, Settings, the Strip or Patch notes) and opens the race menu on its own.',

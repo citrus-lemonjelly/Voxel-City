@@ -120,11 +120,15 @@ with sync_playwright() as p:
     pg.click('[data-paint="#2f9a5a"]'); time.sleep(0.3); pg.click('[data-opt="popups"][data-val="up"]'); time.sleep(0.5)
     cat_ok = pg.evaluate("!!document.querySelector('.cat-card.on[data-car=\"tuner\"]') && !!document.querySelector('[data-opt=\"popups\"][data-val=\"up\"].on')")
     pg.screenshot(path=f'{out}/10-catalog.png')
-    pg.click('#raceBtn'); time.sleep(0.3); soon = pg.evaluate("(document.querySelector('.g-soon')||{}).textContent")
-    ok('catalog: select car, paint, pop-ups; typing race = coming soon', cat_ok and soon == 'Coming soon', f'{cat_ok} {soon}')
-    pg.click('#raceBtn'); time.sleep(0.3)                             # close the race menu again
     thumbs = pg.evaluate("[...document.querySelectorAll('.cat-card img.cat-thumb')].filter(i => i.src.startsWith('data:image/png') && i.naturalWidth > 100).length")
     cards = pg.evaluate("document.querySelectorAll('.cat-card').length")
+    # V0.1.2 (owner): Race closes whatever panel is open, then shows the race menu
+    pg.click('#raceBtn'); time.sleep(0.3); soon = pg.evaluate("(document.querySelector('.g-soon')||{}).textContent")
+    closed = pg.evaluate("!document.querySelector('.cat-list') && !!document.querySelector('.g-racemenu')")
+    ok('catalog: select car, paint, pop-ups; Race closes the Catalog; typing race = coming soon', cat_ok and closed and soon == 'Coming soon', f'{cat_ok} {closed} {soon}')
+    pg.click('#raceBtn'); time.sleep(0.3)                             # close the race menu again
+    pg.click('[data-panel="catalog"]'); time.sleep(0.5); pg.click('[data-car="tuner"]'); time.sleep(0.5)   # back to the tuner with the same picks
+    pg.click('[data-paint="#2f9a5a"]'); time.sleep(0.3); pg.click('[data-opt="popups"][data-val="up"]'); time.sleep(0.5)
     ok('catalog cards: a 3D still, name and price for every car', cards == 14 and thumbs == 14, f'{cards} cards, {thumbs} thumbnails')
     # 8. Buying and using cars (owner Q79): unlimited off, real price comes off; the bought car keeps the paint/options picked
     pg.keyboard.press('Backquote'); pg.click('.dev-panel [data-a="unl"]'); time.sleep(0.3); pg.click('.dev-panel [data-a="vx100k"]'); time.sleep(0.3)
@@ -167,12 +171,21 @@ with sync_playwright() as p:
     pg.screenshot(path=f'{out}/12-strip.png')
     ok('Strip screen: 60 level cards; claim boss L10 (+5 Crowns, cash, decal) and L1, once each', st[0] == 60 and st[1] == '1' and 'VX' in st[2] and '+5' in st[3] and 'Decal' in st[3] and w0[2] == 10 and w1[1] == w0[1] + 5 and w1[0] == w0[0] + exp and w1[2] == 8 and w1[4] == ['decal_A_1'], json.dumps([st[:2], w0, w1, exp]))
     pg.click('.strip-wrap .g-close'); time.sleep(0.3)
-    # Parts screen (owner 2026-10-19): side tabs, 3D close-up cards, buy once → fitted; owned for every car
-    pg.click('[data-panel="parts"]'); time.sleep(1); pg.click('[data-part="spoiler.gt"]'); time.sleep(0.5)
-    pa = pg.evaluate("[document.querySelectorAll('.pt-tab').length, document.querySelectorAll('.pt-tab.soon').length, document.querySelectorAll('.pt-card img.cat-thumb').length, window.__vc.save.voxels, window.__vc.cosmeticPrice('spoiler.gt').price]")
+    # Parts screen (owner 2026-10-19): side tabs, 3D close-up cards, buy once → fitted; owned for every car.
+    # Q114: the tuner comes with a GT wing, so the GT wing card is folded into "Factory · GT wing".
+    pg.click('[data-panel="parts"]'); time.sleep(1)
+    pt = pg.evaluate("[!!document.querySelector('[data-part=\\'spoiler.gt\\']'), document.querySelector('[data-part=\\'spoiler.stock\\'] b').textContent]")
+    ok('Parts: a part the car already has from the factory is not sold twice', (not pt[0]) and 'GT wing' in pt[1], json.dumps(pt))
+    pg.click('[data-part="spoiler.ducktail"]'); time.sleep(0.5)
+    pa = pg.evaluate("[document.querySelectorAll('.pt-tab').length, document.querySelectorAll('.pt-tab.soon').length, document.querySelectorAll('.pt-card img.cat-thumb').length, window.__vc.save.voxels, window.__vc.cosmeticPrice('spoiler.ducktail').price]")
     pg.click('#buyPart'); time.sleep(1)
     pb = pg.evaluate("[window.__vc.save.voxels, window.__vc.save.partsOwned, window.__vc.save.cars.tuner.parts]")
-    ok('Parts: tabs + close-up cards; buying a GT wing fits it to this car and owns it for all cars', pa[0] == 15 and pa[1] == 10 and pa[2] == 6 and pb[0] == pa[3] - pa[4] and 'spoiler.gt' in pb[1] and pb[2].get('spoiler') == 'spoiler.gt', json.dumps([pa, pb]))
+    ok('Parts: tabs + close-up cards; buying a ducktail fits it to this car and owns it for all cars', pa[0] == 15 and pa[1] == 5 and pa[2] == 5 and pb[0] == pa[3] - pa[4] and 'spoiler.ducktail' in pb[1] and pb[2].get('spoiler') == 'spoiler.ducktail', json.dumps([pa, pb]))
+    # Q117: the boss decal won on the Strip (Nova I) shows in Decals and fits for free; it can't be bought
+    pg.click('[data-slot="decal"]'); time.sleep(1); pg.click('[data-part="decal.boss_A_1"]'); time.sleep(0.5)
+    v0 = pg.evaluate("window.__vc.save.voxels"); pg.click('#fitPart'); time.sleep(1)
+    pd = pg.evaluate("[window.__vc.save.cars.tuner.parts.decal, window.__vc.save.voxels, document.querySelectorAll('.pt-card').length]")
+    ok('Decals: the won Nova I decal fits for free', pd[0] == 'decal.boss_A_1' and pd[1] == v0 and pd[2] == 7, json.dumps(pd))
     pg.click('.cat-under .g-close'); time.sleep(0.3); pg.click('#raceBtn'); time.sleep(0.3)
     pg.click('#streetRace'); pg.wait_for_function("window.__vc.screen === 'race'", timeout=600000)
     rl = pg.evaluate("window.__vc.race.racers[0].stats.redline")

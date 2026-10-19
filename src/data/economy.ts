@@ -74,6 +74,13 @@ export const COSMETIC_PRICES: Record<string, { price: number; currency?: 'vx' | 
   'wheels.steel': { price: 2_000 }, 'wheels.fivespoke': { price: 5_000 }, 'wheels.dish': { price: 5_000 }, 'wheels.multi': { price: 9_000 }, 'wheels.mesh': { price: 11_000 },
   'wheels.twin5': { price: 11_000 }, 'wheels.sixblack': { price: 12_000 }, 'wheels.turbofan': { price: 40, currency: 'crowns' }, 'wheels.gold5': { price: 40, currency: 'crowns' },
   'finish.matte': { price: 8_000 }, 'finish.metallic': { price: 12_000 }, 'finish.pearl': { price: 50, currency: 'crowns' },
+  // v2 (owner Q117). Boss decals are never sold — they are won on the Strip.
+  'decal.side': { price: 3_500 }, 'decal.checker': { price: 4_500 }, 'decal.number': { price: 5_000 }, 'decal.stripes': { price: 9_000 }, 'decal.flames': { price: 35, currency: 'crowns' },
+  'underglow.ice': { price: 9_000 }, 'underglow.green': { price: 9_000 }, 'underglow.violet': { price: 12_000 }, 'underglow.red': { price: 12_000 },
+  'underglow.pink': { price: 12_000 }, 'underglow.white': { price: 12_000 }, 'underglow.split': { price: 40, currency: 'crowns' },
+  'bumper.lip': { price: 4_000 }, 'bumper.aero': { price: 10_000 }, 'bumper.track': { price: 30, currency: 'crowns' },
+  'skirts.black': { price: 3_500 }, 'skirts.painted': { price: 7_000 }, 'skirts.carbon': { price: 25, currency: 'crowns' },
+  'diffuser.fins': { price: 4_000 }, 'diffuser.race': { price: 11_000 },
 };
 export const cosmeticPrice = (id: string) => COSMETIC_PRICES[id] ?? { price: 0 };
 

@@ -9,7 +9,7 @@ import { SpeedBlur, BLUR_LEVELS, BlurLevel, CAR_LAYER } from './speedBlur';
 import { StageDef } from '../data/stages';
 
 /** Where a thumbnail camera points: the whole car, or close-ups for the Parts screen. */
-export type ThumbView = 'front' | 'rear' | 'tail' | 'hood' | 'wheel';
+export type ThumbView = 'front' | 'rear' | 'tail' | 'hood' | 'wheel' | 'side' | 'nose' | 'low' | 'sill' | 'top';
 
 export class World {
   renderer: THREE.WebGLRenderer;
@@ -147,6 +147,7 @@ export class World {
     // views aimed at a part (owner Q113: part cards show a close-up of your car wearing it)
     const hl = car.L / 2, V: Record<ThumbView, [number[], number[]]> = {
       front: [[-74, 36, 57], [6, 4, 0]], rear: [[hl + 44, 36, 40], [hl - 4, 15, 2]], tail: [[hl + 30, 10, 26], [hl, 4, 1]], hood: [[-hl - 30, 46, 34], [-hl + 14, 9, 0]], wheel: [[-hl + 6, 9, 56], [-hl + 12, 5, 8]],
+      side: [[-6, 18, 96], [0, 8, 0]], nose: [[-hl - 40, 14, 44], [-hl + 9, 4, 4]], sill: [[-2, 9, 58], [-1, 3, 0]], top: [[0, 175, 0.01], [0, 0, 0]], low: [[-hl - 40, 14, 52], [-2, 0, 0]],
     };
     const [cp, ct] = V[view];
     if (view === 'front') this.thumbCam.position.set(cp[0], cp[1], cp[2]).normalize().multiplyScalar(100); else this.thumbCam.position.set(cp[0], cp[1], cp[2]);

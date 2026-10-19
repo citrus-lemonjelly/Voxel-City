@@ -1,13 +1,15 @@
 // Headless race simulation: checks timing targets and that transmission tiers behave as designed.
 // Run: npx tsx tests/sim.ts
 import { Race, Racer, Controller } from '../src/game/race';
-import { AIController } from '../src/game/ai';
+import { AIController, makeRng as makeRngT } from '../src/game/ai';
 import { carStats } from '../src/game/stats';
 import { STAGES } from '../src/data/stages';
 import { Tier } from '../src/data/parts';
 import { CARS, CATALOG_ORDER, LEAGUES } from '../src/data/cars';
 import { makeRival, simTime, MATCH } from '../src/game/rivals';
 import { CHANGELOG, VERSION } from '../src/data/changelog';
+import { VISUAL_PARTS, isFactory, randomParts, ownsPart, PART_SLOTS } from '../src/data/visualParts';
+import { COSMETIC_PRICES } from '../src/data/economy';
 // @ts-ignore — node built-in (no @types/node in this repo)
 import { readFileSync } from 'node:fs';
 import { stripRung, stripBand, STRIP, levelReward } from '../src/game/strip';
@@ -168,5 +170,14 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   const pkgVer = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
   check(CHANGELOG.every((v, i) => /^\d+\.\d+\.\d+$/.test(v.version) && (i === 0 || vn(v.version) < vn(CHANGELOG[i - 1].version))) && VERSION === pkgVer,
     `patch notes: ${CHANGELOG.length} versions, newest first; current V${VERSION} = package.json ${pkgVer}`);
+}
+// visual parts v2 (owner Q117/Q118): every sold part has a price, boss decals are never sold, rivals' parts are looks-only picks
+{
+  const sold = VISUAL_PARTS.filter(p => !isFactory(p) && !p.won), won = VISUAL_PARTS.filter(p => p.won);
+  const r1 = randomParts(makeRngT(42)), r2 = randomParts(makeRngT(42));
+  check(sold.every(p => COSMETIC_PRICES[p.id]?.price > 0) && won.every(p => !COSMETIC_PRICES[p.id]) && won.length === 30 && PART_SLOTS.length === 10
+    && ownsPart('decal.boss_D_3', [], ['decal_D_3']) && !ownsPart('decal.boss_D_4', [], ['decal_D_3']) && JSON.stringify(r1) === JSON.stringify(r2)
+    && Object.values(r1).every(v => !String(v).startsWith('boss_')),
+    `visual parts: ${sold.length} for sale (all priced), ${won.length} boss decals (won, never sold), ${PART_SLOTS.length} tabs; rival parts repeatable: ${JSON.stringify(r1)}`);
 }
 process.exit(fail ? 1 : 0);
