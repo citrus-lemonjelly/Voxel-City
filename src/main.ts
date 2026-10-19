@@ -6,13 +6,15 @@ import { CSS } from './ui/styles';
 import { renderResults, ResultData } from './ui/screens';
 import { renderGarage, garageInCatalog, garageOpenStrip } from './ui/garage';
 import { Hud } from './ui/hud';
+import { VERSION } from './data/changelog';
 import { loadSave, writeSave, SaveV1, addCar, switchCar, RaceDist } from './save/save';
 import { STAGES, START_STAGE } from './data/stages';
-import { ECONOMY } from './data/economy';
+import { ECONOMY, DIFFICULTY, racePay, Difficulty, partPrice, cosmeticPrice } from './data/economy';
 import { ENGINE, TRANSMISSION, Tier } from './data/parts';
 import { CARS, carBody, carName, carPaint } from './data/cars';
 import { makeRival, Rival } from './game/rivals';
-import { stripRung, STRIP, Rung, levelReward } from './game/strip';
+import { PART_BY_ID, lookParts } from './data/visualParts';
+import { stripRung, STRIP, Rung, levelReward, decalName } from './game/strip';
 import { Race, Racer, Controller } from './game/race';
 import { AIController } from './game/ai';
 import { carStats } from './game/stats';
@@ -44,17 +46,17 @@ if (params.get('dmin')) { world.camFrame.dMin = +params.get('dmin')!; world.camF
 const stage = STAGES[START_STAGE];
 /** A new random rival for the car + upgrades in use (owner Q87); rolled again after every race or when the car/parts change. */
 let opp: Rival, oppKey = '';
-const rivalKey = () => `${save.carId}:${save.equipped.engine}:${save.equipped.trans}:${save.raceDist}`;
+const rivalKey = () => `${save.carId}:${save.equipped.engine}:${save.equipped.trans}:${save.raceDist}:${save.raceDiff}`;
 function rollRival(force = false) {
   if (!force && oppKey === rivalKey() && opp) return;
   const seed = params.get('rseed') ? +params.get('rseed')! : undefined;                 // test hook: fixed rival
-  opp = makeRival(save.carId, save.equipped.engine, save.equipped.trans, stage, seed, save.raceDist); oppKey = rivalKey();
+  opp = makeRival(save.carId, save.equipped.engine, save.equipped.trans, stage, seed, save.raceDist, DIFFICULTY[save.raceDiff].gap); oppKey = rivalKey();
 }
 rollRival();
 /** The car in use, as the player has painted and optioned it (Q79). */
 const playerLook = (): CarLook => {
   const c = save.cars[save.carId];
-  return { ...STOCK_LOOK, body: carBody(save.carId).profile ?? 'civix', paint: c?.paint || carPaint(save.carId), opts: { ...(c?.opts || {}) } };
+  return { ...STOCK_LOOK, body: carBody(save.carId).profile ?? 'civix', paint: c?.paint || carPaint(save.carId), opts: { ...(c?.opts || {}) }, parts: lookParts(c?.parts) };
 };
 const oppLook = (): CarLook => ({ ...STOCK_LOOK, body: carBody(opp.carId).profile ?? 'civix', paint: opp.paint });
 
@@ -94,7 +96,8 @@ function showGarage(toast?: string) {
   screen = 'garage'; world.mode = 'garage'; rollRival(); if (!garageInCatalog()) world.setGarageCar(playerLook());
   renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onRace: () => startRace(), onStrip: startStrip, stripNext, onClaim: claimLevel, onSetting: setSetting,
     onPreview: look => world.setGarageCar(look ?? playerLook()), onView: v => world.setGarageView(v),
-    onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, onDistance: setDistance, thumb: look => world.thumbnail(look) }, toast);
+    onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, onBuyPart: buyPart, onFitPart: (id: string) => fitPart(id), onDistance: setDistance, onDifficulty: setDifficulty, thumb: (look, view) => world.thumbnail(look, undefined, undefined, view), playerLook,
+    onNotesSeen: () => { save.seenVersion = VERSION; writeSave(save); } }, toast);
 }
 
 /** Catalog (Q79): buy a car (it comes with the paint/options picked and goes straight into use). */
@@ -111,6 +114,22 @@ function useCar(id: string) {
   switchCar(save, id); writeSave(save);
   showGarage(`Now driving the ${carName(id)}`);
 }
+/** Visual parts (owner 2026-10-19): buy once for every car; fit to the car in use. Factory parts are free. */
+function buyPart(id: string) {
+  const p = PART_BY_ID[id]; if (!p) return;
+  if (!save.partsOwned.includes(id) && p.value !== 'stock' && p.value !== 'gloss') {
+    const c = cosmeticPrice(id), crowns = c.currency === 'crowns', have = crowns ? save.crowns : save.voxels;
+    if (!DEV.unlimited && have < c.price) return showGarage(`Need ${(c.price - have).toLocaleString()} more ${crowns ? 'Crowns' : 'VX'} for ${p.name}`);
+    if (!DEV.unlimited) { if (crowns) save.crowns -= c.price; else save.voxels -= c.price; }
+    save.partsOwned.push(id);
+  }
+  fitPart(id, `Bought ${p.name} — fitted`);
+}
+function fitPart(id: string, msg?: string) {
+  const p = PART_BY_ID[id], c = save.cars[save.carId]; if (!p || !c) return;
+  if (p.value === 'stock' || p.value === 'gloss') delete c.parts[p.slot]; else if (save.partsOwned.includes(id)) c.parts[p.slot] = id; else return;
+  writeSave(save); world.setGarageCar(playerLook()); showGarage(msg ?? `Fitted ${p.name}`);
+}
 /** Paint / body options on an owned car save straight away (visual only). */
 function carStyle(id: string, paint: string, opts: Record<string, string>) {
   const c = save.cars[id]; if (!c) return;
@@ -120,6 +139,7 @@ function carStyle(id: string, paint: string, opts: Record<string, string>) {
 
 /** Street Race length (owner Q100). */
 function setDistance(d: RaceDist) { save.raceDist = d; writeSave(save); showGarage(); }
+function setDifficulty(d: Difficulty) { save.raceDiff = d; writeSave(save); showGarage(); }
 
 function setSetting(key: string, value: string) {
   (save.settings as any)[key] = value; writeSave(save);
@@ -129,6 +149,7 @@ function setSetting(key: string, value: string) {
 }
 
 function buyOrEquip(kind: 'engine' | 'trans', tier: Tier) {
+  if (CARS[save.carId].unique) return showGarage('Boss cars come as they are — they can\'t be upgraded');
   const lg = CARS[save.carId].league, def = (kind === 'engine' ? ENGINE[lg] : TRANSMISSION[lg])[tier - 1];
   let msg: string | undefined;
   if (!save.owned[kind].includes(tier)) {
@@ -151,8 +172,11 @@ function stripNext(): Rung | null {
 function claimLevel(n: number) {
   const lg = CARS[save.carId].league, got = save.stripClaimed[lg] ?? [];
   if (n > (save.strip[lg] ?? 0) || got.includes(n)) return;
-  const r = levelReward(n); save.voxels += r.vx; save.crowns += r.crowns; save.stripClaimed[lg] = [...got, n];
-  writeSave(save); showGarage(`Level ${n} reward: +${r.vx} VX${r.crowns ? ` · +${r.crowns} Crowns` : ''}`);
+  const r = levelReward(lg, n); save.voxels += r.vx + r.cash; save.crowns += r.crowns; save.stripClaimed[lg] = [...got, n];
+  if (r.decal && !save.decals.includes(r.decal)) save.decals.push(r.decal);
+  if (r.car) addCar(save, r.car);
+  writeSave(save);
+  showGarage(`Level ${n} reward: +${(r.vx + r.cash).toLocaleString()} VX${r.crowns ? ` · +${r.crowns} Crowns` : ''}${r.decal ? ` · ${decalName(r.decal)} decal` : ''}${r.car ? ` · ${carName(r.car)} (League ${CARS[r.car].league}) — it's in your Catalog` : ''}`);
 }
 function startStrip() { const r = stripNext(); if (!r) return showGarage('This league\'s Strip is complete'); startRace('strip', r); }
 
@@ -188,17 +212,19 @@ function finishRace() {
   const perfects = me.shifts.filter(s => s.grade === 'Perfect').length;
   const dist = race.distanceM as RaceDist, prevBest = save.best[dist];
   const newBest = prevBest === null || me.finish! < prevBest;
-  const earnings: [string, number][] = [[won ? (rung ? `Strip level ${rung.n} win` : 'Win') : 'Finish', won ? ECONOMY.winPayout : ECONOMY.lossPayout]];
+  // pay: league × difficulty (Strip races pay like a Medium Street Race) — all numbers in data/economy.ts
+  const diff: Difficulty = rung ? 'medium' : save.raceDiff, pay = racePay(CARS[save.carId].league, diff, won);
+  const earnings: [string, number][] = [[won ? (rung ? `Strip level ${rung.n} win` : `${stage.races[diff]} win`) : 'Finish', pay.result]];
   const doneRung = rung;
   if (rung && won) save.strip[rung.league] = Math.max(save.strip[rung.league] ?? 0, rung.n);
-  if (perfects) earnings.push([`Perfect shifts ×${perfects}`, perfects * ECONOMY.perfectShiftBonus]);
-  if (me.launchGrade === 'Perfect') earnings.push(['Perfect launch', ECONOMY.perfectLaunchBonus]);
-  if (newBest) earnings.push(['New best time', ECONOMY.newBestBonus]);
+  if (perfects) earnings.push([`Perfect shifts ×${perfects}`, perfects * pay.perfectShift]);
+  if (me.launchGrade === 'Perfect') earnings.push(['Perfect launch', pay.perfectLaunch]);
+  if (newBest) earnings.push(['New best time', pay.newBest]);
   const total = earnings.reduce((a, [, v]) => a + v, 0);
   save.voxels += total; save.races += 1; save.perfectShifts += perfects; if (won) save.wins += 1; if (newBest) { save.best[dist] = me.finish!; if (dist === 800) save.bestTime = me.finish!; }
   writeSave(save);
-  const lr = doneRung ? levelReward(doneRung.n) : null;
-  const note = doneRung ? `The Strip · League ${doneRung.league} · Level ${doneRung.n} of ${STRIP.rungs}${doneRung.boss ? ' · Boss' : ''} · ${won ? `cleared — claim +${lr!.vx} VX${lr!.crowns ? ` and +${lr!.crowns} Crowns` : ''} in the Strip` : 'same rival next time'}` : undefined;
+  const lr = doneRung ? levelReward(doneRung.league, doneRung.n) : null;
+  const note = doneRung ? `The Strip · League ${doneRung.league} · Level ${doneRung.n} of ${STRIP.rungs}${doneRung.boss ? ' · Boss' : ''} · ${won ? `cleared — claim your reward in the Strip` : 'same rival next time'}` : undefined;
   const data: ResultData = { won, myTime: me.finish!, oppTime: them.finish!, oppName: opp.name, launch: me.launchGrade || 'Bog', shifts: me.shifts.map(s => s.grade), earnings, total, newBest, note };
   rollRival(true);                                                                   // next street race: a new rival
   renderResults(ui, data, { again: doneRung ? () => { garageOpenStrip(); showGarage(); } : () => startRace(), garage: () => showGarage() }, doneRung ? 'The Strip ▸' : 'Race again');
@@ -235,7 +261,7 @@ function pose(playerM: number, oppM: number, speedMs = 30, t = 10) {
   race!.t = t; playerRacer!.x = playerRacer!.px = playerM; oppRacer!.x = oppRacer!.px = oppM; playerRacer!.v = oppRacer!.v = speedMs;
   playerRacer!.launched = oppRacer!.launched = t > 3;
 }
-(window as any).__vc = { get screen() { return screen; }, get opp() { return opp; }, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
+(window as any).__vc = { get screen() { return screen; }, get opp() { return opp; }, cars: CARS, levelReward, partPrice, cosmeticPrice, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
   /** preview hook: rebuild the race HUD with another paddle shape/skin (review renders) */
   hudPreview: (shape: string, skin: string, pedalStyle?: string) => { if (race && playerRacer && oppRacer) { hud = new Hud(ui, race, playerRacer, oppRacer, { oppName: opp.name, paddle: skin, paint: playerLook().paint, showKeyHint: true, paddleShape: shape as any, pedal: (pedalStyle || params.get('pedal') || 'alloy') as any }); hud.update(); } }, startRace, showGarage, buyOrEquip, pose, setCam: (m: string) => (world.camMode = m as any), setSetting, world, setNoRender: (b: boolean) => (NO_RENDER = b), setPaused: (b: boolean) => (paused = b) };
 // test console (owner Q58): ?dev once turns it on for this browser; ` opens it

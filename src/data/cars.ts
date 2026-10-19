@@ -1,3 +1,4 @@
+import { CAR_PRICES } from './economy';
 // Cars are split into a BODY (what it looks like) and a SPEC (how it drives, which league) — owner Q47.
 // One body can have several specs: e.g. a base tuner in D and a turbo version of the same body in B, with small visual
 // tweaks (parts) on top. Pure data — edit numbers here to tune; no game logic lives in this file.
@@ -54,6 +55,10 @@ export interface CarDef {
    *  shift windows). shift = gear-change time × (lower = quicker shifts); window = shift-zone width × (higher = more
    *  forgiving); launch = launch-window width × (higher = easier launch). All default 1. */
   feel?: { shift?: number; window?: number; launch?: number };
+  /** Unique car (not sold): e.g. a Strip boss car won on the final boss level (owner 2026-10-19). */
+  unique?: boolean;
+  /** Shown instead of the body's model name (boss cars: "Rook's Performance hatch"). */
+  displayName?: string;
   /** What the car is best at once upgraded: short dashes (600–700 m), long sprints (800 m), or balanced. */
   character?: 'dash' | 'long' | 'balanced';
 }
@@ -128,17 +133,27 @@ export const CARS: Record<string, CarDef> = {
   tuner:   { id: 'tuner',   bodyId: 'tuner',   league: 'A', price: 20000, massKg: 1500, hp: 737, peakRpmFrac: 0.9,  idleRpm: 950, redline: 8000, finalDrive: 3.6, wheelRadiusM: 0.33, dragArea: 0.58,  rollingCoeff: 0.013, gripG: 2.0,  drivenWeightShare: 0.55, drive: 'RWD', engineGain: 1.155, character: 'long', feel: { shift: 0.95, window: 0.85, launch: 0.8 } },
   // League S — hypercars
   hyper:   { id: 'hyper',   bodyId: 'hyper',   league: 'S', price: 60000, massKg: 1450, hp: 1687, peakRpmFrac: 0.88, idleRpm: 1000, redline: 8500, finalDrive: 3.4, wheelRadiusM: 0.34, dragArea: 0.6, rollingCoeff: 0.012, gripG: 1.75, drivenWeightShare: 1.0, drive: 'RWD', engineGain: 1, character: 'balanced', feel: { shift: 0.7, window: 0.8, launch: 1.0 } },
+  // Strip boss cars (owner 2026-10-19): won on a league's final boss level. Unique, never sold; they belong to the NEXT
+  // league with a head start (quicker stock than anything there) but can't be upgraded, so upgraded cars soon outmatch them.
+  boss_d: { id: 'boss_d',  bodyId: 'perfhatch',  league: 'C', price: 0,  massKg: 1280, hp: 394, peakRpmFrac: 0.86, idleRpm: 900, redline: 6900, finalDrive: 4.2, wheelRadiusM: 0.30, dragArea: 0.6, rollingCoeff: 0.013, gripG: 1.0,  drivenWeightShare: 0.62, drive: 'FWD', engineGain: 0.2, character: 'long', feel: { shift: 0.9, window: 0.9, launch: 0.9 }, unique: true, paint: '#1a1a1e', displayName: "Rook's Performance hatch" },
+  boss_c: { id: 'boss_c',  bodyId: 'muscle',  league: 'B', price: 0, massKg: 1850, hp: 774, peakRpmFrac: 0.75, idleRpm: 700, redline: 6400, finalDrive: 3.2, wheelRadiusM: 0.35, dragArea: 0.68, rollingCoeff: 0.013, gripG: 1.3,  drivenWeightShare: 0.55, drive: 'RWD', engineGain: 0.2, character: 'long', feel: { shift: 1.15, window: 1.2, launch: 0.8 }, unique: true, paint: '#b8901c', displayName: "Brass's Muscle coupe" },
+  boss_b: { id: 'boss_b',   bodyId: 'rally',   league: 'A', price: 0, massKg: 1500, hp: 817, peakRpmFrac: 0.8,  idleRpm: 900, redline: 7200, finalDrive: 4.1, wheelRadiusM: 0.33, dragArea: 0.68, rollingCoeff: 0.014, gripG: 1.1, drivenWeightShare: 1.0, drive: 'AWD', engineGain: 0.2, character: 'dash', feel: { shift: 0.85, window: 1.0, launch: 1.3 }, unique: true, paint: '#2f9a5a', displayName: "Viper's Rally sedan" },
+  boss_a: { id: 'boss_a',   bodyId: 'tuner',   league: 'S', price: 0, massKg: 1300, hp: 1681, peakRpmFrac: 0.9,  idleRpm: 950, redline: 8800, finalDrive: 3.2, wheelRadiusM: 0.33, dragArea: 0.52,  rollingCoeff: 0.013, gripG: 1.75,  drivenWeightShare: 1.0, drive: 'AWD', engineGain: 0.2, character: 'long', feel: { shift: 0.95, window: 0.85, launch: 0.8 }, unique: true, paint: '#6a3ad2', displayName: "Nova's Tuner coupe" },
+  boss_s: { id: 'boss_s',   bodyId: 'hyper',   league: 'S', price: 0, massKg: 1450, hp: 1802, peakRpmFrac: 0.88, idleRpm: 1000, redline: 8500, finalDrive: 3.4, wheelRadiusM: 0.34, dragArea: 0.6, rollingCoeff: 0.012, gripG: 1.75, drivenWeightShare: 1.0, drive: 'RWD', engineGain: 0.2, character: 'balanced', feel: { shift: 0.7, window: 0.8, launch: 1.0 }, unique: true, paint: '#eeeae0', displayName: "Apex's Hypercar" },
 };
+// Prices come from the economy file (one place to change them — owner 2026-10-19).
+for (const [id, p] of Object.entries(CAR_PRICES)) if (CARS[id]) { CARS[id].price = p.price; if (p.currency) CARS[id].currency = p.currency; }
 export const LEAGUES: League[] = ['D', 'C', 'B', 'A', 'S'];
-/** Catalog order: by league, then Voxel cars cheapest first, then Crowns-only cars. */
-export const CATALOG_ORDER = Object.keys(CARS).sort((a, b) => LEAGUES.indexOf(CARS[a].league) - LEAGUES.indexOf(CARS[b].league)
+/** Catalog order: by league, then Voxel cars cheapest first, then Crowns-only cars. Unique cars (boss cars) are left out —
+ *  the Catalog shows them only once you own one. */
+export const CATALOG_ORDER = Object.keys(CARS).filter(id => !CARS[id].unique).sort((a, b) => LEAGUES.indexOf(CARS[a].league) - LEAGUES.indexOf(CARS[b].league)
   || +(CARS[a].currency === 'crowns') - +(CARS[b].currency === 'crowns') || CARS[a].price - CARS[b].price);
 
 export const STARTER_CAR = 'panda_civix';
 
 /** Helpers so screens never have to know about the split. */
 export const carBody = (carId: string): BodyDef => BODIES[CARS[carId].bodyId];
-export const carName = (carId: string): string => { const c = CARS[carId], b = BODIES[c.bodyId]; return c.variant ? `${b.model} ${c.variant}` : b.model; };
+export const carName = (carId: string): string => { const c = CARS[carId], b = BODIES[c.bodyId]; return c.displayName ?? (c.variant ? `${b.model} ${c.variant}` : b.model); };
 export const carBrand = (carId: string): string => carBody(carId).brand;
 export const carPaint = (carId: string): string => CARS[carId].paint ?? carBody(carId).paint;
 export const carParts = (carId: string): Record<string, string | null> => ({ ...carBody(carId).stockParts, ...(CARS[carId].partOverrides || {}) });

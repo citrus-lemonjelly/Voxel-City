@@ -2,7 +2,7 @@
 // Car-local frame (docs/PART_SLOTS.md): x = length (front at 0, car faces −x), y = up (ground 0), z = width.
 // Body at car density; wheels at 2× (half-size blocks, decision A15). Every part slot takes a variant id.
 import * as THREE from 'three';
-import { Vox, Role, Materials, mergedVoxMeshes } from './voxel';
+import { Vox, Role, Materials, mergedVoxMeshes, finishMaterial } from './voxel';
 
 export const PAL = {
   glass: '#10232b', streak: '#2c4a55', frame: '#1a1a1e', trimLight: '#bcd5c2', dark: '#1a1a1e', darkGrey: '#2e3036', midGrey: '#5a5e66',
@@ -14,6 +14,8 @@ export interface CarLook {
   paint: string; head: string; tail: string; grille: string; wing: string | null; exhaust: string; rim: string;
   /** Body to build (S28): omitted / 'civix' = the Panda Civix; otherwise a profile from bodies.ts. */
   body?: string;
+  /** Fitted visual parts by slot (owner 2026-10-19): spoiler / exhaust / hood / wheels / finish values; 'stock' or missing = factory. */
+  parts?: Partial<Record<'spoiler' | 'exhaust' | 'hood' | 'wheels' | 'finish', string>>;
   /** Selectable body features (e.g. popups: 'up', wing: 'off') — visual only. */
   opts?: Record<string, string>;
 }
@@ -31,8 +33,19 @@ const yBot = 2;
 
 export interface WheelVox { cx: number; side: 0 | 1; items: Vox[] }
 
-export function buildCarVoxels(look: CarLook): BuiltCar {
-  if (look.body && look.body !== 'civix' && bodyBuilder) { const b = bodyBuilder(look); if (b) return b; }
+/** Civix: turn fitted parts into its own slot values (the profile bodies do the same in bodies.ts → profileFor). */
+const CIVIX_WING: Record<string, string | null> = { none: null, lip: 'lip', ducktail: 'ducktail', roof: 'roof', gt: 'gt1x' };
+const CIVIX_EXHAUST: Record<string, string> = { dual: 'x1', single: 'x2', split: 'split', quad: 'quad', twinCentre: 'twinCentre' };
+export const HOOD_CARBON = (x: number, z: number) => ((x + z) % 2 ? '#1c1d21' : '#2c2e34');
+function civixLook(look: CarLook): CarLook & { hood?: string } {
+  const p = look.parts || {}, on = (v?: string) => v && v !== 'stock';
+  return { ...look, wing: on(p.spoiler) ? CIVIX_WING[p.spoiler!] ?? look.wing : look.wing, exhaust: on(p.exhaust) ? CIVIX_EXHAUST[p.exhaust!] ?? look.exhaust : look.exhaust,
+    rim: on(p.wheels) ? p.wheels! : look.rim, hood: on(p.hood) ? p.hood : undefined };
+}
+
+export function buildCarVoxels(lookIn: CarLook): BuiltCar {
+  if (lookIn.body && lookIn.body !== 'civix' && bodyBuilder) { const b = bodyBuilder(lookIn); if (b) return b; }
+  const look = civixLook(lookIn);
   const body: Vox[] = [];
   const put = (x: number, y: number, z: number, c: string | null, role: Role = 'trim', shade = 'mid') => body.push({ x, y: y + BODY_DY, z, c, role, s: 1, shade });
   const put2 = (x: number, y: number, z: number, c: string | null, role: Role = 'trim') => body.push({ x, y: y + 2 * BODY_DY, z, c, role, s: 0.5 });
@@ -85,6 +98,7 @@ export function buildCarVoxels(look: CarLook): BuiltCar {
       if (up) shade = 'light'; else if (y <= 3) shade = 'dark';
       if (y === yBot && side) { role = 'trim'; c = PAL.trimLight; }
       if ((x === 0 || x === L - 1) && y <= 4) { role = 'trim'; c = PAL.darkGrey; }
+      if (look.hood === 'carbon' && up && x >= 2 && x <= 15 && z > 0 && z < W - 1) { role = 'trim'; c = HOOD_CARBON(x, z); }
     }
     if (role === 'paint' && side && part === 'lower' && (x === 24 || x === 37) && y > yBot && y < 11) { role = 'trim'; c = '#0d0d10'; }
     if (role === 'paint' && side && x === 34 && y === 9) { role = 'trim'; c = PAL.darkGrey; }
@@ -129,8 +143,14 @@ export function buildCarVoxels(look: CarLook): BuiltCar {
     put(-1, y, z, c);
   }
   for (let z = 6; z < W - 6; z++) put(-1, 2, z, look.grille === 'open' ? PAL.lightGrey : PAL.dark);
+  // ---- slot: hood (parts) ----
+  const mid = Math.floor(W / 2);
+  if (look.hood === 'scoop') for (let x = 5; x <= 12; x++) for (let z = mid - 3; z < mid + 3; z++) put(x, lowerTop(x), z, x === 5 ? PAL.dark : null, x === 5 ? 'trim' : 'paint', 'light');
+  if (look.hood === 'bulge') for (let x = 4; x <= 14; x++) for (let z = mid - 5; z < mid + 5; z++) put(x, lowerTop(x), z, null, 'paint', 'light');
+  if (look.hood === 'vents') for (let x = 6; x <= 12; x += 2) for (const [a, b] of [[4, 9], [W - 9, W - 4]]) for (let z = a; z < b; z++) put(x, lowerTop(x), z, PAL.dark);
   // ---- slot: wing ----
   const tz = 12;
+  if (look.wing === 'lip') for (let z = 2; z < W - 2; z++) put(L - 1, 11, z, PAL.dark);
   if (look.wing === 'roof') { for (let x = 44; x <= 48; x++) for (let z = 3; z < W - 3; z++) put(x, ROOF, z, null, 'paint', 'light'); for (let z = 3; z < W - 3; z++) { put(49, ROOF, z, PAL.dark); put(49, ROOF - 1, z, PAL.dark); } }
   if (look.wing === 'ducktail') for (let z = 2; z < W - 2; z++) { put(L - 1, 11, z, null, 'paint', 'light'); put(L, 11, z, null, 'paint', 'light'); put(L, 12, z, null, 'paint', 'light'); }
   if (look.wing === 'gt1x') {
@@ -146,6 +166,8 @@ export function buildCarVoxels(look: CarLook): BuiltCar {
   }
   // ---- slot: exhaust ----
   if (look.exhaust === 'x1') for (const z of [W - 7, W - 6]) { put(L, 3, z, PAL.chrome); put(L + 1, 3, z, PAL.midGrey); }
+  const pipes = look.exhaust === 'split' ? [4, W - 5] : look.exhaust === 'quad' ? [3, 4, W - 5, W - 4] : look.exhaust === 'twinCentre' ? [mid - 3, mid - 2, mid + 1, mid + 2] : [];
+  for (const z of pipes) for (const y of look.exhaust === 'twinCentre' ? [3, 4] : [3]) { put(L, y, z, PAL.chrome); put(L + 1, y, z, PAL.midGrey); }
   if (look.exhaust === 'x2') { const zc = (W - 6) * 2; for (let z = zc - 3; z < zc + 3; z++) for (let y = 4; y < 9; y++) { const d = Math.hypot((z + .5 - zc) / 1.3, y + .5 - 6.5); if (d < 2.3) put2(L * 2 + 1, y, z, d < 1.3 ? '#0d0d10' : PAL.chrome); } }
 
   return { body, wheels: buildWheels(look.rim), wheelY: WHEEL_Y, L, W };
@@ -232,7 +254,8 @@ export class CarModel {
     const { body, wheels, wheelY, L: bl, W: bw } = buildCarVoxels(look);
     this.L = bl; this.W = bw;
     const paint = new THREE.Color(look.paint);
-    this.group.add(mergedVoxMeshes(body, mats, v => paint.clone().multiplyScalar(SHADE[v.shade || 'mid'] || 1)));
+    const fin = look.parts?.finish, bodyMats = fin && fin !== 'gloss' && fin !== 'stock' ? { ...mats, paintV: finishMaterial(fin) } : mats;
+    this.group.add(mergedVoxMeshes(body, bodyMats, v => paint.clone().multiplyScalar(SHADE[v.shade || 'mid'] || 1)));
     this.discMat = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, flatShading: true, roughness: 0.6, transparent: true, opacity: 0, depthWrite: false, envMapIntensity: 0.25 });
     for (const w of wheels) {
       const pivot = new THREE.Group();

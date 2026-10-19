@@ -1,6 +1,6 @@
 {
   "name": "voxel-city",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Voxel City — voxel drag racing (Step 1: playable race slice)",
   "type": "module",

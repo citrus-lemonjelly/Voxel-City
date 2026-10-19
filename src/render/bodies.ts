@@ -4,7 +4,7 @@
 // (carBuilder.ts): 1 block everywhere, wheels at 2× (A15), paint/trim/glass/light roles, part slots at fixed faces.
 // Car-local frame: x = length (front at 0, the car faces −x), y = up, z = width (z = 0 is the camera side).
 import { Vox, Role } from './voxel';
-import { PAL, buildWheels, WheelVox, CarLook, setBodyBuilder } from './carBuilder';
+import { PAL, buildWheels, WheelVox, CarLook, setBodyBuilder, HOOD_CARBON } from './carBuilder';
 
 export type HeadStyle = 'rect' | 'slim' | 'quad' | 'round' | 'wrap' | 'split' | 'bar' | 'notch' | 'popup' | 'popupUp' | 'blade';
 export type TailStyle = 'rect' | 'bar' | 'quad' | 'blade' | 'tall';
@@ -60,6 +60,8 @@ export interface BodyProfile {
   diffuser?: boolean;
   /** roof = hot-hatch spoiler on the back edge of the roof */
   wing?: 'ducktail' | 'gt' | 'lip' | 'roof' | 'none';
+  /** hood part (owner 2026-10-19): vents / power bulge / carbon panel (the scoop uses `scoop`) */
+  hood?: 'vents' | 'bulge' | 'carbon';
   /** contrast roof colour (city cars: white / black roof) */
   roofColor?: string;
   quadExhaust?: boolean;
@@ -115,6 +117,9 @@ export function buildBodyVoxels(P: BodyProfile): { body: Vox[]; wheels: WheelVox
     const gt = gTop(x);
     for (let y = t; y < gt; y++) { const inset = y >= roofY - 2 ? P.roofInset : P.greenInset; for (let z = inset; z < W - inset; z++) shell.set(key(x, y, z), 'green'); }
   }
+  // hood parts: vents (two rows of fins) and a raised centre bulge, along the hood (x 3 … windscreen)
+  const hx1 = P.green[0][0] - 2;
+  if (P.hood === 'bulge') for (let x = 4; x <= hx1; x++) for (let z = Math.floor(W / 2) - 5; z < Math.floor(W / 2) + 5; z++) shell.set(key(x, lowerTop(x), z), 'lower');
   // hood scoop: a raised block on the hood centre line, open (dark) at the front
   if (P.scoop) for (let x = P.scoop[0]; x <= P.scoop[1]; x++) for (let z = Math.floor(W / 2) - 3; z < Math.floor(W / 2) + 3; z++) shell.set(key(x, lowerTop(x), z), 'lower');
   const has = (x: number, y: number, z: number) => shell.has(key(x, y, z));
@@ -148,6 +153,7 @@ export function buildBodyVoxels(P: BodyProfile): { body: Vox[]; wheels: WheelVox
       if (up) shade = 'light'; else if (y <= yBot + 1) shade = 'dark';
       if (P.crease && side && y === t - P.crease) shade = 'light';                 // body line catches the light
       if (y === yBot && side) { role = 'trim'; c = P.rocker; }
+      if (P.hood === 'carbon' && up && x >= 2 && x < P.green[0][0] - 1 && z > 0 && z < W - 1) { role = 'trim'; c = HOOD_CARBON(x, z); }
       if (P.cladding && side) {                                                    // black plastic sills + arch surrounds
         const nearArch = P.wheels.some(wc => { const d = Math.hypot(x + .5 - wc, y + .5 - wheelY); return d < archR + 1.6; });
         if (y <= yBot + 1 || nearArch) { role = 'trim'; c = '#26272b'; }
@@ -175,6 +181,7 @@ export function buildBodyVoxels(P: BodyProfile): { body: Vox[]; wheels: WheelVox
     if (d < archR || d > archR + 1.6 || y >= sideTop(x)) continue;
     for (let f = 1; f <= P.flares; f++) { put(x, y, -f, null, 'paint', f === P.flares ? 'mid' : 'light'); put(x, y, W - 1 + f, null, 'paint', 'mid'); }
   }
+  if (P.hood === 'vents') for (let x = 6; x <= hx1 - 2; x += 2) for (const [a, b] of [[4, 9], [W - 9, W - 4]]) for (let z = a; z < b; z++) put(x, lowerTop(x), z, PAL.dark);
   // mirrors at the foot of the A-pillar
   if (P.mirrors) { const mx = P.green[0][0] + 3, my = lowerTop(mx); for (const z of [-1, -2, W, W + 1]) { put(mx, my, z, PAL.dark); if (P.mirrorColor) put(mx, my + 1, z, P.mirrorColor); else put(mx, my + 1, z, null, 'paint', z === -2 || z === W + 1 ? 'mid' : 'light'); } }
   // ---- front: headlights, grille, plate ----
@@ -410,19 +417,10 @@ BODY_PROFILES.tuner_up = { ...BODY_PROFILES.tuner, id: 'tuner_up', name: 'Tuner 
 /** Selectable features per body, shown in the Catalog (owner Q76) — visual only. First value = default. */
 export interface BodyOption { id: string; label: string; values: [string, string][] }
 export const BODY_OPTIONS: Record<string, BodyOption[]> = {
-  tuner: [{ id: 'popups', label: 'Pop-up lamps', values: [['down', 'Down'], ['up', 'Up']] }, { id: 'wing', label: 'Rear wing', values: [['on', 'GT wing'], ['off', 'None']] }],
-  hyper: [{ id: 'wing', label: 'Rear wing', values: [['on', 'GT wing'], ['off', 'None']] }],
-  rally: [{ id: 'wing', label: 'Rear wing', values: [['on', 'Tall wing'], ['off', 'None']] }],
-  muscle: [{ id: 'wing', label: 'Spoiler', values: [['on', 'Ducktail'], ['off', 'None']] }],
-  pony: [{ id: 'wing', label: 'Spoiler', values: [['on', 'Ducktail'], ['off', 'None']] }],
-  sedan: [{ id: 'wing', label: 'Spoiler', values: [['on', 'Lip'], ['off', 'None']] }],
-  compact: [{ id: 'wing', label: 'Spoiler', values: [['on', 'Lip'], ['off', 'None']] }],
-  classic: [{ id: 'wing', label: 'Roof spoiler', values: [['on', 'On'], ['off', 'None']] }],
-  premium: [{ id: 'spoiler', label: 'Roof spoiler', values: [['off', 'None'], ['on', 'On']] }],
+  // spoilers moved to the Parts screen (owner 2026-10-19); these are the body's own built-in features
+  tuner: [{ id: 'popups', label: 'Pop-up lamps', values: [['down', 'Down'], ['up', 'Up']] }],
   city: [{ id: 'roof', label: 'Roof', values: [['white', 'White'], ['black', 'Black'], ['body', 'Body colour']] }],
-  supermini: [{ id: 'roof', label: 'Roof', values: [['body', 'Body colour'], ['black', 'Black'], ['white', 'White']] }, { id: 'wing', label: 'Roof spoiler', values: [['on', 'On'], ['off', 'None']] }],
-  sporthatch: [{ id: 'wing', label: 'Roof spoiler', values: [['on', 'On'], ['off', 'None']] }],
-  perfhatch: [{ id: 'wing', label: 'Roof spoiler', values: [['on', 'On'], ['off', 'None']] }],
+  supermini: [{ id: 'roof', label: 'Roof', values: [['body', 'Body colour'], ['black', 'Black'], ['white', 'White']] }],
 };
 const ROOF: Record<string, string | undefined> = { white: '#eeeae0', black: '#1a1a1e', body: undefined };
 
@@ -436,6 +434,12 @@ export function profileFor(look: CarLook): BodyProfile | null {
   if (o.wing === 'off') P = { ...P, wing: 'none' };
   if (o.spoiler === 'on') P = { ...P, wing: 'roof' };
   if (o.rim) P = { ...P, rim: o.rim };
+  // fitted visual parts (owner 2026-10-19) — 'stock' keeps the body's own
+  const parts = look.parts || {}, on = (v?: string) => !!v && v !== 'stock';
+  if (on(parts.spoiler)) P = { ...P, wing: parts.spoiler as BodyProfile['wing'] };
+  if (on(parts.exhaust)) P = { ...P, exhaust: parts.exhaust as BodyProfile['exhaust'], quadExhaust: false };
+  if (on(parts.wheels)) P = { ...P, rim: parts.wheels! };
+  if (on(parts.hood)) { const hx1 = P.green[0][0] - 3; P = parts.hood === 'scoop' ? { ...P, scoop: [5, Math.max(8, hx1 - 2)], hood: undefined } : { ...P, hood: parts.hood as BodyProfile['hood'], scoop: undefined }; }
   if (o.roof && o.roof in ROOF) { const rc = ROOF[o.roof]; P = { ...P, roofColor: rc, mirrorColor: base.mirrorColor === base.roofColor ? (rc ?? undefined) : P.mirrorColor }; }
   return P;
 }

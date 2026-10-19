@@ -8,6 +8,8 @@ export interface StageDef {
   sky: string;
   buildingColours: string[];
   timeOfDay: 'day' | 'dusk' | 'night';   // default; the player's Settings choice overrides it during previews
+  /** Street Race names on this scene, by difficulty (owner 2026-10-19: "named per scene"). Placeholders until approved. */
+  races: { easy: string; medium: string; hard: string };
 }
 
 export const STAGES: Record<string, StageDef> = {
@@ -20,6 +22,7 @@ export const STAGES: Record<string, StageDef> = {
     sky: '#9fc7e8',
     buildingColours: ['#8e9bb3', '#a7a39a', '#7d8794', '#b8b2a6', '#6f7a8c', '#c7c0b2'],
     timeOfDay: 'day',
+    races: { easy: 'Corner Store Run', medium: 'Downtown Dash', hard: 'Gridlock' },
   },
 };
 export const START_STAGE = 'downtown_grid';

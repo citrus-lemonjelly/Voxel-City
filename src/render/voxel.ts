@@ -24,6 +24,20 @@ export function makeMaterials() {
 }
 export type Materials = ReturnType<typeof makeMaterials>;
 
+/** Paint finishes (visual part, owner 2026-10-19): gloss is the default paint material; the others are variants of it. */
+const finishCache = new Map<string, THREE.Material>();
+export function finishMaterial(finish: string): THREE.Material {
+  const hit = finishCache.get(finish); if (hit) return hit;
+  const base = { color: '#ffffff', vertexColors: true, flatShading: true, envMapIntensity: 0.25 } as const;
+  const opts: Record<string, any> = {
+    matte: { ...base, roughness: 0.95, clearcoat: 0, envMapIntensity: 0.1 },
+    metallic: { ...base, roughness: 0.32, metalness: 0.55, clearcoat: 0.6, clearcoatRoughness: 0.2, envMapIntensity: 0.55 },
+    pearl: { ...base, roughness: 0.3, clearcoat: 0.9, clearcoatRoughness: 0.1, iridescence: 0.8, iridescenceIOR: 1.6, envMapIntensity: 0.6, sheen: 0.4, sheenColor: '#d8e4ff' },
+  };
+  const m = blockify(new THREE.MeshPhysicalMaterial(opts[finish] ?? { ...base, roughness: 0.5, clearcoat: 0.35, clearcoatRoughness: 0.3 }), CAR_SHADE);
+  finishCache.set(finish, m); return m;
+}
+
 /** Build instanced meshes for a list of voxels. Fully enclosed same-size voxels are culled. */
 export function buildVoxMeshes(items: Vox[], mats: Materials, paintColour: (v: Vox) => THREE.Color, offset = { x: 0, y: 0, z: 0 }): THREE.Group {
   const g = new THREE.Group();

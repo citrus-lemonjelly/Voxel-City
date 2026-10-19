@@ -8,6 +8,9 @@ import { Sky, SKY } from './sky';
 import { SpeedBlur, BLUR_LEVELS, BlurLevel, CAR_LAYER } from './speedBlur';
 import { StageDef } from '../data/stages';
 
+/** Where a thumbnail camera points: the whole car, or close-ups for the Parts screen. */
+export type ThumbView = 'front' | 'rear' | 'tail' | 'hood' | 'wheel';
+
 export class World {
   renderer: THREE.WebGLRenderer;
   mats: Materials;
@@ -121,8 +124,8 @@ export class World {
   private thumbScene?: THREE.Scene;
   private thumbCam = new THREE.PerspectiveCamera(24, 2, 1, 1000);
   /** A still picture of a car (PNG data URL), rendered once with the game renderer and cached by look + size. */
-  thumbnail(look: CarLook, w = 296, h = 124): string {
-    const key = JSON.stringify(look) + `@${w}x${h}`;
+  thumbnail(look: CarLook, w = 296, h = 124, view: ThumbView = 'front'): string {
+    const key = JSON.stringify(look) + `@${w}x${h}:${view}`;
     const hit = this.thumbs.get(key); if (hit) return hit;
     if (!this.thumbScene) {
       const s = this.thumbScene = new THREE.Scene();
@@ -141,7 +144,13 @@ export class World {
     this.thumbScene.add(car.group);
     // same three-quarter front view as the garage, one fixed distance so sizes compare honestly between cars
     this.thumbCam.aspect = w / h; this.thumbCam.updateProjectionMatrix();
-    this.thumbCam.position.set(-0.74, 0.36, 0.57).normalize().multiplyScalar(100); this.thumbCam.lookAt(6, 4, 0);
+    // views aimed at a part (owner Q113: part cards show a close-up of your car wearing it)
+    const hl = car.L / 2, V: Record<ThumbView, [number[], number[]]> = {
+      front: [[-74, 36, 57], [6, 4, 0]], rear: [[hl + 44, 36, 40], [hl - 4, 15, 2]], tail: [[hl + 30, 10, 26], [hl, 4, 1]], hood: [[-hl - 30, 46, 34], [-hl + 14, 9, 0]], wheel: [[-hl + 6, 9, 56], [-hl + 12, 5, 8]],
+    };
+    const [cp, ct] = V[view];
+    if (view === 'front') this.thumbCam.position.set(cp[0], cp[1], cp[2]).normalize().multiplyScalar(100); else this.thumbCam.position.set(cp[0], cp[1], cp[2]);
+    this.thumbCam.lookAt(ct[0], ct[1], ct[2]);
     const r = this.renderer, pr = r.getPixelRatio(), full = r.getSize(new THREE.Vector2());
     r.setScissorTest(true); r.setViewport(0, 0, w, h); r.setScissor(0, 0, w, h);
     r.render(this.thumbScene, this.thumbCam);

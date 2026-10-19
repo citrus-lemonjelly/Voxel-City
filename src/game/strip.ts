@@ -9,22 +9,38 @@ import { StageDef } from '../data/stages';
 import { makeRng } from './ai';
 import { Rival, rivalNear, simTime, MATCH } from './rivals';
 import { Tier } from '../data/parts';
+import { STRIP_REWARDS, LEAGUE_SCALE } from '../data/economy';
 
 export const STRIP = { rungs: 60, bossEvery: 10, dists: [800, 600, 700] as const,
   /** easiest rung: this much slower than the league's slowest stock car (perfect run) */ easyPad: 0.8,
   /** the final rival: league's quickest car at T5/T5 with this driving skill and reaction off the green (s) */ final: { reaction: [0.18, 0.21] as [number, number], /** a perfect run in the best car wins by at least this (s) */ margin: 0.02 },
   curve: 1.15,
-  /** one-time level rewards, claimed in the Strip screen (owner): level 1 = 100 VX, +10 VX a level; every 10th level +5 Crowns */
-  reward: { firstVx: 100, perLevelVx: 10, crownsEvery: 10, crowns: 5 } };
+};
 
-export interface StripReward { vx: number; crowns: number }
-export const levelReward = (n: number): StripReward => ({ vx: STRIP.reward.firstVx + STRIP.reward.perLevelVx * (n - 1), crowns: n % STRIP.reward.crownsEvery === 0 ? STRIP.reward.crowns : 0 });
+/** One-time level reward (numbers in data/economy.ts): VX every level; boss levels add Crowns, a lump sum, a universal decal,
+ *  and the final boss level adds the boss car. */
+export interface StripReward { vx: number; crowns: number; cash: number; decal?: string; car?: string }
+export const BOSS_CARS: Record<League, string> = { D: 'boss_d', C: 'boss_c', B: 'boss_b', A: 'boss_a', S: 'boss_s' };
+const R10 = (n: number) => Math.round(n / 10) * 10;
+export function levelReward(league: League, n: number): StripReward {
+  const k = LEAGUE_SCALE[league], R = STRIP_REWARDS, boss = n % STRIP.bossEvery === 0, b = n / STRIP.bossEvery;
+  const r: StripReward = { vx: R10((R.firstVx + R.perLevelVx * (n - 1)) * k), crowns: 0, cash: 0 };
+  if (boss) {
+    r.crowns = R.boss.crowns; r.cash = R10(R.boss.cashPerBoss * b * k);
+    if (R.boss.decal) r.decal = `decal_${league}_${b}`;
+    if (R.boss.carOnFinal && n === STRIP.rungs) r.car = BOSS_CARS[league];
+  }
+  return r;
+}
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+/** Name of a boss decal (decal_D_3 → "Rook III"). */
+export const decalName = (id: string) => { const [, lg, b] = id.split('_'); return `${BOSSES[lg as League].name} ${ROMAN[+b - 1] ?? b}`; };
 const NAMES = ['Lux', 'Juno', 'Dax', 'Priya', 'Mateo', 'Sable', 'Oren', 'Tamsin', 'Bodie', 'Nia', 'Kaito', 'Rhea', 'Cruz', 'Ines', 'Wren', 'Zeke', 'Amara', 'Fitz', 'Noor', 'Ozzie', 'Lena', 'Rafe', 'Suki', 'Teo', 'Yara', 'Halden', 'Vee', 'Kenji', 'Marisol', 'Rico'];
 /** Cheap facts about a level (no simulation): for the scroller cards. */
 export interface LevelInfo { n: number; league: League; dist: number; boss: boolean; reward: StripReward; name: string }
 export function levelInfo(league: League, n: number): LevelInfo {
   const boss = n % STRIP.bossEvery === 0, rng = makeRng(0x9a11 + n * 31337 + league.charCodeAt(0) * 7);
-  return { n, league, dist: STRIP.dists[(n - 1) % STRIP.dists.length], boss, reward: levelReward(n), name: boss ? BOSSES[league].name : NAMES[Math.floor(rng() * NAMES.length) % NAMES.length] };
+  return { n, league, dist: STRIP.dists[(n - 1) % STRIP.dists.length], boss, reward: levelReward(league, n), name: boss ? BOSSES[league].name : NAMES[Math.floor(rng() * NAMES.length) % NAMES.length] };
 }
 
 const BOSSES: Record<League, { name: string; paint: string }> = {

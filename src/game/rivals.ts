@@ -52,9 +52,10 @@ export function rivalNear(league: string, target: number, floor: number, stage: 
 }
 
 /** Street Race rival: close to YOUR perfect run with the car + upgrades you have now. */
-export function makeRival(carId: string, eng: Tier, trans: Tier, stage: StageDef, seed = (Date.now() & 0x7fffffff) || 1, distanceM = stage.distanceM): Rival {
+export function makeRival(carId: string, eng: Tier, trans: Tier, stage: StageDef, seed = (Date.now() & 0x7fffffff) || 1, distanceM = stage.distanceM,
+  gap: [number, number] = [MATCH.minGap, MATCH.maxGap]): Rival {
   const rng = makeRng(seed);
   const yours = simTime(carId, eng, trans, stage, 1, [MATCH.reaction, MATCH.reaction], 7, distanceM);
-  const target = yours + MATCH.minGap + rng() * (MATCH.maxGap - MATCH.minGap);
-  return rivalNear(CARS[carId].league, target, yours + MATCH.minGap, stage, distanceM, rng, yours);
+  const target = yours + gap[0] + rng() * (gap[1] - gap[0]);                    // difficulty sets the window (Easy / Medium / Hard)
+  return rivalNear(CARS[carId].league, target, yours + gap[0], stage, distanceM, rng, yours);
 }

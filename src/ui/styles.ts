@@ -57,6 +57,19 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .g-tab:hover{color:#fff;box-shadow:0 0 0 2px #5a5f6d}
 .g-tab.on{background:#2f3442;color:#fff;box-shadow:0 0 0 2px var(--accent)}
 .g-racebtn{position:absolute;right:28px;bottom:22px;font-size:30px!important;padding:20px 34px!important}
+/* patch notes (owner 2026-10-19): small paper button bottom-left, panel opens above it */
+.g-notesbtn{position:absolute;left:28px;bottom:22px;border:0;cursor:pointer;width:62px;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#14161cd8;color:#cfd3dc;box-shadow:0 0 0 3px var(--edge),4px 4px 0 3px #0b0c10;font:800 10px "Courier New",monospace;letter-spacing:.04em}
+.g-notesbtn:hover{color:#fff;box-shadow:0 0 0 3px #5a5f6d,4px 4px 0 3px #0b0c10}
+.g-notesbtn.on{color:#fff;box-shadow:0 0 0 3px var(--accent),4px 4px 0 3px #0b0c10}
+.g-new{position:absolute;top:-9px;right:-12px;font:900 9px system-ui;letter-spacing:.08em;text-transform:uppercase;font-style:normal;padding:2px 5px;background:var(--accent);color:#14161c;box-shadow:0 0 0 2px #b8901c}
+.catalog-mode .g-notesbtn,.strip-mode .g-notesbtn{display:none}
+.g-panel.g-notes{left:28px;right:auto;top:160px;bottom:106px;width:470px;gap:10px}
+.pn-ver{padding:12px 14px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge)}
+.pn-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}.pn-head .hd{color:var(--accent);font-size:18px}
+.pn-head span{flex:1;font-weight:700;font-size:13px}.pn-head time{font-size:11px;color:var(--dim)}
+.pn-kind{font:800 11px system-ui;letter-spacing:.08em;text-transform:uppercase;margin:8px 0 2px}
+.pn-added{color:var(--good)}.pn-changed{color:var(--blue)}.pn-fixed{color:var(--amber)}.pn-removed{color:var(--bad)}
+.pn-ver ul{margin:0;padding-left:18px;font-size:12.5px;color:#cfd3dc}.pn-ver li{margin:2px 0}
 .g-racemenu{position:absolute;right:28px;bottom:120px;display:flex;flex-direction:column;gap:10px;width:330px}
 .g-mode{border:0;text-align:left;cursor:pointer;color:var(--text);padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center}
 .g-mode .hd{font-size:20px;color:var(--accent)}
@@ -98,10 +111,18 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .sl-top{display:flex;align-items:center;gap:6px}.sl-top b{font-size:16px}
 .sl-dist{font:800 20px "Courier New",monospace}.sl-rival{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sl-rw{display:flex;gap:8px;align-items:center;font-size:12px}.sl-rw b{color:var(--accent)}.sl-rw b.cr{color:#e8c46a;display:inline-flex;align-items:center}
+.sl-extra{display:flex;flex-direction:column;gap:1px}.sl-extra em{font:700 10px system-ui;font-style:normal;color:#c9b8ff}.sl-extra em.car{color:var(--bad)}
 .sl-btn{padding:6px 10px;font-size:13px;margin-top:2px}.sl-st{font:700 11px system-ui;color:var(--dim);margin-top:6px}.sl-st.ok{color:var(--good)}
 .sl-bar{margin-top:0}
+.g-pick{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .g-dist{display:flex;justify-content:flex-end}.g-dist button{min-width:64px}
 .g-sub{font:600 12px system-ui;color:var(--dim);letter-spacing:0;text-transform:none;margin-left:8px}
+/* Parts screen: side banner tabs + part cards (reuses the Catalog layout) */
+.pt-tabs{position:absolute;left:28px;top:128px;bottom:128px;width:150px;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
+.pt-tab{border:0;cursor:pointer;text-align:left;padding:9px 10px;background:var(--panel2);color:var(--text);box-shadow:0 0 0 2px var(--edge);font:800 13px system-ui;letter-spacing:.02em}
+.pt-tab.on{background:var(--accent);color:#14161c;box-shadow:0 0 0 2px #b8901c}.pt-tab.soon{cursor:default;opacity:.4;font-weight:600;font-size:12px}
+.catalog-mode .pt-list{left:196px;width:300px}.catalog-mode .pt-list ~ .cat-under{left:528px}
+.pt-rar{font:800 10px system-ui;letter-spacing:.06em;text-transform:uppercase;padding:0 4px;color:var(--dim)}.pt-rar.rare{color:var(--blue)}.pt-rar.epic{color:#c9b8ff}
 .cat-league{display:flex;gap:8px;align-items:baseline;padding:8px 4px 0;color:var(--accent)}.cat-league b{font-size:15px}.cat-league span{font-size:11px;color:var(--dim)}
 .cat-card.on{background:#2f3442;box-shadow:0 0 0 2px var(--accent)}
 .cat-under{position:absolute;left:400px;right:28px;bottom:128px;padding:12px 16px 12px;background:#14161cd8;display:flex;flex-direction:column;gap:10px;align-items:center}

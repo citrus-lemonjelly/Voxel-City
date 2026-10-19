@@ -4,6 +4,7 @@
 // Turn on: open the game once with ?dev in the address (stays on in this browser). Open/close: the ` key, or the DEV tag.
 import { SaveV1, addCar, freshCar } from '../save/save';
 import { CARS, STARTER_CAR } from '../data/cars';
+import { VISUAL_PARTS } from '../data/visualParts';
 import { ENGINE, TRANSMISSION, Tier } from '../data/parts';
 import { PADDLES, PADDLE_SHAPES, PEDALS, PaddleShape, PedalStyle } from '../data/cosmetics';
 import { Race } from '../game/race';
@@ -52,14 +53,14 @@ export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
       <div class="dev-sec"><b>Voxels</b> <span class="dev-v">${DEV.unlimited ? '∞ (free purchases)' : s.voxels.toLocaleString() + ' VX'}</span><div>
         ${btn('vx1k', '+1,000')}${btn('vx10k', '+10,000')}${btn('vx100k', '+100,000')}${btn('vx0', 'Set 0')}${btn('unl', 'Unlimited (VX + Crowns)', DEV.unlimited)}</div></div>
       <div class="dev-sec"><b>Crowns</b> <span class="dev-v">${DEV.unlimited ? '∞' : s.crowns.toLocaleString()}</span><div>${btn('cr100', '+100')}${btn('cr1k', '+1,000')}${btn('cr0', 'Set 0')}</div></div>
-      <div class="dev-sec"><b>Unlock</b><div>${btn('cars', 'All cars')}${btn('parts', 'All parts (every owned car)')}${btn('cosm', 'All cosmetics')}${btn('relock', 'Re-lock to stock (starter car only)')}</div></div>
+      <div class="dev-sec"><b>Unlock</b><div>${btn('cars', 'All cars')}${btn('parts', 'All parts (every owned car)')}${btn('cosm', 'All cosmetics + visual parts')}${btn('relock', 'Re-lock to stock (starter car only)')}</div></div>
       <div class="dev-sec"><b>Equip</b><div class="dev-row">
         <label>Paddle skin ${sel('skin', Object.values(PADDLES).map(p => [p.id, p.name]), s.paddles.equipped)}</label>
         <label>Paddle shape ${sel('shape', Object.values(PADDLE_SHAPES).map(p => [p.id, p.name]), s.paddles.shape)}</label>
         <label>Gas pedal ${sel('pedal', Object.values(PEDALS).map(p => [p.id, p.name]), s.pedals.equipped)}</label></div></div>
       <div class="dev-sec"><b>Progress</b> <span class="dev-v">races ${s.races} · wins ${s.wins} · perfect shifts ${s.perfectShifts}</span><div>
         ${btn('races0', 'Races = 0 (labels back)')}${btn('perf100', 'Perfect shifts = 100')}${btn('wins25', 'Wins +25')}</div></div>
-      <div class="dev-sec"><b>The Strip</b> <span class="dev-v">${Object.entries(s.strip).map(([l, n]) => `${l} ${n}`).join(' · ')}</span><div>${btn('strip10', '+10 levels (this car\'s league)')}${btn('strip0', 'Reset Strip')}</div></div>
+      <div class="dev-sec"><b>The Strip</b> <span class="dev-v">${Object.entries(s.strip).map(([l, n]) => `${l} ${n}`).join(' · ')}</span><div>${btn('strip10', '+10 levels (this car\'s league)')}</div></div>
       <div class="dev-sec"><b>Race</b><div>
         ${btn('auto', 'Auto-drive my car', DEV.autoDrive)}${btn('dbg', 'Debug readout', DEV.debug)}</div><div>
         Opponent: ${btn('oppN', 'Normal', DEV.opp === 'normal')}${btn('oppP', 'Perfect', DEV.opp === 'perfect')}${btn('oppS', 'Sloppy', DEV.opp === 'sloppy')}</div></div>
@@ -95,10 +96,9 @@ export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
         for (const c of Object.values(s.cars)) c.owned = { engine: [...eng], trans: [...tr] };
         s.owned.engine = [...eng]; s.owned.trans = [...tr]; msg = 'All parts unlocked'; break;
       }
-      case 'cosm': s.paddles.owned = Object.keys(PADDLES); s.paddles.shapes = Object.keys(PADDLE_SHAPES) as PaddleShape[]; s.pedals.owned = Object.keys(PEDALS) as PedalStyle[]; msg = 'All cosmetics unlocked'; break;
-      case 'relock': s.strip = { D: 0, C: 0, B: 0, A: 0, S: 0 }; s.stripClaimed = {}; s.carId = STARTER_CAR; s.cars = { [STARTER_CAR]: freshCar() }; s.owned = { engine: [1], trans: [1] }; s.equipped = { engine: 1, trans: 1 }; s.paddles = { owned: ['stock'], equipped: 'stock', shapes: ['arc', 'tab'], shape: 'arc' }; s.pedals = { owned: ['alloy'], equipped: 'alloy' }; msg = 'Back to stock'; break;
+      case 'cosm': s.partsOwned = VISUAL_PARTS.map(p => p.id); s.paddles.owned = Object.keys(PADDLES); s.paddles.shapes = Object.keys(PADDLE_SHAPES) as PaddleShape[]; s.pedals.owned = Object.keys(PEDALS) as PedalStyle[]; msg = 'All cosmetics unlocked'; break;
+      case 'relock': s.partsOwned = []; s.carId = STARTER_CAR; s.cars = { [STARTER_CAR]: freshCar() }; s.owned = { engine: [1], trans: [1] }; s.equipped = { engine: 1, trans: 1 }; s.paddles = { owned: ['stock'], equipped: 'stock', shapes: ['arc', 'tab'], shape: 'arc' }; s.pedals = { owned: ['alloy'], equipped: 'alloy' }; msg = 'Back to stock'; break;
       case 'strip10': { const lg = CARS[s.carId].league; s.strip[lg] = Math.min(60, (s.strip[lg] ?? 0) + 10); msg = `Strip ${lg}: level ${s.strip[lg] + 1} next`; break; }
-      case 'strip0': s.strip = { D: 0, C: 0, B: 0, A: 0, S: 0 }; s.stripClaimed = {}; msg = 'Strip reset'; break;
       case 'races0': s.races = 0; break;
       case 'perf100': s.perfectShifts = 100; break;
       case 'wins25': s.wins += 25; break;

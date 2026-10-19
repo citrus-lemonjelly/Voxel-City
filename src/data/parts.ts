@@ -1,3 +1,4 @@
+import { partPrice } from './economy';
 // Performance parts. Each league has its own T1–T5 scale (decision U3). The C–S tables follow the D table's effects at a
 // higher price (league pass, owner Q83) — tune per league later.
 // Tier effects are stored as multipliers/values so one table can serve every car in the league.
@@ -35,11 +36,11 @@ const TRANS_D: TransmissionTier[] = [
 ];
 
 export type PartLeague = 'D' | 'C' | 'B' | 'A' | 'S';
-/** Part prices per league (× the D price), placeholder until the economy pass (owner Q85). */
-export const LEAGUE_PRICE: Record<PartLeague, number> = { D: 1, C: 1.6, B: 2.5, A: 4, S: 7 };
-const priced = <T extends { price: number }>(rows: T[], k: number): T[] => rows.map(r => ({ ...r, price: Math.round(r.price * k / 50) * 50 }));
-export const ENGINE = Object.fromEntries((Object.keys(LEAGUE_PRICE) as PartLeague[]).map(l => [l, priced(ENGINE_D, LEAGUE_PRICE[l])])) as Record<PartLeague, EngineTier[]>;
-export const TRANSMISSION = Object.fromEntries((Object.keys(LEAGUE_PRICE) as PartLeague[]).map(l => [l, priced(TRANS_D, LEAGUE_PRICE[l])])) as Record<PartLeague, TransmissionTier[]>;
+// Prices come from the economy file (PART_PRICES × LEAGUE_SCALE); the tier effects above are the same in every league for now.
+const priced = <T extends { price: number; tier: Tier }>(rows: T[], kind: 'engine' | 'trans', l: PartLeague): T[] => rows.map(r => ({ ...r, price: partPrice(kind, r.tier, l) }));
+const LG: PartLeague[] = ['D', 'C', 'B', 'A', 'S'];
+export const ENGINE = Object.fromEntries(LG.map(l => [l, priced(ENGINE_D, 'engine', l)])) as Record<PartLeague, EngineTier[]>;
+export const TRANSMISSION = Object.fromEntries(LG.map(l => [l, priced(TRANS_D, 'trans', l)])) as Record<PartLeague, TransmissionTier[]>;
 
 // Launch window (hold to rev, release on green): RPM at release as a fraction of redline (R9).
 export const LAUNCH = { perfectMin: 0.55, perfectMax: 0.72, goodPad: 0.10, bogPenalty: 0.55, spinSeconds: 0.7, spinGrip: 0.55 };

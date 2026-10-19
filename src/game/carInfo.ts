@@ -29,7 +29,7 @@ export function carInfo(id: string): CarInfo {
 
 /** Rows for the Catalog: label, value text, and a 0–1 bar relative to the other cars in the same league (1 = best). */
 export function infoRows(id: string): { label: string; value: string; bar: number }[] {
-  const league = CARS[id].league, peers = Object.keys(CARS).filter(k => CARS[k].league === league).map(carInfo), me = carInfo(id);
+  const league = CARS[id].league, peers = Object.keys(CARS).filter(k => CARS[k].league === league && !CARS[k].unique).concat(id).map(carInfo), me = carInfo(id);
   const rel = (f: (c: CarInfo) => number, lowerIsBetter = false) => {
     const xs = peers.map(f), lo = Math.min(...xs), hi = Math.max(...xs), v = f(me);
     if (hi - lo < 1e-6) return 0.75;

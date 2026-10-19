@@ -7,6 +7,9 @@ import { STAGES } from '../src/data/stages';
 import { Tier } from '../src/data/parts';
 import { CARS, CATALOG_ORDER, LEAGUES } from '../src/data/cars';
 import { makeRival, simTime, MATCH } from '../src/game/rivals';
+import { CHANGELOG, VERSION } from '../src/data/changelog';
+// @ts-ignore — node built-in (no @types/node in this repo)
+import { readFileSync } from 'node:fs';
 import { stripRung, stripBand, STRIP, levelReward } from '../src/game/strip';
 
 declare const process: { exit(code: number): never };
@@ -141,6 +144,29 @@ const last = rungs[STRIP.rungs - 1].rival;
 const rels = rungs.map(r => { const b = stripBand('D', r.dist, stage); return (b.easy - r.rival.expect) / (b.easy - b.final.expect); });
 check(rels.every((v, i) => i === 0 || v >= rels[i - 1] - 0.01), `every Strip rung is harder than the one before (difficulty ${rels[0].toFixed(2)} → ${rels[29].toFixed(2)} → ${rels[59].toFixed(2)})`);
 check(last.engineTier === 5 && last.transTier === 5 && last.skill >= 0.9 && last.expect - last.yours >= 0.02 && last.expect - last.yours < 0.15, `final rung: maxed-out car, near-perfect driver, beaten only by a perfect maxed run (${last.name} · ${last.carId} T5/T5 · skill ${last.skill} · ${(last.expect - last.yours).toFixed(3)} s behind perfect)`);
-check(levelReward(1).vx === 100 && levelReward(1).crowns === 0 && levelReward(10).crowns === 5 && levelReward(11).crowns === 0 && levelReward(60).crowns === 5 && levelReward(60).vx > levelReward(59).vx, `Strip level rewards: L1 +100 VX, every 10th +5 Crowns (L60 +${levelReward(60).vx} VX)`);
+const lr1 = levelReward('D', 1), lr10 = levelReward('D', 10), lr11 = levelReward('D', 11), lr60 = levelReward('D', 60);
+check(lr1.vx === 100 && lr1.crowns === 0 && lr10.crowns === 5 && lr10.cash > 0 && !!lr10.decal && lr11.crowns === 0 && !lr11.decal && lr60.car === 'boss_d' && !lr10.car && levelReward('C', 1).vx > lr1.vx,
+  `Strip rewards: L1 +100 VX · bosses +5 Crowns, cash (L10 +${lr10.cash.toLocaleString()} VX), a decal · L60 also the boss car · higher leagues pay more`);
+// boss cars (owner 2026-10-19): head start in the next league, then outmatched by upgraded cars
+const nextOf: Record<string, string> = { boss_d: 'C', boss_c: 'B', boss_b: 'A', boss_a: 'S', boss_s: 'S' };
+let headStart = true, outmatched = true; const bn: string[] = [];
+for (const [b, lg] of Object.entries(nextOf)) {
+  const ids = CATALOG_ORDER.filter(id => CARS[id].league === lg), bt = tAt(b, 1, 1, 800);
+  const bestStock = Math.min(...ids.map(id => tAt(id, 1, 1, 800))), bestMax = Math.min(...ids.map(id => tAt(id, 5, 5, 800)));
+  headStart &&= CARS[b].league === lg && bt < bestStock; outmatched &&= bestMax < bt - 0.3; bn.push(`${b} ${bt.toFixed(2)} vs ${lg} stock ${bestStock.toFixed(2)} / maxed ${bestMax.toFixed(2)}`);
+}
+check(headStart && outmatched, `boss cars: quicker than any stock car in the next league, beaten by upgraded ones (${bn.join(' · ')})`);
+// economy: harder Street Races pay more; each league's cheapest car takes no more Medium wins than the league below
+const { racePay, CAR_PRICES } = await import('../src/data/economy');
+const wins = LEAGUES.map(l => { const cheapest = Math.min(...CATALOG_ORDER.filter(id => CARS[id].league === l && CARS[id].currency !== 'crowns' && CAR_PRICES[id].price > 0).map(id => CAR_PRICES[id].price)); return cheapest / racePay(l as any, 'medium', true).result; });
+check(racePay('D', 'hard', true).result > racePay('D', 'medium', true).result && racePay('D', 'medium', true).result > racePay('D', 'easy', true).result && wins.every((w, i) => i === 0 || w <= wins[i - 1] + 0.01),
+  `pay: Hard > Medium > Easy; Medium wins to buy each league's cheapest car: ${LEAGUES.map((l, i) => `${l} ${wins[i].toFixed(1)}`).join(' · ')}`);
 check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'early Strip rivals drive worse than late ones');
+// patch notes (owner 2026-10-19): newest first, versions unique and rising, package.json matches
+{
+  const vn = (v: string) => v.split('.').reduce((a, x) => a * 1000 + +x, 0);
+  const pkgVer = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+  check(CHANGELOG.every((v, i) => /^\d+\.\d+\.\d+$/.test(v.version) && (i === 0 || vn(v.version) < vn(CHANGELOG[i - 1].version))) && VERSION === pkgVer,
+    `patch notes: ${CHANGELOG.length} versions, newest first; current V${VERSION} = package.json ${pkgVer}`);
+}
 process.exit(fail ? 1 : 0);

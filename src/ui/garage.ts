@@ -4,15 +4,18 @@
 // left with the turntable on the right, paint swatches and the car's optional features under it.
 import { SaveV1, RACE_DISTS, RaceDist } from '../save/save';
 import { ENGINE, TRANSMISSION, TIERS, Tier } from '../data/parts';
-import { CARS, CATALOG_ORDER, carBody, carBrand, carName, carPaint } from '../data/cars';
+import { CARS, CATALOG_ORDER, LEAGUES, carBody, carBrand, carName, carPaint } from '../data/cars';
 import { DEV } from './devConsole';
 import { OpponentDef } from '../data/economy';
 import { StageDef } from '../data/stages';
 import { carStats, displayStats } from '../game/stats';
 import { BODY_OPTIONS } from '../render/bodies';
 import { infoRows } from '../game/carInfo';
-import { STRIP, levelInfo } from '../game/strip';
+import { STRIP, levelInfo, decalName } from '../game/strip';
+import { DIFFICULTY, Difficulty, racePay, cosmeticPrice } from '../data/economy';
+import { PART_SLOTS, SOON_SLOTS, partsFor, PART_BY_ID, STOCK_PART, SLOT_VIEW, PartSlot, lookParts, VISUAL_PARTS } from '../data/visualParts';
 import { CarLook, STOCK_LOOK } from '../render/carBuilder';
+import { CHANGELOG, VERSION } from '../data/changelog';
 
 const h = (html: string) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild as HTMLElement; };
 const fmtTime = (s: number) => s.toFixed(3) + ' s';
@@ -35,14 +38,23 @@ export interface GarageHandlers {
   onCarStyle(id: string, paint: string, opts: Record<string, string>): void;
   /** Street Race length (600 / 700 / 800 m). */
   onDistance(d: RaceDist): void;
-  /** 3D still of a car for the Catalog cards (Q78). */
-  thumb(look: CarLook): string;
+  /** Street Race difficulty (Easy / Medium / Hard). */
+  onDifficulty(d: Difficulty): void;
+  /** 3D still of a car (Catalog cards, Q78; Parts cards aim at the part, Q113). */
+  thumb(look: CarLook, view?: 'front' | 'rear' | 'tail' | 'hood' | 'wheel'): string;
+  /** Visual parts: buy (then fit) / fit an owned part on the car in use. */
+  onBuyPart(id: string): void;
+  onFitPart(id: string): void;
+  /** the car in use as it looks now (Parts preview starts from it) */
+  playerLook(): CarLook;
+  /** Patch notes opened: remember the version so the NEW tag goes away. */
+  onNotesSeen(): void;
 }
-type Panel = 'profile' | 'upgrades' | 'catalog' | 'settings' | 'strip' | null;
+type Panel = 'profile' | 'upgrades' | 'parts' | 'catalog' | 'settings' | 'strip' | 'notes' | null;
 /** UI state that survives re-renders (buying a part re-draws the screen). */
-const ui = { panel: null as Panel, raceMenu: false, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
+const ui = { panel: null as Panel, raceMenu: false, part: { slot: 'spoiler' as PartSlot, sel: '' }, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
 export function resetGarageUI() { ui.panel = null; ui.raceMenu = false; }
-export const garageInCatalog = () => ui.panel === 'catalog';
+export const garageInCatalog = () => ui.panel === 'catalog' || ui.panel === 'parts';
 /** Open the Strip screen on the next garage render (results → "The Strip"). */
 export function garageOpenStrip() { ui.panel = 'strip'; ui.raceMenu = false; stripFocus = true; }
 
@@ -60,7 +72,9 @@ const ICONS: Record<string, string[]> = {
   catalog: ['000000000000', '000000000000', '000011111000', '000111111100', '001122122110', '011111111111', '111111111111', '111111111111', '011101111011', '001000000100', '000000000000', '000000000000'],   // car
   settings: ['000011110000', '001011110100', '011111111110', '001111111100', '111110011111', '111100001111', '111100001111', '111110011111', '001111111100', '011111111110', '001011110100', '000011110000'], // gear
 };
+ICONS.parts = ['000011110000', '001122221100', '011200002110', '012000000210', '120001100021', '120011110021', '120011110021', '120001100021', '012000000210', '011200002110', '001122221100', '000011110000'];   // wheel rim
 ICONS.crown = ['000000000000', '010001000100', '011001100110', '011101110110', '011111111110', '011111111110', '012112112110', '011111111110', '011111111110', '000000000000', '000000000000', '000000000000'];
+ICONS.notes = ['011111112000', '011111112200', '011111112220', '011111111110', '011111111110', '011000000110', '011111111110', '011000001110', '011111111110', '011000000110', '011111111110', '011111111110'];   // paper with a folded corner
 const icon = (k: string, px = 3) => `<svg width="${12 * px}" height="${12 * px}" viewBox="0 0 12 12" shape-rendering="crispEdges">${ICONS[k].map((row, y) => [...row].map((b, x) => b === '0' ? '' : `<rect x="${x}" y="${y}" width="1" height="1" fill="${b === '2' ? 'var(--accent)' : 'currentColor'}"/>`).join('')).join('')}</svg>`;
 
 const PAINTS: [string, string][] = [['#d23a2a', 'Race red'], ['#f2a43a', 'Sunset orange'], ['#f2c230', 'VOX yellow'], ['#2f9a5a', 'Racing green'], ['#1f8a8a', 'Teal'], ['#3b6fa8', 'Aegean blue'], ['#1f4fa8', 'Rally blue'], ['#6a3ad2', 'Violet'], ['#b83a7a', 'Magenta'], ['#eeeae0', 'Chalk white'], ['#8e9bb3', 'Steel grey'], ['#5a5e66', 'Gunmetal'], ['#1a1a1e', 'Midnight']];
@@ -70,7 +84,7 @@ const profileOf = (id: string) => carBody(id).profile ?? 'civix';
 /** The car as the Catalog shows it: an owned car in its saved paint/options, otherwise factory. */
 const lookOf = (save: SaveV1, id: string, paint?: string, opts?: Record<string, string>): CarLook => {
   const c = save.cars[id];
-  return { ...STOCK_LOOK, body: profileOf(id), paint: paint || c?.paint || carPaint(id), opts: { ...(opts ?? c?.opts ?? {}) } };
+  return { ...STOCK_LOOK, body: profileOf(id), paint: paint || c?.paint || carPaint(id), opts: { ...(opts ?? c?.opts ?? {}) }, parts: lookParts(c?.parts) };
 };
 const catLook = (save: SaveV1) => lookOf(save, ui.cat.id, ui.cat.paint, ui.cat.opts);
 /** Select a car in the Catalog (owned cars start from their saved paint/options). */
@@ -87,21 +101,23 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   const st = displayStats(carStats(save.carId, save.equipped.engine, save.equipped.trans));
   const vx = DEV.unlimited ? '∞' : save.voxels.toLocaleString();
   root.innerHTML = '';
-  const inCat = ui.panel === 'catalog';
+  const inCat = ui.panel === 'catalog' || ui.panel === 'parts';
   const el = h(`<div id="garage" class="${inCat ? 'catalog-mode' : ui.panel === 'strip' ? 'strip-mode' : ''}">
-    <div class="g-title">${inCat ? `<div class="hd screen-title">Garage</div><h1 class="hd">Catalog</h1>`
+    <div class="g-title">${inCat ? `<div class="hd screen-title">Garage${ui.panel === 'parts' ? ` · ${carName(save.carId)}` : ''}</div><h1 class="hd">${ui.panel === 'parts' ? 'Parts' : 'Catalog'}</h1>`
       : `<div class="hd screen-title">${carBrand(save.carId)} · League ${car.league}</div><h1 class="hd">${carName(save.carId)}</h1>
       <div class="g-stats"><span><b>${st.hp}</b> hp</span><span><b>${st.shifts}</b> shifts</span><span><b>${st.shiftTime.toFixed(2)}s</b> shift</span><span><b>${(st.redline / 1000).toFixed(1)}k</b> redline</span></div>`}</div>
     <div class="g-wallet"><span class="voxels">${vx} VX</span><span class="crowns">${crownIcon()}${DEV.unlimited ? '∞' : save.crowns.toLocaleString()}</span><span class="g-rec">Best ${save.raceDist} m ${save.best[save.raceDist] ? fmtTime(save.best[save.raceDist]!) : '—'} · ${save.wins}–${save.races - save.wins}</span></div>
-    <div class="g-bar">${(['profile', 'upgrades', 'catalog', 'settings'] as const).map(k => `<button class="g-tab ${ui.panel === k ? 'on' : ''}" data-panel="${k}">${icon(k)}<span>${k[0].toUpperCase() + k.slice(1)}</span></button>`).join('')}</div>
+    <div class="g-bar">${(['profile', 'upgrades', 'parts', 'catalog', 'settings'] as const).map(k => `<button class="g-tab ${ui.panel === k ? 'on' : ''}" data-panel="${k}">${icon(k)}<span>${k[0].toUpperCase() + k.slice(1)}</span></button>`).join('')}</div>
+    <button class="g-notesbtn ${ui.panel === 'notes' ? 'on' : ''}" id="notesBtn" title="Patch notes" aria-label="Patch notes">${icon('notes', 2)}<span>V${VERSION}</span>${save.seenVersion !== VERSION ? '<em class="g-new">New</em>' : ''}</button>
     <button class="btn race g-racebtn" id="raceBtn">Race ▸</button>
     ${ui.raceMenu ? `<div class="g-racemenu">
-      <button class="g-mode blk" id="streetRace"><span class="hd">Street Race</span><span class="g-mode-sub">vs ${opp.name} · ${carName(opp.carId)}<br>${stage.name} · ${save.raceDist} m · new rival every race</span><span class="g-go">Go ▸</span></button>
-      <div class="g-dist seg" role="group" aria-label="Race length">${RACE_DISTS.map(d => `<button class="${save.raceDist === d ? 'on' : ''}" data-dist="${d}">${d} m</button>`).join('')}</div>
+      <button class="g-mode blk" id="streetRace"><span class="hd">${stage.races[save.raceDiff]}</span><span class="g-mode-sub">Street Race · ${stage.name} · ${save.raceDist} m · ${DIFFICULTY[save.raceDiff].label}<br>vs ${opp.name} · ${carName(opp.carId)} · win +${racePay(car.league, save.raceDiff, true).result.toLocaleString()} VX</span><span class="g-go">Go ▸</span></button>
+      <div class="g-pick"><div class="g-dist seg" role="group" aria-label="Difficulty">${(Object.keys(DIFFICULTY) as Difficulty[]).map(d => `<button class="${save.raceDiff === d ? 'on' : ''}" data-diff="${d}">${DIFFICULTY[d].label}</button>`).join('')}</div>
+        <div class="g-dist seg" role="group" aria-label="Race length">${RACE_DISTS.map(d => `<button class="${save.raceDist === d ? 'on' : ''}" data-dist="${d}">${d} m</button>`).join('')}</div></div>
       ${stripCard(save)}
       <div class="g-mode blk off"><span class="hd">Typing Race</span><span class="g-mode-sub">Race by typing — words per minute drive your car</span><span class="g-soon">Coming soon</span></div>
     </div>` : ''}
-    ${ui.panel === 'strip' ? stripHtml(save, on) : panelHtml(save, on)}
+    ${ui.panel === 'strip' ? stripHtml(save, on) : ui.panel === 'parts' ? partsHtml(save, on) : panelHtml(save, on)}
   </div>`);
   root.appendChild(el);
   if (toast) root.appendChild(h(`<div class="toast blk">${toast}</div>`));
@@ -111,13 +127,21 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
     const k = b.dataset.panel as Panel, was = ui.panel;
     ui.panel = was === k ? null : k; ui.raceMenu = false;
     if (ui.panel === 'catalog' && was !== 'catalog') { pickCar(save, save.carId); on.onPreview(catLook(save)); }
-    if (was === 'catalog' && ui.panel !== 'catalog') on.onPreview(null);
-    on.onView(ui.panel === 'catalog' ? 'catalog' : ui.panel ? 'panel' : 'home');
+    if (ui.panel === 'parts' && was !== 'parts') { ui.part.sel = save.cars[save.carId]?.parts[ui.part.slot] ?? STOCK_PART[ui.part.slot]; on.onPreview(partLook(on, ui.part.sel)); }
+    if ((was === 'catalog' || was === 'parts') && ui.panel !== was) on.onPreview(null);
+    on.onView(ui.panel === 'catalog' || ui.panel === 'parts' ? 'catalog' : ui.panel ? 'panel' : 'home');
     renderGarage(root, save, opp, stage, on);
   }));
+  el.querySelector('#notesBtn')!.addEventListener('click', () => {
+    if (ui.panel === 'catalog' || ui.panel === 'parts') on.onPreview(null);
+    ui.panel = ui.panel === 'notes' ? null : 'notes'; ui.raceMenu = false;
+    if (ui.panel === 'notes' && save.seenVersion !== VERSION) on.onNotesSeen();
+    on.onView('home'); renderGarage(root, save, opp, stage, on);
+  });
   el.querySelector('#raceBtn')!.addEventListener('click', () => { ui.raceMenu = !ui.raceMenu; renderGarage(root, save, opp, stage, on); });
+  el.querySelectorAll<HTMLButtonElement>('[data-diff]').forEach(b => b.addEventListener('click', () => on.onDifficulty(b.dataset.diff as Difficulty)));
   el.querySelectorAll<HTMLButtonElement>('[data-dist]').forEach(b => b.addEventListener('click', () => on.onDistance(+b.dataset.dist! as RaceDist)));
-  el.querySelector('#stripOpen')?.addEventListener('click', () => { if (ui.panel === 'catalog') on.onPreview(null); ui.panel = 'strip'; ui.raceMenu = false; stripFocus = true; on.onView('strip'); renderGarage(root, save, opp, stage, on); });
+  el.querySelector('#stripOpen')?.addEventListener('click', () => { if (ui.panel === 'catalog' || ui.panel === 'parts') on.onPreview(null); ui.panel = 'strip'; ui.raceMenu = false; stripFocus = true; on.onView('strip'); renderGarage(root, save, opp, stage, on); });
   el.querySelector('#stripGo')?.addEventListener('click', () => { on.onView('home'); resetGarageUI(); on.onStrip(); });
   el.querySelectorAll<HTMLButtonElement>('[data-claim]').forEach(b => b.addEventListener('click', () => on.onClaim(+b.dataset.claim!)));
   // the scroller: arrows, mouse wheel and drag all slide it sideways; cards snap into place
@@ -137,8 +161,8 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
     stripFocus = false;
     track.addEventListener('scroll', () => (stripScroll = track.scrollLeft));
   }
-  el.querySelector('#streetRace')?.addEventListener('click', () => { if (ui.panel === 'catalog') on.onPreview(null); on.onView('home'); resetGarageUI(); on.onRace(); });
-  el.querySelectorAll<HTMLButtonElement>('.g-close').forEach(b => b.addEventListener('click', () => { if (ui.panel === 'catalog') on.onPreview(null); on.onView('home'); ui.panel = null; renderGarage(root, save, opp, stage, on); }));
+  el.querySelector('#streetRace')?.addEventListener('click', () => { if (ui.panel === 'catalog' || ui.panel === 'parts') on.onPreview(null); on.onView('home'); resetGarageUI(); on.onRace(); });
+  el.querySelectorAll<HTMLButtonElement>('.g-close').forEach(b => b.addEventListener('click', () => { if (ui.panel === 'catalog' || ui.panel === 'parts') on.onPreview(null); on.onView('home'); ui.panel = null; renderGarage(root, save, opp, stage, on); }));
   el.querySelectorAll<HTMLButtonElement>('.tier').forEach(b => b.addEventListener('click', () => on.onBuyOrEquip(b.dataset.kind as any, +b.dataset.tier! as Tier)));
   el.querySelectorAll<HTMLButtonElement>('[data-set]').forEach(b => b.addEventListener('click', () => on.onSetting(b.dataset.set!, b.dataset.val!)));
   // catalog
@@ -148,9 +172,46 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   el.querySelectorAll<HTMLButtonElement>('[data-opt]').forEach(b => b.addEventListener('click', () => { ui.cat.opts[b.dataset.opt!] = b.dataset.val!; restyle(); }));
   el.querySelector('#buyCar')?.addEventListener('click', () => on.onBuyCar(ui.cat.id, ui.cat.paint, { ...ui.cat.opts }));
   el.querySelector('#useCar')?.addEventListener('click', () => on.onUseCar(ui.cat.id));
+  // parts
+  el.querySelectorAll<HTMLButtonElement>('[data-slot]').forEach(b => b.addEventListener('click', () => { ui.part.slot = b.dataset.slot as PartSlot; ui.part.sel = save.cars[save.carId]?.parts[ui.part.slot] ?? STOCK_PART[ui.part.slot]; partScroll = 0; on.onPreview(partLook(on, ui.part.sel)); renderGarage(root, save, opp, stage, on); }));
+  el.querySelectorAll<HTMLButtonElement>('[data-part]').forEach(b => b.addEventListener('click', () => { ui.part.sel = b.dataset.part!; on.onPreview(partLook(on, ui.part.sel)); renderGarage(root, save, opp, stage, on); }));
+  el.querySelector('#buyPart')?.addEventListener('click', () => on.onBuyPart(ui.part.sel));
+  el.querySelector('#fitPart')?.addEventListener('click', () => on.onFitPart(ui.part.sel));
+  const plist = el.querySelector<HTMLElement>('.pt-list'); if (plist) { plist.scrollTop = partScroll; plist.addEventListener('scroll', () => (partScroll = plist.scrollTop)); }
   const list = el.querySelector('.cat-list'); if (list) list.scrollTop = catScroll; list?.addEventListener('scroll', () => (catScroll = (list as HTMLElement).scrollTop));
 }
-let catScroll = 0;
+let catScroll = 0, partScroll = 0;
+
+/** The car in use wearing one part (Parts preview and card stills). */
+function partLook(on: GarageHandlers, id: string): CarLook {
+  const base = on.playerLook(), p = PART_BY_ID[id]; if (!p) return base;
+  const parts = { ...(base.parts || {}) };
+  if (p.value === 'stock' || p.value === 'gloss') delete parts[p.slot]; else parts[p.slot] = p.value;
+  return { ...base, parts };
+}
+const RARITY: Record<string, string> = { common: 'Common', rare: 'Rare', epic: 'Epic' };
+/** Parts screen (owner 2026-10-19): side banner tabs by slot, 3D close-up cards of your car wearing each part, buy / fit. */
+function partsHtml(save: SaveV1, on: GarageHandlers): string {
+  const slot = ui.part.slot, fitted = save.cars[save.carId]?.parts[slot] ?? STOCK_PART[slot], sel = PART_BY_ID[ui.part.sel] ?? PART_BY_ID[fitted];
+  const owns = (id: string) => { const p = PART_BY_ID[id]; return p.value === 'stock' || p.value === 'gloss' || save.partsOwned.includes(id); };
+  const priceTag = (id: string) => { const c = cosmeticPrice(id); return c.currency === 'crowns' ? `${crownIcon()}${c.price} Crowns` : `${c.price.toLocaleString()} VX`; };
+  const can = (id: string) => { const c = cosmeticPrice(id); return DEV.unlimited || (c.currency === 'crowns' ? save.crowns : save.voxels) >= c.price; };
+  const tabs = PART_SLOTS.map(t => `<button class="pt-tab ${t.id === slot ? 'on' : ''}" data-slot="${t.id}">${t.label}</button>`).join('')
+    + SOON_SLOTS.map(t => `<span class="pt-tab soon" title="Coming soon">${t}</span>`).join('');
+  const cards = partsFor(slot).map(p => {
+    const tag = fitted === p.id ? '<em class="cat-tag use">Fitted</em>' : owns(p.id) ? '<em class="cat-tag own">Owned</em>' : `<em class="cat-tag ${can(p.id) ? '' : 'short'} ${cosmeticPrice(p.id).currency === 'crowns' ? 'cr' : ''}">${priceTag(p.id)}</em>`;
+    return `<button class="cat-card pt-card ${p.id === sel.id ? 'on' : ''}" data-part="${p.id}"><img class="cat-thumb" alt="" src="${on.thumb(partLook(on, p.id), SLOT_VIEW[slot])}">
+      <span class="cat-row"><b>${p.name}</b>${tag}</span><span class="pt-rar ${p.rarity}">${RARITY[p.rarity]}</span></button>`;
+  }).join('');
+  const action = fitted === sel.id ? `<button class="btn cat-act" disabled>Fitted</button>`
+    : owns(sel.id) ? `<button class="btn race cat-act" id="fitPart">Fit to ${carName(save.carId)}</button>`
+    : `<button class="btn race cat-act" id="buyPart" ${can(sel.id) ? '' : 'disabled'}>Buy · ${priceTag(sel.id)}</button>`;
+  return `<div class="pt-tabs blk">${tabs}</div><div class="cat-list pt-list blk">${cards}</div>
+    <div class="cat-under"><button class="g-close" aria-label="Close">✕</button>
+      <div class="cat-name"><b class="hd">${sel.name}</b><span>${PART_SLOTS.find(t => t.id === slot)!.label} · ${RARITY[sel.rarity]} · ${sel.blurb}</span></div>
+      <div class="cat-buy">${action}<span class="g-note">Bought once, fits every car · looks only — no effect on speed</span></div>
+    </div>`;
+}
 
 /** Race-menu card for the Strip: opens the Strip screen (owner: a sliding level scroller, like CSR). */
 function stripCard(save: SaveV1): string {
@@ -166,7 +227,8 @@ function stripHtml(save: SaveV1, on: GarageHandlers): string {
   const lg = CARS[save.carId].league, done = save.strip[lg] ?? 0, claimed = save.stripClaimed[lg] ?? [], next = on.stripNext();
   const cards = Array.from({ length: STRIP.rungs }, (_, i) => {
     const n = i + 1, L = levelInfo(lg, n), state = n <= done ? (claimed.includes(n) ? 'done' : 'claim') : n === done + 1 ? 'next' : 'locked';
-    const rewards = `<span class="sl-rw"><b>+${L.reward.vx} VX</b>${L.reward.crowns ? `<b class="cr">${crownIcon()}+${L.reward.crowns}</b>` : ''}</span>`;
+    const R = L.reward, rewards = `<span class="sl-rw"><b>+${(R.vx + R.cash).toLocaleString()} VX</b>${R.crowns ? `<b class="cr">${crownIcon()}+${R.crowns}</b>` : ''}</span>`
+      + (R.decal || R.car ? `<span class="sl-extra">${R.decal ? `<em>Decal · ${decalName(R.decal)}</em>` : ''}${R.car ? `<em class="car">Boss car · ${carName(R.car)}</em>` : ''}</span>` : '');
     const foot = state === 'done' ? `<span class="sl-st ok">Cleared ✓ · claimed</span>`
       : state === 'claim' ? `<button class="btn sl-btn" data-claim="${n}">Claim</button>`
       : state === 'next' ? `<button class="btn race sl-btn" id="stripGo">Race ▸</button>`
@@ -186,6 +248,7 @@ let stripScroll = -1, stripFocus = false;
 
 function panelHtml(save: SaveV1, on: GarageHandlers): string {
   const close = `<button class="g-close" aria-label="Close">✕</button>`;
+  if (ui.panel === 'upgrades' && CARS[save.carId].unique) return `<div class="g-panel blk">${close}<h2 class="hd">Upgrades</h2><div class="g-note">${carName(save.carId)} is a Strip boss car: it comes tuned as it is and can't be upgraded. It gives you a head start in League ${CARS[save.carId].league}; upgraded cars will soon catch it.</div></div>`;
   if (ui.panel === 'upgrades') {
     const lg = CARS[save.carId].league;
     const tierBtn = (kind: 'engine' | 'trans', t: Tier) => {
@@ -202,6 +265,12 @@ function panelHtml(save: SaveV1, on: GarageHandlers): string {
   }
   if (ui.panel === 'settings') return `<div class="g-panel blk">${close}<h2 class="hd">Settings</h2><div class="settings">${SETTING_ROWS.map(([key, label, opts]) => `<div class="setrow"><span>${label}</span><div class="seg">${opts.map(([v, t]) => `<button class="${(save.settings as any)[key] === v ? 'on' : ''}" data-set="${key}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>
       <div class="g-note">Controls: hold <b>SPACE</b> (or the gas pedal) to rev, release on green to launch · <b>SPACE</b> shifts up · <b>SHIFT</b> shifts down.</div></div>`;
+  if (ui.panel === 'notes') {
+    const KINDS = [['added', 'Added'], ['changed', 'Changed'], ['fixed', 'Fixed'], ['removed', 'Removed']] as const;
+    return `<div class="g-panel g-notes blk">${close}<h2 class="hd">Patch notes <small class="g-sub">Current V${VERSION}</small></h2>
+      ${CHANGELOG.map(v => `<section class="pn-ver"><div class="pn-head"><b class="hd">V${v.version}</b><span>${v.title}</span><time>${v.date}</time></div>
+        ${KINDS.filter(([k]) => v[k]?.length).map(([k, label]) => `<div class="pn-kind pn-${k}">${label}</div><ul>${v[k]!.map(t => `<li>${t.replace(/</g, '&lt;')}</li>`).join('')}</ul>`).join('')}</section>`).join('')}</div>`;
+  }
   if (ui.panel === 'profile') {
     const rate = save.races ? Math.round(save.wins / save.races * 100) + '%' : '—';
     return `<div class="g-panel blk">${close}<h2 class="hd">Profile</h2>
@@ -214,18 +283,19 @@ function panelHtml(save: SaveV1, on: GarageHandlers): string {
     const owned = !!save.cars[id], inUse = save.carId === id, afford = DEV.unlimited || wallet(save, id) >= spec.price;
     const card = (cid: string) => {
       const c = CARS[cid], own = !!save.cars[cid], use = save.carId === cid, can = DEV.unlimited || wallet(save, cid) >= c.price;
-      const tag = use ? '<em class="cat-tag use">In use</em>' : own ? '<em class="cat-tag own">Owned</em>' : `<em class="cat-tag ${can ? '' : 'short'} ${c.currency === 'crowns' ? 'cr' : ''}">${carPrice(cid)}</em>`;
+      const tag = use ? '<em class="cat-tag use">In use</em>' : own ? `<em class="cat-tag own">${c.unique ? 'Boss car' : 'Owned'}</em>` : `<em class="cat-tag ${can ? '' : 'short'} ${c.currency === 'crowns' ? 'cr' : ''}">${carPrice(cid)}</em>`;
       return `<button class="cat-card ${cid === id ? 'on' : ''}" data-car="${cid}"><img class="cat-thumb" alt="" src="${on.thumb(lookOf(save, cid))}"><span class="cat-row"><b>${carName(cid)}</b>${tag}</span></button>`;
     };
     const action = inUse ? `<button class="btn cat-act" disabled>In use</button>`
       : owned ? `<button class="btn race cat-act" id="useCar">Use this car</button>`
       : `<button class="btn race cat-act" id="buyCar" ${afford ? '' : 'disabled'}>Buy · ${carPrice(id)}</button>${afford ? '' : `<span class="cat-short">Need ${(spec.price - wallet(save, id)).toLocaleString()} more ${spec.currency === 'crowns' ? 'Crowns' : 'VX'}</span>`}`;
     const LEAGUE_NAME: Record<string, string> = { D: 'Hatchbacks', C: 'Muscle', B: 'Street racers', A: 'Tuners · GTs · Super sports', S: 'Hypercars' };
-    const list = CATALOG_ORDER.map((cid, i) => (i === 0 || CARS[CATALOG_ORDER[i - 1]].league !== CARS[cid].league
+    const order = [...CATALOG_ORDER, ...Object.keys(save.cars).filter(k => CARS[k]?.unique)].sort((a, b) => LEAGUES.indexOf(CARS[a].league) - LEAGUES.indexOf(CARS[b].league));
+    const list = order.map((cid, i) => (i === 0 || CARS[order[i - 1]].league !== CARS[cid].league
       ? `<div class="cat-league"><b class="hd">League ${CARS[cid].league}</b><span>${LEAGUE_NAME[CARS[cid].league]}</span></div>` : '') + card(cid)).join('');
     return `<div class="cat-list blk">${list}</div>
       <div class="cat-under">${close}
-        <div class="cat-name"><b class="hd">${carName(id)}</b><span>${carBrand(id)} · ${TYPE_SUB[id] ?? ''} · ${spec.hp} hp · ${spec.massKg.toLocaleString()} kg · ${spec.drive} · League ${spec.league} · ${CHARACTER[spec.character ?? 'balanced']}${spec.currency === 'crowns' ? ' · Crowns only' : ''}</span></div>
+        <div class="cat-name"><b class="hd">${carName(id)}</b><span>${spec.unique ? 'Boss car · won on the Strip · no upgrades' : `${carBrand(id)} · ${TYPE_SUB[id] ?? ''}`} · ${spec.hp} hp · ${spec.massKg.toLocaleString()} kg · ${spec.drive} · League ${spec.league} · ${CHARACTER[spec.character ?? 'balanced']}${spec.currency === 'crowns' ? ' · Crowns only' : ''}</span></div>
         <div class="cat-stats">${infoRows(id).map(r => `<div class="cs"><span>${r.label}</span><b>${r.value}</b><i><u style="width:${Math.round(r.bar * 100)}%"></u></i></div>`).join('')}</div>
         <div class="cat-paints">${PAINTS.map(([c, n]) => `<button class="swatch ${c === paint ? 'on' : ''}" data-paint="${c}" title="${n}" style="background:${c}"></button>`).join('')}</div>
         ${opts.length ? `<div class="cat-opts">${opts.map(o => `<div class="setrow"><span>${o.label}</span><div class="seg">${o.values.map(([v, t]) => `<button class="${(ui.cat.opts[o.id] ?? o.values[0][0]) === v ? 'on' : ''}" data-opt="${o.id}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>` : `<div class="g-note">No optional features on this body yet.</div>`}
