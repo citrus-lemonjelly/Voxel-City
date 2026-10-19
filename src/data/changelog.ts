@@ -24,6 +24,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.1.2', date: '2026-10-19', title: 'Race button fix',
+    changed: [
+      'The Race button now closes whatever is open (Profile, Upgrades, Parts, Catalog, Settings, the Strip or Patch notes) and opens the race menu on its own.',
+    ],
+    fixed: [
+      'Opening the race menu while another panel (e.g. Parts) was open showed both at once, with the race menu behind.',
+    ],
+  },
+  {
     version: '0.1.1', date: '2026-10-19', title: 'Patch notes + web build',
     added: [
       'Patch notes: the paper button at the bottom-left of the garage lists every version\'s additions, changes, fixes and removals.',

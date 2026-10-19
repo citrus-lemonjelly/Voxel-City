@@ -138,7 +138,14 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
     if (ui.panel === 'notes' && save.seenVersion !== VERSION) on.onNotesSeen();
     on.onView('home'); renderGarage(root, save, opp, stage, on);
   });
-  el.querySelector('#raceBtn')!.addEventListener('click', () => { ui.raceMenu = !ui.raceMenu; renderGarage(root, save, opp, stage, on); });
+  // Race overrides everything (owner V0.1.2): close any open panel / Catalog / Parts / Strip / notes, then toggle the race menu
+  el.querySelector('#raceBtn')!.addEventListener('click', () => {
+    if (ui.panel) {
+      if (ui.panel === 'catalog' || ui.panel === 'parts') on.onPreview(null);
+      ui.panel = null; on.onView('home'); ui.raceMenu = true;
+    } else ui.raceMenu = !ui.raceMenu;
+    renderGarage(root, save, opp, stage, on);
+  });
   el.querySelectorAll<HTMLButtonElement>('[data-diff]').forEach(b => b.addEventListener('click', () => on.onDifficulty(b.dataset.diff as Difficulty)));
   el.querySelectorAll<HTMLButtonElement>('[data-dist]').forEach(b => b.addEventListener('click', () => on.onDistance(+b.dataset.dist! as RaceDist)));
   el.querySelector('#stripOpen')?.addEventListener('click', () => { if (ui.panel === 'catalog' || ui.panel === 'parts') on.onPreview(null); ui.panel = 'strip'; ui.raceMenu = false; stripFocus = true; on.onView('strip'); renderGarage(root, save, opp, stage, on); });
