@@ -43,8 +43,15 @@ export interface CarDef {
   partOverrides?: Record<string, string | null>;
   /** Paint override for this spec (falls back to the body's paint). */
   paint?: string;
-  /** Catalog price in voxels (0 = starter car). Placeholder until the league/economy pass. */
+  /** Catalog price (0 = starter car), in voxels unless `currency` says Crowns. Placeholder until the economy pass. */
   price: number;
+  /** 'crowns' = bought with Crowns only (owner 2026-10-18); default voxels. */
+  currency?: 'vx' | 'crowns';
+  /** How much this car gains from engine upgrades (1 = the league table as written). Tuned per car so fully upgraded cars in
+   *  a league end up close at 800 m while each keeps its character (owner: "each car needs its own tweaks"). */
+  engineGain?: number;
+  /** What the car is best at once upgraded: short dashes (600–700 m), long sprints (800 m), or balanced. */
+  character?: 'dash' | 'long' | 'balanced';
 }
 
 export const BODIES: Record<string, BodyDef> = {
@@ -63,7 +70,7 @@ export const BODIES: Record<string, BodyDef> = {
     // League D hatchbacks (owner 2026-10-18: Golf / A3-type cars alongside the Civix)
     ['classic', 'Classic hatch', 'hatch', '#eeeae0', 60, 28, 21], ['premium', 'Premium hatch', 'hatch', '#8e9bb3', 62, 28, 19],
     ['city', 'City car', 'hatch', '#2f9a5a', 50, 28, 22], ['supermini', 'Supermini', 'hatch', '#f2a43a', 56, 28, 20],
-    ['sporthatch', 'Sport fastback', 'sedan', '#1f8a8a', 62, 30, 19],
+    ['sporthatch', 'Sport fastback', 'sedan', '#1f8a8a', 62, 30, 19], ['perfhatch', 'Performance hatch', 'hatch', '#2a7fd4', 60, 29, 20],
   ] as [string, string, BodyType, string, number, number, number][]).map(([id, model, type, paint, L, W, roof]) => [id, {
     id, brand: 'Concept', model, type, paint, profile: id,
     visual: { L, W, roof, ride: 1, wheelRadius: 5.4, wheelCentres: [12, L - 12] as [number, number] }, stockParts: {},
@@ -88,32 +95,39 @@ export const CARS: Record<string, CarDef> = {
     drivenWeightShare: 0.62,  // front-wheel drive, nose-heavy
     drive: 'FWD',
     price: 0,
+    engineGain: 1,
+    character: 'balanced',
   },
   // Placeholder specs (owner Q79: buy + drive now, names later). Leagues (owner 2026-10-18, Q81–Q83): hatchbacks D, muscle C,
   // street racers B, tuners / grand tourers and super sports A, hypercars S. Each league is clearly quicker than the one
   // below (stock parts, perfect driving, 800 m): D 24.6–23.6 s · C 19.5–19.0 · B 17.8–17.0 · A 15.6–15.0 · S 11.8 (owner Q89: hypercars
   // ≤ 12 s). hp, weight and grip are real-world-like from League C up. Prices are placeholders.
+  // Per-car tuning (owner 2026-10-18): you never need a second car in a league to progress. Pricier cars start slightly
+  // quicker; upgrades (engineGain) bring every car in a league close together at 800 m when fully upgraded, and each keeps a
+  // character: 'dash' cars launch/pull harder and win 600–700 m runs, 'long' cars have the top end for the full 800 m.
   // League D — Civix-class hatchbacks: small steps up from the free Civix
-  city:       { id: 'city',       bodyId: 'city',       league: 'D', price: 1500,  massKg: 1060, hp: 128, peakRpmFrac: 0.86, idleRpm: 850, redline: 6800, finalDrive: 4.6, wheelRadiusM: 0.29, dragArea: 0.64, rollingCoeff: 0.013, gripG: 0.95, drivenWeightShare: 0.62, drive: 'FWD' },
-  supermini:  { id: 'supermini',  bodyId: 'supermini',  league: 'D', price: 2000,  massKg: 1080, hp: 134, peakRpmFrac: 0.86, idleRpm: 900, redline: 7000, finalDrive: 4.7, wheelRadiusM: 0.29, dragArea: 0.64, rollingCoeff: 0.013, gripG: 0.96, drivenWeightShare: 0.62, drive: 'FWD' },
-  classic:    { id: 'classic',    bodyId: 'classic',    league: 'D', price: 2500,  massKg: 1200, hp: 150, peakRpmFrac: 0.84, idleRpm: 850, redline: 6800, finalDrive: 4.4, wheelRadiusM: 0.30, dragArea: 0.66, rollingCoeff: 0.013, gripG: 0.96, drivenWeightShare: 0.62, drive: 'FWD' },
-  premium:    { id: 'premium',    bodyId: 'premium',    league: 'D', price: 3000,  massKg: 1300, hp: 150, peakRpmFrac: 0.84, idleRpm: 850, redline: 6800, finalDrive: 4.4, wheelRadiusM: 0.30, dragArea: 0.65, rollingCoeff: 0.013, gripG: 0.97, drivenWeightShare: 1.0, drive: 'AWD' },
+  city:       { id: 'city',       bodyId: 'city',       league: 'D', price: 1500,  massKg: 1000, hp: 120, peakRpmFrac: 0.86, idleRpm: 850, redline: 6800, finalDrive: 4.9, wheelRadiusM: 0.29, dragArea: 0.7, rollingCoeff: 0.013, gripG: 0.95, drivenWeightShare: 0.62, drive: 'FWD', engineGain: 1.14, character: 'dash' },
+  supermini:  { id: 'supermini',  bodyId: 'supermini',  league: 'D', price: 2000,  massKg: 1040, hp: 124, peakRpmFrac: 0.86, idleRpm: 900, redline: 7000, finalDrive: 4.8, wheelRadiusM: 0.29, dragArea: 0.67, rollingCoeff: 0.013, gripG: 0.96, drivenWeightShare: 0.62, drive: 'FWD', engineGain: 0.855, character: 'dash' },
+  classic:    { id: 'classic',    bodyId: 'classic',    league: 'D', price: 2500,  massKg: 1200, hp: 138, peakRpmFrac: 0.84, idleRpm: 850, redline: 6800, finalDrive: 4.3, wheelRadiusM: 0.30, dragArea: 0.62, rollingCoeff: 0.013, gripG: 0.96, drivenWeightShare: 0.62, drive: 'FWD', engineGain: 0.855, character: 'long' },
+  premium:    { id: 'premium',    bodyId: 'premium',    league: 'D', price: 3000,  massKg: 1320, hp: 142, peakRpmFrac: 0.84, idleRpm: 850, redline: 6800, finalDrive: 4.5, wheelRadiusM: 0.30, dragArea: 0.64, rollingCoeff: 0.013, gripG: 0.97, drivenWeightShare: 1.0, drive: 'AWD', engineGain: 0.568, character: 'dash' },
+  perfhatch:  { id: 'perfhatch',  bodyId: 'perfhatch',  league: 'D', price: 150,  massKg: 1280, hp: 148, peakRpmFrac: 0.86, idleRpm: 900, redline: 6900, finalDrive: 4.2, wheelRadiusM: 0.30, dragArea: 0.6, rollingCoeff: 0.013, gripG: 1.0,  drivenWeightShare: 0.62, drive: 'FWD', engineGain: 0.711, character: 'long', currency: 'crowns' },
   // League C — muscle (owner Q81)
-  pony:    { id: 'pony',    bodyId: 'pony',    league: 'C', price: 5500, massKg: 1650, hp: 471, peakRpmFrac: 0.78, idleRpm: 750, redline: 6800, finalDrive: 3.55, wheelRadiusM: 0.34, dragArea: 0.7, rollingCoeff: 0.013, gripG: 1.05, drivenWeightShare: 0.55, drive: 'RWD' },
-  muscle:  { id: 'muscle',  bodyId: 'muscle',  league: 'C', price: 6500, massKg: 1800, hp: 560, peakRpmFrac: 0.75, idleRpm: 700, redline: 6400, finalDrive: 3.4, wheelRadiusM: 0.35, dragArea: 0.74, rollingCoeff: 0.013, gripG: 1.1,  drivenWeightShare: 0.55, drive: 'RWD' },
+  pony:    { id: 'pony',    bodyId: 'pony',    league: 'C', price: 5500, massKg: 1500, hp: 354, peakRpmFrac: 0.72, idleRpm: 750, redline: 6800, finalDrive: 4.2, wheelRadiusM: 0.34, dragArea: 0.74, rollingCoeff: 0.013, gripG: 1.4, drivenWeightShare: 0.55, drive: 'RWD', engineGain: 1.247, character: 'dash' },
+  muscle:  { id: 'muscle',  bodyId: 'muscle',  league: 'C', price: 6500, massKg: 1850, hp: 438, peakRpmFrac: 0.75, idleRpm: 700, redline: 6400, finalDrive: 3.2, wheelRadiusM: 0.35, dragArea: 0.68, rollingCoeff: 0.013, gripG: 1.3,  drivenWeightShare: 0.55, drive: 'RWD', engineGain: 1.206, character: 'long' },
   // League B — street racers (Sport coupe moved to A as a super sport, owner Q82; Sport fastback moved up from D, owner Q86e)
-  sedan:   { id: 'sedan',   bodyId: 'sedan',   league: 'B', price: 8000,  massKg: 1550, hp: 452, peakRpmFrac: 0.85, idleRpm: 850, redline: 7000, finalDrive: 3.9, wheelRadiusM: 0.33, dragArea: 0.62, rollingCoeff: 0.013, gripG: 1.0, drivenWeightShare: 1.0, drive: 'AWD' },
-  sporthatch: { id: 'sporthatch', bodyId: 'sporthatch', league: 'B', price: 9000,   massKg: 1450, hp: 460, peakRpmFrac: 0.86, idleRpm: 900, redline: 7000, finalDrive: 3.9, wheelRadiusM: 0.33, dragArea: 0.62, rollingCoeff: 0.013, gripG: 1.05,  drivenWeightShare: 1.0, drive: 'AWD' },
-  rally:   { id: 'rally',   bodyId: 'rally',   league: 'B', price: 10000, massKg: 1500, hp: 508, peakRpmFrac: 0.8,  idleRpm: 900, redline: 7200, finalDrive: 3.9, wheelRadiusM: 0.33, dragArea: 0.66, rollingCoeff: 0.014, gripG: 1.1, drivenWeightShare: 1.0, drive: 'AWD' },   // AWD: every wheel drives
+  sedan:   { id: 'sedan',   bodyId: 'sedan',   league: 'B', price: 8000,  massKg: 1550, hp: 452, peakRpmFrac: 0.85, idleRpm: 850, redline: 7000, finalDrive: 3.9, wheelRadiusM: 0.33, dragArea: 0.62, rollingCoeff: 0.013, gripG: 1.0, drivenWeightShare: 1.0, drive: 'AWD', engineGain: 1.161, character: 'balanced' },
+  sporthatch: { id: 'sporthatch', bodyId: 'sporthatch', league: 'B', price: 9000,   massKg: 1450, hp: 430, peakRpmFrac: 0.86, idleRpm: 900, redline: 7000, finalDrive: 3.7, wheelRadiusM: 0.33, dragArea: 0.58, rollingCoeff: 0.013, gripG: 1.05,  drivenWeightShare: 1.0, drive: 'AWD', engineGain: 0.861, character: 'long' },
+  rally:   { id: 'rally',   bodyId: 'rally',   league: 'B', price: 10000, massKg: 1500, hp: 458, peakRpmFrac: 0.8,  idleRpm: 900, redline: 7200, finalDrive: 4.1, wheelRadiusM: 0.33, dragArea: 0.68, rollingCoeff: 0.014, gripG: 1.1, drivenWeightShare: 1.0, drive: 'AWD', engineGain: 0.79, character: 'dash' },   // AWD: every wheel drives
   // League A — tuners / grand tourers, super sports
-  compact: { id: 'compact', bodyId: 'compact', league: 'A', price: 18000, massKg: 1650, hp: 772, peakRpmFrac: 0.82, idleRpm: 850, redline: 7200, finalDrive: 3.6, wheelRadiusM: 0.34, dragArea: 0.64, rollingCoeff: 0.013, gripG: 2.0, drivenWeightShare: 0.56, drive: 'RWD' },
-  tuner:   { id: 'tuner',   bodyId: 'tuner',   league: 'A', price: 20000, massKg: 1500, hp: 870, peakRpmFrac: 0.9,  idleRpm: 950, redline: 8000, finalDrive: 3.8, wheelRadiusM: 0.33, dragArea: 0.6,  rollingCoeff: 0.013, gripG: 2.0,  drivenWeightShare: 0.55, drive: 'RWD' },
+  compact: { id: 'compact', bodyId: 'compact', league: 'A', price: 18000, massKg: 1600, hp: 715, peakRpmFrac: 0.82, idleRpm: 850, redline: 7200, finalDrive: 3.9, wheelRadiusM: 0.34, dragArea: 0.66, rollingCoeff: 0.013, gripG: 2.25, drivenWeightShare: 0.56, drive: 'RWD', engineGain: 2.191, character: 'dash' },
+  tuner:   { id: 'tuner',   bodyId: 'tuner',   league: 'A', price: 20000, massKg: 1500, hp: 745, peakRpmFrac: 0.9,  idleRpm: 950, redline: 8000, finalDrive: 3.6, wheelRadiusM: 0.33, dragArea: 0.58,  rollingCoeff: 0.013, gripG: 2.0,  drivenWeightShare: 0.55, drive: 'RWD', engineGain: 1.112, character: 'long' },
   // League S — hypercars
-  hyper:   { id: 'hyper',   bodyId: 'hyper',   league: 'S', price: 60000, massKg: 1450, hp: 1835, peakRpmFrac: 0.88, idleRpm: 1000, redline: 8500, finalDrive: 3.4, wheelRadiusM: 0.34, dragArea: 0.6, rollingCoeff: 0.012, gripG: 1.75, drivenWeightShare: 1.0, drive: 'RWD' },
+  hyper:   { id: 'hyper',   bodyId: 'hyper',   league: 'S', price: 60000, massKg: 1450, hp: 1835, peakRpmFrac: 0.88, idleRpm: 1000, redline: 8500, finalDrive: 3.4, wheelRadiusM: 0.34, dragArea: 0.6, rollingCoeff: 0.012, gripG: 1.75, drivenWeightShare: 1.0, drive: 'RWD', engineGain: 1, character: 'balanced' },
 };
 export const LEAGUES: League[] = ['D', 'C', 'B', 'A', 'S'];
-/** Catalog order: by league, then cheapest first. */
-export const CATALOG_ORDER = Object.keys(CARS).sort((a, b) => LEAGUES.indexOf(CARS[a].league) - LEAGUES.indexOf(CARS[b].league) || CARS[a].price - CARS[b].price);
+/** Catalog order: by league, then Voxel cars cheapest first, then Crowns-only cars. */
+export const CATALOG_ORDER = Object.keys(CARS).sort((a, b) => LEAGUES.indexOf(CARS[a].league) - LEAGUES.indexOf(CARS[b].league)
+  || +(CARS[a].currency === 'crowns') - +(CARS[b].currency === 'crowns') || CARS[a].price - CARS[b].price);
 
 export const STARTER_CAR = 'panda_civix';
 

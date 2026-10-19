@@ -29,7 +29,7 @@ export function carStats(carId: string, engineTier: Tier, transTier: Tier, stage
   return {
     car,
     massKg: car.massKg,
-    peakPowerW: car.hp * eng.hpMult * 745.7,
+    peakPowerW: car.hp * (1 + (eng.hpMult - 1) * (car.engineGain ?? 1)) * 745.7,
     peakRpm: redline * car.peakRpmFrac,
     idleRpm: car.idleRpm,
     redline,

@@ -21,8 +21,8 @@ const gap = 70; let x = -340;
 const civix = new CarModel(STOCK_LOOK, mats); civix.group.position.set(x, 0, 0); scene.add(civix.group);
 cars.push({ name: 'Civix (current)', g: civix.group, L: CAR_L, W: 28, x }); x += CAR_L + gap;
 // ?set=d → the League D hatch lineup only; default = every body
-const SET = new URLSearchParams(location.search).get('set') === 'd' ? ['classic', 'premium', 'city', 'supermini', 'sporthatch']
-  : ['classic', 'premium', 'city', 'supermini', 'sporthatch', 'sedan', 'muscle', 'tuner', 'tuner_up', 'hyper', 'pony', 'compact', 'rally'];
+const SET = new URLSearchParams(location.search).get('set') === 'd' ? ['classic', 'premium', 'city', 'supermini', 'perfhatch']
+  : ['classic', 'premium', 'city', 'supermini', 'perfhatch', 'sporthatch', 'sedan', 'muscle', 'tuner', 'tuner_up', 'hyper', 'pony', 'compact', 'rally'];
 for (const id of SET) {
   const P = BODY_PROFILES[id], { body, wheels, wheelY } = buildBodyVoxels(P), paint = new THREE.Color(P.paint);
   const g = new THREE.Group();

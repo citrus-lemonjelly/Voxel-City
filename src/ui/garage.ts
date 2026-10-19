@@ -49,10 +49,11 @@ const ICONS: Record<string, string[]> = {
   catalog: ['000000000000', '000000000000', '000011111000', '000111111100', '001122122110', '011111111111', '111111111111', '111111111111', '011101111011', '001000000100', '000000000000', '000000000000'],   // car
   settings: ['000011110000', '001011110100', '011111111110', '001111111100', '111110011111', '111100001111', '111100001111', '111110011111', '001111111100', '011111111110', '001011110100', '000011110000'], // gear
 };
+ICONS.crown = ['000000000000', '010001000100', '011001100110', '011101110110', '011111111110', '011111111110', '012112112110', '011111111110', '011111111110', '000000000000', '000000000000', '000000000000'];
 const icon = (k: string, px = 3) => `<svg width="${12 * px}" height="${12 * px}" viewBox="0 0 12 12" shape-rendering="crispEdges">${ICONS[k].map((row, y) => [...row].map((b, x) => b === '0' ? '' : `<rect x="${x}" y="${y}" width="1" height="1" fill="${b === '2' ? 'var(--accent)' : 'currentColor'}"/>`).join('')).join('')}</svg>`;
 
 const PAINTS: [string, string][] = [['#d23a2a', 'Race red'], ['#f2a43a', 'Sunset orange'], ['#f2c230', 'VOX yellow'], ['#2f9a5a', 'Racing green'], ['#1f8a8a', 'Teal'], ['#3b6fa8', 'Aegean blue'], ['#1f4fa8', 'Rally blue'], ['#6a3ad2', 'Violet'], ['#b83a7a', 'Magenta'], ['#eeeae0', 'Chalk white'], ['#8e9bb3', 'Steel grey'], ['#5a5e66', 'Gunmetal'], ['#1a1a1e', 'Midnight']];
-const TYPE_SUB: Record<string, string> = { panda_civix: 'Hot hatch', city: 'City car', supermini: 'Supermini', classic: 'Classic hatch', premium: 'Premium hatch', sporthatch: 'Sport fastback', sedan: 'Sport sedan', compact: 'Sport coupe', muscle: 'Muscle coupe', pony: 'Pony car', rally: 'Rally sedan', tuner: 'Tuner coupe', hyper: 'Hypercar' };
+const TYPE_SUB: Record<string, string> = { panda_civix: 'Hot hatch', city: 'City car', supermini: 'Supermini', classic: 'Classic hatch', premium: 'Premium hatch', sporthatch: 'Sport fastback', perfhatch: 'Performance hatch', sedan: 'Sport sedan', compact: 'Sport coupe', muscle: 'Muscle coupe', pony: 'Pony car', rally: 'Rally sedan', tuner: 'Tuner coupe', hyper: 'Hypercar' };
 /** Body profile a car is drawn with ('civix' = the original builder). */
 const profileOf = (id: string) => carBody(id).profile ?? 'civix';
 /** The car as the Catalog shows it: an owned car in its saved paint/options, otherwise factory. */
@@ -64,6 +65,11 @@ const catLook = (save: SaveV1) => lookOf(save, ui.cat.id, ui.cat.paint, ui.cat.o
 /** Select a car in the Catalog (owned cars start from their saved paint/options). */
 const pickCar = (save: SaveV1, id: string) => { const c = save.cars[id]; ui.cat = { id, paint: c?.paint || '', opts: { ...(c?.opts || {}) } }; };
 const price = (n: number) => n.toLocaleString() + ' VX';
+const crownIcon = () => `<i class="crown-ic">${icon('crown', 1.4)}</i>`;
+/** A car's price in its own currency (Voxels, or Crowns for Crowns-only cars). */
+const carPrice = (id: string) => CARS[id].currency === 'crowns' ? `${crownIcon()}${CARS[id].price.toLocaleString()} Crowns` : price(CARS[id].price);
+const wallet = (save: SaveV1, id: string) => CARS[id].currency === 'crowns' ? save.crowns : save.voxels;
+const CHARACTER: Record<string, string> = { dash: 'Best at short dashes', long: 'Best over the full 800 m', balanced: 'All-rounder' };
 
 export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, stage: StageDef, on: GarageHandlers, toast?: string) {
   const car = CARS[save.carId];
@@ -75,7 +81,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
     <div class="g-title">${inCat ? `<div class="hd screen-title">Garage</div><h1 class="hd">Catalog</h1>`
       : `<div class="hd screen-title">${carBrand(save.carId)} · League ${car.league}</div><h1 class="hd">${carName(save.carId)}</h1>
       <div class="g-stats"><span><b>${st.hp}</b> hp</span><span><b>${st.shifts}</b> shifts</span><span><b>${st.shiftTime.toFixed(2)}s</b> shift</span><span><b>${(st.redline / 1000).toFixed(1)}k</b> redline</span></div>`}</div>
-    <div class="g-wallet"><span class="voxels">${vx} VX</span><span class="g-rec">Best ${save.bestTime ? fmtTime(save.bestTime) : '—'} · ${save.wins}–${save.races - save.wins}</span></div>
+    <div class="g-wallet"><span class="voxels">${vx} VX</span><span class="crowns">${crownIcon()}${DEV.unlimited ? '∞' : save.crowns.toLocaleString()}</span><span class="g-rec">Best ${save.bestTime ? fmtTime(save.bestTime) : '—'} · ${save.wins}–${save.races - save.wins}</span></div>
     <div class="g-bar">${(['profile', 'upgrades', 'catalog', 'settings'] as const).map(k => `<button class="g-tab ${ui.panel === k ? 'on' : ''}" data-panel="${k}">${icon(k)}<span>${k[0].toUpperCase() + k.slice(1)}</span></button>`).join('')}</div>
     <button class="btn race g-racebtn" id="raceBtn">Race ▸</button>
     ${ui.raceMenu ? `<div class="g-racemenu">
@@ -124,7 +130,7 @@ function panelHtml(save: SaveV1, on: GarageHandlers): string {
     };
     const eqE = ENGINE[lg][save.equipped.engine - 1], eqT = TRANSMISSION[lg][save.equipped.trans - 1];
     return `<div class="g-panel blk">${close}<h2 class="hd">Upgrades <small class="g-sub">League ${lg} parts · ${carName(save.carId)}</small></h2>
-      <div class="upg"><h3 class="hd">Engine</h3><div class="desc">${eqE.label} — +${Math.round((eqE.hpMult - 1) * 100)}% power</div><div class="tiers">${TIERS.map(t => tierBtn('engine', t)).join('')}</div></div>
+      <div class="upg"><h3 class="hd">Engine</h3><div class="desc">${eqE.label} — +${Math.round((eqE.hpMult - 1) * (CARS[save.carId].engineGain ?? 1) * 100)}% power on this car</div><div class="tiers">${TIERS.map(t => tierBtn('engine', t)).join('')}</div></div>
       <div class="upg"><h3 class="hd">Transmission</h3><div class="desc">${eqT.label} — ${eqT.ratios.length} gears, ${eqT.shiftTime.toFixed(2)} s shifts, ${Math.round(eqT.zoneWidth * 100)}% shift zone</div><div class="tiers">${TIERS.map(t => tierBtn('trans', t)).join('')}</div></div>
       <div class="g-note">More part slots (tyres, nitrous, weight) come with the upgrade roadmap.</div></div>`;
   }
@@ -139,21 +145,21 @@ function panelHtml(save: SaveV1, on: GarageHandlers): string {
   }
   if (ui.panel === 'catalog') {
     const id = ui.cat.id, spec = CARS[id], paint = ui.cat.paint || save.cars[id]?.paint || carPaint(id), opts = BODY_OPTIONS[profileOf(id)] || [];
-    const owned = !!save.cars[id], inUse = save.carId === id, afford = DEV.unlimited || save.voxels >= spec.price;
+    const owned = !!save.cars[id], inUse = save.carId === id, afford = DEV.unlimited || wallet(save, id) >= spec.price;
     const card = (cid: string) => {
-      const c = CARS[cid], own = !!save.cars[cid], use = save.carId === cid, can = DEV.unlimited || save.voxels >= c.price;
-      const tag = use ? '<em class="cat-tag use">In use</em>' : own ? '<em class="cat-tag own">Owned</em>' : `<em class="cat-tag ${can ? '' : 'short'}">${price(c.price)}</em>`;
+      const c = CARS[cid], own = !!save.cars[cid], use = save.carId === cid, can = DEV.unlimited || wallet(save, cid) >= c.price;
+      const tag = use ? '<em class="cat-tag use">In use</em>' : own ? '<em class="cat-tag own">Owned</em>' : `<em class="cat-tag ${can ? '' : 'short'} ${c.currency === 'crowns' ? 'cr' : ''}">${carPrice(cid)}</em>`;
       return `<button class="cat-card ${cid === id ? 'on' : ''}" data-car="${cid}"><img class="cat-thumb" alt="" src="${on.thumb(lookOf(save, cid))}"><span class="cat-row"><b>${carName(cid)}</b>${tag}</span></button>`;
     };
     const action = inUse ? `<button class="btn cat-act" disabled>In use</button>`
       : owned ? `<button class="btn race cat-act" id="useCar">Use this car</button>`
-      : `<button class="btn race cat-act" id="buyCar" ${afford ? '' : 'disabled'}>Buy · ${price(spec.price)}</button>${afford ? '' : `<span class="cat-short">Need ${price(spec.price - save.voxels)} more</span>`}`;
+      : `<button class="btn race cat-act" id="buyCar" ${afford ? '' : 'disabled'}>Buy · ${carPrice(id)}</button>${afford ? '' : `<span class="cat-short">Need ${(spec.price - wallet(save, id)).toLocaleString()} more ${spec.currency === 'crowns' ? 'Crowns' : 'VX'}</span>`}`;
     const LEAGUE_NAME: Record<string, string> = { D: 'Hatchbacks', C: 'Muscle', B: 'Street racers', A: 'Tuners · GTs · Super sports', S: 'Hypercars' };
     const list = CATALOG_ORDER.map((cid, i) => (i === 0 || CARS[CATALOG_ORDER[i - 1]].league !== CARS[cid].league
       ? `<div class="cat-league"><b class="hd">League ${CARS[cid].league}</b><span>${LEAGUE_NAME[CARS[cid].league]}</span></div>` : '') + card(cid)).join('');
     return `<div class="cat-list blk">${list}</div>
       <div class="cat-under">${close}
-        <div class="cat-name"><b class="hd">${carName(id)}</b><span>${carBrand(id)} · ${TYPE_SUB[id] ?? ''} · ${spec.hp} hp · ${spec.massKg.toLocaleString()} kg · ${spec.drive} · League ${spec.league}</span></div>
+        <div class="cat-name"><b class="hd">${carName(id)}</b><span>${carBrand(id)} · ${TYPE_SUB[id] ?? ''} · ${spec.hp} hp · ${spec.massKg.toLocaleString()} kg · ${spec.drive} · League ${spec.league} · ${CHARACTER[spec.character ?? 'balanced']}${spec.currency === 'crowns' ? ' · Crowns only' : ''}</span></div>
         <div class="cat-paints">${PAINTS.map(([c, n]) => `<button class="swatch ${c === paint ? 'on' : ''}" data-paint="${c}" title="${n}" style="background:${c}"></button>`).join('')}</div>
         ${opts.length ? `<div class="cat-opts">${opts.map(o => `<div class="setrow"><span>${o.label}</span><div class="seg">${o.values.map(([v, t]) => `<button class="${(ui.cat.opts[o.id] ?? o.values[0][0]) === v ? 'on' : ''}" data-opt="${o.id}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>` : `<div class="g-note">No optional features on this body yet.</div>`}
         <div class="cat-buy">${action}<span class="g-note">${owned ? 'Paint and options save to this car.' : 'Paint and options you pick here come with the car.'}</span></div>

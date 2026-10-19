@@ -12,7 +12,7 @@ import { Tier } from '../data/parts';
 export interface Rival extends OpponentDef { seed: number; /** the rival's finish time (s), known ahead */ expect: number; /** your perfect-run time (s) */ yours: number }
 
 /** How close races are (seconds the rival finishes behind YOUR perfect run). Tune here. */
-export const MATCH = { minGap: 0.03, maxGap: 0.18, candidates: 64, /** your reference reaction off the green (s) — a sharp human */ reaction: 0.25 };
+export const MATCH = { minGap: 0.04, maxGap: 0.21, candidates: 64, /** your reference reaction off the green (s) — a sharp human */ reaction: 0.25 };
 
 const NAMES = ['Rico', 'Marisol', 'Kenji', 'Vee', 'Halden', 'Juno', 'Dax', 'Priya', 'Mateo', 'Sable', 'Oren', 'Lux', 'Tamsin', 'Bodie', 'Nia', 'Kaito',
   'Rhea', 'Cruz', 'Ines', 'Wren', 'Zeke', 'Amara', 'Fitz', 'Noor', 'Ozzie', 'Lena', 'Rafe', 'Suki', 'Teo', 'Yara'];
@@ -26,7 +26,7 @@ export function simTime(carId: string, eng: Tier, trans: Tier, stage: StageDef, 
   for (let i = 0; i < 120 * 90 && !race.done; i++) race.step(1 / 120);
   return r.finish ?? 999;
 }
-const reactionFor = (skill: number): [number, number] => { const a = 0.34 - skill * 0.2; return [a, a + 0.12]; };
+const reactionFor = (skill: number): [number, number] => { const a = 0.36 - skill * 0.22; return [a, a + 0.12]; };
 
 export function makeRival(carId: string, eng: Tier, trans: Tier, stage: StageDef, seed = (Date.now() & 0x7fffffff) || 1): Rival {
   const rng = makeRng(seed), pick = <T>(a: T[]) => a[Math.floor(rng() * a.length) % a.length];
@@ -36,11 +36,14 @@ export function makeRival(carId: string, eng: Tier, trans: Tier, stage: StageDef
   const target = yours + MATCH.minGap + rng() * (MATCH.maxGap - MATCH.minGap);
   let best: Rival | null = null;
   for (let i = 0; i < MATCH.candidates; i++) {
-    const c = pick(pool), e = pick(TIERS), t = pick(TIERS), skill = 0.5 + rng() * 0.48, reaction = reactionFor(skill), s = (rng() * 0x7fffffff) | 1;
-    const time = simTime(c, e, t, stage, skill, reaction, s);
-    if (time - yours < MATCH.minGap) continue;                                   // never faster than your perfect run
-    if (!best || Math.abs(time - target) < Math.abs(best.expect - target))
-      best = { id: 'rival', name: pick(NAMES), carId: c, engineTier: e, transTier: t, skill, reaction, paint: pick(PAINTS), seed: s, expect: time, yours };
+    const c = pick(pool), e = pick(TIERS), t = pick(TIERS), s = (rng() * 0x7fffffff) | 1, jitter = rng() * 0.08;
+    for (const base of [0.95, 0.85, 0.75, 0.65, 0.55, 0.45, 0.35]) {                // try this car/tune at several driving levels
+      const skill = Math.min(0.99, base + jitter), reaction = reactionFor(skill);
+      const time = simTime(c, e, t, stage, skill, reaction, s);
+      if (time - yours < MATCH.minGap) continue;                                 // never faster than your perfect run (owner Q92)
+      if (!best || Math.abs(time - target) < Math.abs(best.expect - target))
+        best = { id: 'rival', name: pick(NAMES), carId: c, engineTier: e, transTier: t, skill, reaction, paint: pick(PAINTS), seed: s, expect: time, yours };
+    }
   }
   // fallback (should not happen): the slowest stock car of the league with a middling driver
   return best ?? { id: 'rival', name: pick(NAMES), carId: pool[0], engineTier: 1, transTier: 1, skill: 0.55, reaction: reactionFor(0.55), paint: pick(PAINTS), seed: 1, expect: simTime(pool[0], 1, 1, stage, 0.55, reactionFor(0.55), 1), yours };

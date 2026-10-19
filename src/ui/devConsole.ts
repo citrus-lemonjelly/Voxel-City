@@ -50,7 +50,8 @@ export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
     panel.innerHTML = `
       <div class="dev-h hd">Test console <span>local save only</span></div>
       <div class="dev-sec"><b>Voxels</b> <span class="dev-v">${DEV.unlimited ? '∞ (free purchases)' : s.voxels.toLocaleString() + ' VX'}</span><div>
-        ${btn('vx1k', '+1,000')}${btn('vx10k', '+10,000')}${btn('vx100k', '+100,000')}${btn('vx0', 'Set 0')}${btn('unl', 'Unlimited', DEV.unlimited)}</div></div>
+        ${btn('vx1k', '+1,000')}${btn('vx10k', '+10,000')}${btn('vx100k', '+100,000')}${btn('vx0', 'Set 0')}${btn('unl', 'Unlimited (VX + Crowns)', DEV.unlimited)}</div></div>
+      <div class="dev-sec"><b>Crowns</b> <span class="dev-v">${DEV.unlimited ? '∞' : s.crowns.toLocaleString()}</span><div>${btn('cr100', '+100')}${btn('cr1k', '+1,000')}${btn('cr0', 'Set 0')}</div></div>
       <div class="dev-sec"><b>Unlock</b><div>${btn('cars', 'All cars')}${btn('parts', 'All parts (every owned car)')}${btn('cosm', 'All cosmetics')}${btn('relock', 'Re-lock to stock (starter car only)')}</div></div>
       <div class="dev-sec"><b>Equip</b><div class="dev-row">
         <label>Paddle skin ${sel('skin', Object.values(PADDLES).map(p => [p.id, p.name]), s.paddles.equipped)}</label>
@@ -83,6 +84,9 @@ export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
       case 'vx10k': s.voxels += 10000; break;
       case 'vx100k': s.voxels += 100000; break;
       case 'vx0': s.voxels = 0; break;
+      case 'cr100': s.crowns += 100; break;
+      case 'cr1k': s.crowns += 1000; break;
+      case 'cr0': s.crowns = 0; break;
       case 'unl': DEV.unlimited = !DEV.unlimited; msg = DEV.unlimited ? 'Unlimited voxels on' : 'Unlimited voxels off'; break;
       case 'cars': Object.keys(CARS).forEach(id => addCar(s, id)); msg = 'All cars unlocked (Catalog → Use this car)'; break;
       case 'parts': {

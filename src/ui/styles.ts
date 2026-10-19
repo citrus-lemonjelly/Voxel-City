@@ -18,6 +18,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 #terminal h1{margin:0;font-size:28px}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .voxels{color:var(--accent);font:900 22px "Courier New",monospace}
+.crowns{color:#e8c46a;font:900 16px "Courier New",monospace;display:inline-flex;align-items:center;gap:4px}.crown-ic{display:inline-flex;color:#e8c46a;--accent:#b8901c;margin-right:3px;vertical-align:-2px}
+.btn .crown-ic{color:#14161c;--accent:#14161c}
+.cat-tag.cr{color:#e8c46a;display:inline-flex;align-items:center}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .stat{background:var(--panel2);padding:8px 10px;box-shadow:0 0 0 2px var(--edge)}
 .stat b{display:block;font:900 20px "Courier New",monospace}

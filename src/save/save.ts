@@ -7,6 +7,8 @@ import { PaddleShape, PedalStyle, STANDARD_PADDLE, STANDARD_PEDAL, STANDARD_SHAP
 export interface SaveV1 {
   version: 1;
   voxels: number;
+  /** Crowns — the special currency (E3): earned, never buys performance parts. Crowns-only cars are owner 2026-10-18. */
+  crowns: number;
   carId: string;
   owned: { engine: Tier[]; trans: Tier[] };
   equipped: { engine: Tier; trans: Tier };
@@ -49,7 +51,7 @@ export const freshCar = (paint = '', opts: Record<string, string> = {}): CarStat
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 
 export function freshSave(): SaveV1 {
-  return { cars: { [STARTER_CAR]: freshCar() }, version: 1, voxels: ECONOMY.startingVoxels, carId: STARTER_CAR, owned: { engine: [1], trans: [1] }, equipped: { engine: 1, trans: 1 }, bestTime: null, races: 0, wins: 0, settings: { ...DEFAULT_SETTINGS }, paddles: freshPaddles(), pedals: { owned: [STANDARD_PEDAL], equipped: STANDARD_PEDAL }, perfectShifts: 0 };
+  return { crowns: 0, cars: { [STARTER_CAR]: freshCar() }, version: 1, voxels: ECONOMY.startingVoxels, carId: STARTER_CAR, owned: { engine: [1], trans: [1] }, equipped: { engine: 1, trans: 1 }, bestTime: null, races: 0, wins: 0, settings: { ...DEFAULT_SETTINGS }, paddles: freshPaddles(), pedals: { owned: [STANDARD_PEDAL], equipped: STANDARD_PEDAL }, perfectShifts: 0 };
 }
 
 export function loadSave(): SaveV1 {

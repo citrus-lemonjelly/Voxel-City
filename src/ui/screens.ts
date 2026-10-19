@@ -27,9 +27,9 @@ export function renderResults(root: HTMLElement, d: ResultData, on: { again(): v
     <div><div class="hd" style="font-size:13px;color:var(--dim);margin-bottom:6px">Launch &amp; shifts</div>
       <div class="chips"><span class="chip ${d.launch}">Launch: ${d.launch}</span>${d.shifts.map((g, i) => `<span class="chip ${g}">${i + 1}→${i + 2}: ${g}</span>`).join('')}</div></div>
     <div class="earn">${d.earnings.map(([k, v]) => `<span>${k}</span><span>+${v} VX</span>`).join('')}<span class="total">Total</span><span class="total">+${d.total} VX</span></div>
-    <div class="row"><button class="btn" id="again">Race again</button><button class="btn ghost" id="garage">Garage</button></div>
+    <div class="row"><button class="btn" id="again">Race again</button><button class="btn ghost" id="toGarage">Garage</button></div>
   </div>`);
   root.appendChild(el);
   el.querySelector('#again')!.addEventListener('click', on.again);
-  el.querySelector('#garage')!.addEventListener('click', on.garage);
+  el.querySelector('#toGarage')!.addEventListener('click', on.garage);   // not id="garage": that id is the Garage HUD's full-screen layer
 }

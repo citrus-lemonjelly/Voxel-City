@@ -6,7 +6,7 @@
 import { Vox, Role } from './voxel';
 import { PAL, buildWheels, WheelVox, CarLook, setBodyBuilder } from './carBuilder';
 
-export type HeadStyle = 'rect' | 'slim' | 'quad' | 'round' | 'wrap' | 'split' | 'bar' | 'popup' | 'popupUp' | 'blade';
+export type HeadStyle = 'rect' | 'slim' | 'quad' | 'round' | 'wrap' | 'split' | 'bar' | 'notch' | 'popup' | 'popupUp' | 'blade';
 export type TailStyle = 'rect' | 'bar' | 'quad' | 'blade' | 'tall';
 export interface BodyProfile {
   id: string; name: string;
@@ -37,8 +37,8 @@ export interface BodyProfile {
   grilleAccent?: string;
   /** round fog lamps in the lower bumper corners */
   fogs?: boolean;
-  /** dark front splitter lip under the bumper */
-  splitter?: boolean;
+  /** dark front splitter lip under the bumper (true, or a colour for a painted accent lip) */
+  splitter?: boolean | string;
   /** black plastic cladding: sills and a band around each arch */
   cladding?: boolean;
   /** blacked-out pillars so the roof seems to float */
@@ -195,6 +195,12 @@ export function buildBodyVoxels(P: BodyProfile): { body: Vox[]; wheels: WheelVox
       for (let z = z0; z < z1; z++) put(-1, H.y1 - 1, z, '#eaf6ff', 'light');
       for (let z = z0; z < z1; z++) for (let y = H.y0; y < H.y1 - 1; y++) { const inner = z0 < W / 2 ? z >= z1 - 3 : z < z0 + 3; put(-1, y, z, inner ? PAL.head : '#2a2d33', inner ? 'light' : 'trim'); }
     }
+    if (H.style === 'notch') {                                                     // angular lamp: LED brow across the top, deep at the outer corner
+      for (let z = z0; z < z1; z++) put(-1, H.y1 - 1, z, '#eaf6ff', 'light');
+      const inner = z0 < W / 2 ? [z0, z0 + 3] : [z1 - 3, z1];
+      for (let z = inner[0]; z < inner[1]; z++) for (let y = H.y0; y < H.y1 - 1; y++) put(-1, y, z, PAL.head, 'light');
+      for (let z = z0; z < z1; z++) if (z < inner[0] || z >= inner[1]) put(-1, H.y1 - 2, z, '#2a2d33');
+    }
     if (H.style === 'bar') for (let z = z0; z < z1; z++) for (let y = H.y0; y < H.y1; y++) put(-1, y, z, y === H.y1 - 1 ? '#eaf6ff' : PAL.darkGrey, y === H.y1 - 1 ? 'light' : 'trim');
     if (H.style === 'round') {                                                     // one big round lamp per side with a chrome ring
       const zc = (z0 + z1) / 2, yc = (H.y0 + H.y1) / 2, r = (H.y1 - H.y0) / 2 + 0.3;
@@ -225,7 +231,7 @@ export function buildBodyVoxels(P: BodyProfile): { body: Vox[]; wheels: WheelVox
   if (H.style === 'bar') for (let z = LZ[1]; z < W - LZ[1]; z++) put(-1, H.y1 - 1, z, '#eaf6ff', 'light');   // the light bar runs across the nose
   if (P.grilleAccent) for (let z = LZ[0]; z < W - LZ[0]; z++) put(-1, Math.min(G.y0, H.y0) - 1, z, P.grilleAccent);
   if (P.fogs) for (const zc of [LZ[0] + 2.5, W - LZ[0] - 2.5]) for (let z = Math.floor(zc - 2); z < zc + 2; z++) for (let y = yBot + 1; y < yBot + 4; y++) { const d = Math.hypot(z + .5 - zc, y + .5 - (yBot + 2.5)); if (d < 1.7) put(-1, y, z, d < 0.9 ? PAL.head : PAL.darkGrey, d < 0.9 ? 'light' : 'trim'); }
-  if (P.splitter) for (let z = 1; z < W - 1; z++) put(-2, yBot, z, PAL.dark);
+  if (P.splitter) for (let z = 1; z < W - 1; z++) put(-2, yBot, z, typeof P.splitter === 'string' ? P.splitter : PAL.dark);
   if (P.frontIntake) for (let z = 4; z < W - 4; z++) for (let y = P.frontIntake[0]; y < P.frontIntake[1]; y++) put(-1, y, z, (y + z) % 2 ? '#121214' : PAL.darkGrey);
   for (let z = Math.floor(W / 2) - 3; z < Math.floor(W / 2) + 3; z++) put(-2, yBot + 1, z, PAL.plate);
   // ---- rear: tail lights, plate, exhaust, diffuser ----
@@ -377,7 +383,17 @@ export const BODY_PROFILES: Record<string, BodyProfile> = {
     head: { style: 'split', y0: 7, y1: 10 }, tail: { style: 'rect', y0: 10, y1: 12 }, tailZ: [1, 9], grille: { y0: 2, y1: 10, z: 9, style: 'frame' },
     exhaust: 'split', mirrors: true, wing: 'none', paint: '#8e9bb3', rim: 'multi',
   },
-  // sport hatch, ~4.3 m (Mégane RS / Focus RS type): widest and lowest, big flared arches, vents behind the front wheels, a
+  // performance hatch, ~4.3 m (owner Q95: Focus ST / i30 N type): 5-door, long sloping roof into a big roof spoiler, angular
+  // lamps with an LED brow, large cascading mesh grille, red accent lip on the splitter, diffuser with a pipe each side
+  perfhatch: {
+    id: 'perfhatch', name: 'Performance hatch (concept)', L: 60, W: 29, wheels: [11, 49], wheelR: 5.1, ride: 1, yBot: 2,
+    lower: [[0, 8], [3, 10], [12, 11], [23, 12], [52, 12], [59, 13]],
+    green: [[22, 12], [30, 20], [43, 20], [53, 16], [56, 13]], wsEnd: 30, roofEnd: 43, cPillar: 47, pillars: [36, 37],
+    greenInset: 2, roofInset: 3, rearGlass: 'hatch', doors: [23, 37, 48], handles: [34, 46], crease: 2, rocker: PAL.dark,
+    head: { style: 'notch', y0: 8, y1: 11 }, lampZ: [2, 9], tail: { style: 'rect', y0: 10, y1: 13 }, tailZ: [1, 7], grille: { y0: 3, y1: 9, z: 9, style: 'mesh' },
+    splitter: '#d23a2a', diffuser: true, exhaust: 'split', mirrors: true, mirrorColor: PAL.dark, wing: 'roof', paint: '#2a7fd4', rim: 'sixblack',
+  },
+  // sport fastback, ~4.3 m (was the Sport hatch; owner Q86e moved it to League B): widest and lowest, big flared arches, vents behind the front wheels, a
   // light bar across the nose, deep intake and splitter, full-width tail bar, twin centre pipes in a diffuser, roof spoiler
   sporthatch: {
     id: 'sporthatch', name: 'Sport fastback (concept)', L: 62, W: 30, wheels: [12, 50], wheelR: 5.3, ride: 0, yBot: 2,
@@ -406,6 +422,7 @@ export const BODY_OPTIONS: Record<string, BodyOption[]> = {
   city: [{ id: 'roof', label: 'Roof', values: [['white', 'White'], ['black', 'Black'], ['body', 'Body colour']] }],
   supermini: [{ id: 'roof', label: 'Roof', values: [['body', 'Body colour'], ['black', 'Black'], ['white', 'White']] }, { id: 'wing', label: 'Roof spoiler', values: [['on', 'On'], ['off', 'None']] }],
   sporthatch: [{ id: 'wing', label: 'Roof spoiler', values: [['on', 'On'], ['off', 'None']] }],
+  perfhatch: [{ id: 'wing', label: 'Roof spoiler', values: [['on', 'On'], ['off', 'None']] }],
 };
 const ROOF: Record<string, string | undefined> = { white: '#eeeae0', black: '#1a1a1e', body: undefined };
 

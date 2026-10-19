@@ -99,8 +99,9 @@ function showGarage(toast?: string) {
 /** Catalog (Q79): buy a car (it comes with the paint/options picked and goes straight into use). */
 function buyCar(id: string, paint: string, opts: Record<string, string>) {
   const def = CARS[id]; if (!def || save.cars[id]) return;
-  if (!DEV.unlimited && save.voxels < def.price) return showGarage(`Need ${(def.price - save.voxels).toLocaleString()} more VX for the ${carName(id)}`);
-  if (!DEV.unlimited) save.voxels -= def.price;
+  const crowns = def.currency === 'crowns', have = crowns ? save.crowns : save.voxels;
+  if (!DEV.unlimited && have < def.price) return showGarage(`Need ${(def.price - have).toLocaleString()} more ${crowns ? 'Crowns' : 'VX'} for the ${carName(id)}`);
+  if (!DEV.unlimited) { if (crowns) save.crowns -= def.price; else save.voxels -= def.price; }
   addCar(save, id, paint, opts); switchCar(save, id); writeSave(save);
   showGarage(`Bought the ${carName(id)} — now in use`);
 }

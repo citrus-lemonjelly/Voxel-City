@@ -46,9 +46,14 @@ with sync_playwright() as p:
     pl = pg.evaluate("window.__vc.race.racers[0].shifts.length")
     ok('autoplay race completes', r is not None and 20 < r['myTime'] < 30, json.dumps(r))
     ok('T2 box = 4 shifts', pl == 4, str(pl))
+    # results screen is readable: nothing covers the heading, the Garage button is button-sized (owner bug 2026-10-18)
+    lay = pg.evaluate("""(() => { const h = document.querySelector('#results h1'), b = document.querySelector('#toGarage'); if (!h || !b) return null;
+      const r = h.getBoundingClientRect(), top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2), bb = b.getBoundingClientRect();
+      return { headingOnTop: top === h || h.contains(top), btnH: bb.height, btnW: bb.width }; })()""")
+    ok('results screen readable (heading visible, Garage button normal size)', lay and lay['headingOnTop'] and lay['btnH'] < 90 and lay['btnW'] < 300, json.dumps(lay))
+    pg.click('#toGarage'); pg.wait_for_function("window.__vc.screen === 'garage'", timeout=600000)
 
     # 4. manual race: real Space key presses, timed off the live rpm
-    pg.click('#again')
     pg.goto(url + '?norender=1'); pg.wait_for_function("window.__vc.screen === 'garage'", timeout=600000)
     pg.click('#raceBtn'); pg.click('#streetRace'); pg.wait_for_function("window.__vc.race && window.__vc.race.racers.length === 2", timeout=600000)
     # 4a. paddle: a real mouse press on the visible paddle hits the press target and shows the pressed state (HUD S20)
@@ -119,7 +124,7 @@ with sync_playwright() as p:
     pg.click('#raceBtn'); time.sleep(0.3)                             # close the race menu again
     thumbs = pg.evaluate("[...document.querySelectorAll('.cat-card img.cat-thumb')].filter(i => i.src.startsWith('data:image/png') && i.naturalWidth > 100).length")
     cards = pg.evaluate("document.querySelectorAll('.cat-card').length")
-    ok('catalog cards: a 3D still, name and price for every car', cards == 13 and thumbs == 13, f'{cards} cards, {thumbs} thumbnails')
+    ok('catalog cards: a 3D still, name and price for every car', cards == 14 and thumbs == 14, f'{cards} cards, {thumbs} thumbnails')
     # 8. Buying and using cars (owner Q79): unlimited off, real price comes off; the bought car keeps the paint/options picked
     pg.keyboard.press('Backquote'); pg.click('.dev-panel [data-a="unl"]'); time.sleep(0.3); pg.click('.dev-panel [data-a="vx100k"]'); time.sleep(0.3); pg.keyboard.press('Backquote'); time.sleep(0.3)
     vb = pg.evaluate("window.__vc.save.voxels")
@@ -128,6 +133,14 @@ with sync_playwright() as p:
     t = s8['cars'].get('tuner', {})
     ok('buy a car: price paid, in use, paint/options kept, stock parts', s8['carId'] == 'tuner' and s8['voxels'] == vb - 20000 and t.get('paint') == '#2f9a5a' and t.get('opts', {}).get('popups') == 'up' and s8['owned']['engine'] == [1] and 5 in s8['cars']['panda_civix']['owned']['engine'], json.dumps({k: s8[k] for k in ('carId', 'voxels', 'owned', 'cars')}) + f' before {vb}')
     pg.screenshot(path=f'{out}/11-bought.png')
+    # Crowns-only car (owner 2026-10-18): can't buy with Voxels; +300 Crowns buys it and only Crowns are spent
+    pg.click('[data-car="perfhatch"]'); time.sleep(0.5)
+    cr0 = pg.evaluate("[document.querySelector('#buyCar').disabled, document.querySelector('#buyCar').textContent]")
+    pg.keyboard.press('Backquote'); pg.click('.dev-panel [data-a="cr100"]'); pg.click('.dev-panel [data-a="cr100"]'); pg.click('.dev-panel [data-a="cr100"]'); time.sleep(0.3); pg.keyboard.press('Backquote'); time.sleep(0.3)
+    vbc = pg.evaluate("[window.__vc.save.voxels, window.__vc.save.crowns]")
+    pg.click('#buyCar'); time.sleep(1)
+    sc = pg.evaluate("[window.__vc.save.voxels, window.__vc.save.crowns, window.__vc.save.carId]")
+    ok('Crowns-only car: locked without Crowns, bought with Crowns only', cr0[0] and 'Crowns' in cr0[1] and sc[0] == vbc[0] and sc[1] == vbc[1] - 150 and sc[2] == 'perfhatch', json.dumps([cr0, vbc, sc]))
     pg.click('[data-car="panda_civix"]'); time.sleep(0.5); pg.click('#useCar'); time.sleep(0.8)
     civ = pg.evaluate("window.__vc.save")
     pg.click('[data-car="tuner"]'); time.sleep(0.5); pg.click('#useCar'); time.sleep(0.8)
