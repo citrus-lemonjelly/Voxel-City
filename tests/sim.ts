@@ -8,6 +8,7 @@ import { Tier } from '../src/data/parts';
 import { CARS, CATALOG_ORDER, LEAGUES } from '../src/data/cars';
 import { makeRival, simTime, MATCH } from '../src/game/rivals';
 import { CHANGELOG, VERSION } from '../src/data/changelog';
+import { isNewer } from '../src/game/updates';
 import { VISUAL_PARTS, isFactory, randomParts, ownsPart, PART_SLOTS } from '../src/data/visualParts';
 import { COSMETIC_PRICES } from '../src/data/economy';
 // @ts-ignore — node built-in (no @types/node in this repo)
@@ -179,5 +180,11 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
     && ownsPart('decal.boss_D_3', [], ['decal_D_3']) && !ownsPart('decal.boss_D_4', [], ['decal_D_3']) && JSON.stringify(r1) === JSON.stringify(r2)
     && Object.values(r1).every(v => !String(v).startsWith('boss_')),
     `visual parts: ${sold.length} for sale (all priced), ${won.length} boss decals (won, never sold), ${PART_SLOTS.length} tabs; rival parts repeatable: ${JSON.stringify(r1)}`);
+}
+// update notice (owner V0.2.1): a newer build time = update; same or older = none
+{
+  const mine = { version: '0.2.1', built: '2026-10-19T23:30:00.000Z' };
+  check(isNewer({ version: '0.2.2', built: '2026-10-20T01:00:00.000Z' }, mine) && !isNewer({ version: '0.2.1', built: mine.built }, mine) && !isNewer({ version: '0.2.0', built: '2026-10-19T20:00:00.000Z' }, mine) && !isNewer(null, mine),
+    'update notice: only a newer build on the site counts as an update');
 }
 process.exit(fail ? 1 : 0);

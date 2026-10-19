@@ -6,7 +6,8 @@ import { CSS } from './ui/styles';
 import { renderResults, ResultData } from './ui/screens';
 import { renderGarage, garageInCatalog, garageOpenStrip, factoryTwin } from './ui/garage';
 import { Hud } from './ui/hud';
-import { VERSION } from './data/changelog';
+import { VERSION, CHANGELOG } from './data/changelog';
+import { watchForUpdates, reloadInto, RemoteBuild } from './game/updates';
 import { loadSave, writeSave, SaveV1, addCar, switchCar, RaceDist } from './save/save';
 import { STAGES, START_STAGE } from './data/stages';
 import { ECONOMY, DIFFICULTY, racePay, Difficulty, partPrice, cosmeticPrice } from './data/economy';
@@ -94,7 +95,7 @@ let screen: Screen = 'garage';
 let race: Race | null = null, hud: Hud | null = null, oppRacer: Racer | null = null, finishedAt = 0;
 
 function showGarage(toast?: string) {
-  screen = 'garage'; world.mode = 'garage'; rollRival(); if (!garageInCatalog()) world.setGarageCar(playerLook());
+  screen = 'garage'; world.mode = 'garage'; setTimeout(showUpdate, 0); rollRival(); if (!garageInCatalog()) world.setGarageCar(playerLook());
   renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onRace: () => startRace(), onStrip: startStrip, stripNext, onClaim: claimLevel, onSetting: setSetting,
     onPreview: look => world.setGarageCar(look ?? playerLook()), onView: v => world.setGarageView(v),
     onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, onBuyPart: buyPart, onFitPart: (id: string) => fitPart(id), onDistance: setDistance, onDifficulty: setDifficulty, thumb: (look, view) => world.thumbnail(look, undefined, undefined, view), playerLook,
@@ -183,7 +184,7 @@ function claimLevel(n: number) {
 function startStrip() { const r = stripNext(); if (!r) return showGarage('This league\'s Strip is complete'); startRace('strip', r); }
 
 function startRace(kind: 'street' | 'strip' = 'street', stripR?: Rung) {
-  screen = 'race';
+  screen = 'race'; document.getElementById('vc-update')?.remove();   // never interrupt a race — the notice comes back after it
   rung = kind === 'strip' ? (stripR ?? stripNext()) : null;
   if (rung) opp = rung.rival; else rollRival();
   input.held = false; input.shiftQueued = false; input.downQueued = false;
@@ -229,6 +230,7 @@ function finishRace() {
   const note = doneRung ? `The Strip · League ${doneRung.league} · Level ${doneRung.n} of ${STRIP.rungs}${doneRung.boss ? ' · Boss' : ''} · ${won ? `cleared — claim your reward in the Strip` : 'same rival next time'}` : undefined;
   const data: ResultData = { won, myTime: me.finish!, oppTime: them.finish!, oppName: opp.name, launch: me.launchGrade || 'Bog', shifts: me.shifts.map(s => s.grade), earnings, total, newBest, note };
   rollRival(true);                                                                   // next street race: a new rival
+  setTimeout(showUpdate, 0);
   renderResults(ui, data, { again: doneRung ? () => { garageOpenStrip(); showGarage(); } : () => startRace(), garage: () => showGarage() }, doneRung ? 'The Strip ▸' : 'Race again');
   (window as any).__vc.lastResult = data;
 }
@@ -273,6 +275,24 @@ const dev = initDevConsole({
   resetSave: () => { save = freshSave(); writeSave(save); },
   race: () => race, screen: () => screen,
 }, params.has('dev'));
-showGarage();
+// ---------------- update notice (owner V0.2.1) ----------------
+// A newer build on the site → a notice in the garage / results (never mid-race). "Refresh now" saves and reloads into the
+// new build, which is a new session; the progress is kept in the save.
+let pendingUpdate: RemoteBuild | null = null, updateLater = false;
+function showUpdate() {
+  if (!pendingUpdate || updateLater || screen === 'race' || document.getElementById('vc-update')) return;
+  const r = pendingUpdate, el = document.createElement('div');
+  el.id = 'vc-update'; el.className = 'upd blk';
+  el.innerHTML = `<div class="upd-txt"><b class="hd">Update ready · V${r.version}</b><span>${(r.title || 'A new version is out').replace(/</g, '&lt;')} — refresh to start a new session on it. Your progress is saved.</span></div>
+    <button class="btn race" id="updGo">Refresh now</button><button class="btn ghost upd-later" id="updLater">Later</button>`;
+  document.body.appendChild(el);
+  el.querySelector('#updGo')!.addEventListener('click', () => { writeSave(save); reloadInto(r); });
+  el.querySelector('#updLater')!.addEventListener('click', () => { updateLater = true; el.remove(); setTimeout(() => { updateLater = false; if (screen !== 'race') showUpdate(); }, 10 * 60_000); });
+}
+watchForUpdates(r => { pendingUpdate = r; showUpdate(); });
+// first start on a new version: say so once (the patch notes button also shows NEW)
+const updatedFrom = save.lastVersion && save.lastVersion !== VERSION ? save.lastVersion : null;
+if (save.lastVersion !== VERSION) { save.lastVersion = VERSION; writeSave(save); }
+showGarage(updatedFrom ? `Updated to V${VERSION} — ${CHANGELOG[0].title}. See Patch notes (bottom-left).` : undefined);
 prewarmVehicles(world.mats);
 requestAnimationFrame(frame);

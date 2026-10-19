@@ -28,6 +28,8 @@ export interface SaveV1 {
   decals: string[];
   /** Newest patch notes version the player has opened (the notes button shows NEW until then). */
   seenVersion?: string;
+  /** Game version this save last ran on (announces "Updated to …" once after an update). */
+  lastVersion?: string;
   /** Street Race length picked in the race menu. */
   raceDist: RaceDist;
   races: number;

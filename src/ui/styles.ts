@@ -57,6 +57,10 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .g-tab:hover{color:#fff;box-shadow:0 0 0 2px #5a5f6d}
 .g-tab.on{background:#2f3442;color:#fff;box-shadow:0 0 0 2px var(--accent)}
 .g-racebtn{position:absolute;right:28px;bottom:22px;font-size:30px!important;padding:20px 34px!important}
+/* update notice (owner V0.2.1): static, top centre, above everything */
+.upd{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;padding:12px 16px;max-width:820px;width:max-content}
+.upd-txt{display:flex;flex-direction:column;gap:2px}.upd-txt .hd{color:var(--accent);font-size:16px}.upd-txt span{font-size:12.5px;color:#cfd3dc}
+.upd .btn{font-size:14px;padding:9px 14px;white-space:nowrap}
 /* patch notes (owner 2026-10-19): small paper button bottom-left, panel opens above it */
 .g-notesbtn{position:absolute;left:28px;bottom:22px;border:0;cursor:pointer;width:62px;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#14161cd8;color:#cfd3dc;box-shadow:0 0 0 3px var(--edge),4px 4px 0 3px #0b0c10;font:800 10px "Courier New",monospace;letter-spacing:.04em}
 .g-notesbtn:hover{color:#fff;box-shadow:0 0 0 3px #5a5f6d,4px 4px 0 3px #0b0c10}

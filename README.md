@@ -68,3 +68,9 @@ npm run build      # → build/VoxelCity.html
 npm run dev        # live dev server (Vite)
 npm run sim        # headless physics checks
 ```
+
+## Releasing a new version (owner 2026-10-19)
+
+1. Add a new entry at the **top** of `src/data/changelog.ts` (version, date, title, Added / Changed / Fixed / Removed) and set the same version in `package.json`.
+2. Build: `node tools/build.mjs` → `build/index.html`, `build/VoxelCity.html`, `build/version.json`, `docs/CHANGELOG.md`.
+3. Upload the `build` folder to GitHub. The Pages workflow publishes it at https://citrus-lemonjelly.github.io/Voxel-City/ and anyone playing there gets the **Update ready** notice within ~2 minutes.

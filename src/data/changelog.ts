@@ -24,6 +24,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.2.1', date: '2026-10-19', title: 'Update notice',
+    added: [
+      'Update notice: when a newer version is published on the website, the garage (or results screen) shows "Update ready" with Refresh now / Later. Refresh saves and reloads into the new version as a new session; your progress is kept. It never pops up during a race.',
+      'After an update, the first garage visit says "Updated to V…" and the Patch notes button shows NEW.',
+      'Every build now writes version.json next to the game, which the website version checks every 2 minutes and whenever you come back to the tab.',
+    ],
+    fixed: [
+      'Opening the website straight after an upload could keep showing the old version from the browser\'s cache. Refresh now loads a fresh copy.',
+    ],
+  },
+  {
     version: '0.2.0', date: '2026-10-19', title: 'Parts v2: Decals, Underglow, Body kit',
     added: [
       'Decals tab: Side stripe, Checker band, Race number, Racing stripes and Flames. Stripe colours pick white or black to stand out on your paint.',
