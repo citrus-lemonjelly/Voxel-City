@@ -8,8 +8,6 @@ export const ECONOMY = {
   newBestBonus: 100,
 };
 
-// AI opponents for the D league. Skill = how close its launch/shift timing lands to Perfect.
+// Rival shape. Rivals are rolled at random per race (src/game/rivals.ts, owner Q87): name, a car from your league, paint,
+// upgrade tiers and skill (how close its launch/shift timing lands to Perfect), matched to your car + upgrades.
 export interface OpponentDef { id: string; name: string; carId: string; engineTier: number; transTier: number; skill: number; reaction: [number, number]; paint: string }
-export const OPPONENTS: OpponentDef[] = [
-  { id: 'rookie_rico', name: 'Rico', carId: 'panda_civix', engineTier: 1, transTier: 1, skill: 0.55, reaction: [0.22, 0.38], paint: '#eeeae0' },
-];

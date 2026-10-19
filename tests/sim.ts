@@ -5,6 +5,8 @@ import { AIController } from '../src/game/ai';
 import { carStats } from '../src/game/stats';
 import { STAGES } from '../src/data/stages';
 import { Tier } from '../src/data/parts';
+import { CARS, CATALOG_ORDER, LEAGUES } from '../src/data/cars';
+import { makeRival, simTime, MATCH } from '../src/game/rivals';
 
 declare const process: { exit(code: number): never };
 const stage = STAGES.downtown_grid;
@@ -76,4 +78,40 @@ const fast = fumble(false, (r) => {
 });
 check(fast.downshifts === 1 && said === 'Over-rev' && vMin < vBefore, `downshift at speed is allowed and over-revs: engine braking slows the car (${(vBefore * 2.237).toFixed(0)} → ${(vMin * 2.237).toFixed(0)} mph)`);
 check(fast.finish! > stay.finish!, `over-revving costs time (${fast.finish!.toFixed(2)} s)`);
+// catalog cars (owner Q79): every car finishes, the starter is the slowest, the hypercar the quickest
+const carTime = (id: string) => {
+  const race = new Race(stage.distanceM); const r = race.add('p', carStats(id, 1, 1, stage), new AIController(1, [0.2, 0.2], 7));
+  for (let i = 0; i < 120 * 60 && !race.done; i++) race.step(1 / 120);
+  return r.finish ?? 99;
+};
+const times = Object.fromEntries(CATALOG_ORDER.map(id => [id, carTime(id)]));
+const line = CATALOG_ORDER.map(id => `${id} ${times[id].toFixed(2)}`).join(' · ');
+check(CATALOG_ORDER.every(id => CARS[id] && times[id] < 28), `every catalog car finishes 800 m at T1 (${line})`);
+check(CATALOG_ORDER.filter(id => id !== 'panda_civix').every(id => times[id] < times.panda_civix) && CATALOG_ORDER.every(id => id === 'hyper' || times[id] > times.hyper), 'bought cars beat the free Civix; the hypercar is the quickest');
+const leagueD = CATALOG_ORDER.filter(id => CARS[id].league === 'D');
+check(leagueD.every((id, i) => i === 0 || times[id] < times[leagueD[i - 1]]) && leagueD.every(id => times[id] > 23), `League D: each step up in price is a little quicker, all close to the Civix (${leagueD.map(id => times[id].toFixed(2)).join(' → ')})`);
+// league pass (owner Q83): on stock parts, every car in a league is quicker than every car in the league below
+const used = LEAGUES.filter(l => CATALOG_ORDER.some(id => CARS[id].league === l));
+const band = (l: string) => CATALOG_ORDER.filter(id => CARS[id].league === l).map(id => times[id]);
+check(used.every((l, i) => i === 0 || Math.max(...band(l)) < Math.min(...band(used[i - 1]))), `each league is clearly quicker than the one below (${used.map(l => `${l} ${Math.min(...band(l)).toFixed(1)}–${Math.max(...band(l)).toFixed(1)}`).join(' · ')})`);
+check(times.hyper <= 12, `hypercar clears 800 m in 12 s or less on stock parts (${times.hyper.toFixed(2)} s, owner Q89)`);
+// random rivals (owner Q87): same league, never faster than your perfect run, close enough that mistakes lose
+const configs: [string, Tier, Tier][] = [['panda_civix', 1, 1], ['classic', 3, 2], ['muscle', 1, 1], ['rally', 4, 5], ['tuner', 5, 5], ['hyper', 2, 4]];
+let sameLeague = true, inWindow = true, perfectWins = 0, sloppyWins = 0, n = 0; const gaps: number[] = [];
+for (const [id, e, t] of configs) for (let k = 1; k <= 8; k++) {
+  const rv = makeRival(id, e, t, stage, k * 7919);
+  sameLeague &&= CARS[rv.carId].league === CARS[id].league;
+  const gap = rv.expect - rv.yours; gaps.push(gap); inWindow &&= gap >= MATCH.minGap && gap <= MATCH.maxGap + 0.15;
+  const race = new Race(stage.distanceM);
+  const me = race.add('p', carStats(id, e, t, stage), new AIController(1, [MATCH.reaction, MATCH.reaction], 7));
+  const them = race.add('r', carStats(rv.carId, rv.engineTier as Tier, rv.transTier as Tier, stage), new AIController(rv.skill, rv.reaction, rv.seed));
+  for (let i = 0; i < 120 * 90 && !race.done; i++) race.step(1 / 120);
+  if (me.finish! < them.finish!) perfectWins++;
+  if (simTime(id, e, t, stage, 0.7, [MATCH.reaction, MATCH.reaction + 0.1], k) < rv.expect) sloppyWins++;
+  n++;
+}
+check(sameLeague, 'rivals always drive a car from your league');
+check(inWindow, `rivals finish just behind your perfect run (gaps ${Math.min(...gaps).toFixed(2)}–${Math.max(...gaps).toFixed(2)} s)`);
+check(perfectWins === n, `a perfect run beats every rival (${perfectWins}/${n})`);
+check(sloppyWins < n * 0.35, `a sloppy run (skill 0.7) mostly loses — races are a challenge (${sloppyWins}/${n} wins)`);
 process.exit(fail ? 1 : 0);

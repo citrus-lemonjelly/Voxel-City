@@ -22,8 +22,8 @@ export interface CarStats {
 
 export function carStats(carId: string, engineTier: Tier, transTier: Tier, stage?: StageDef): CarStats {
   const car = CARS[carId];
-  const eng = ENGINE[car.league as 'D'][engineTier - 1];
-  const trans = TRANSMISSION[car.league as 'D'][transTier - 1];
+  const eng = ENGINE[car.league][engineTier - 1];
+  const trans = TRANSMISSION[car.league][transTier - 1];
   const redline = car.redline + eng.redlineAdd;
   const grip = stage ? stage.modifiers.gripMult : 1;
   return {

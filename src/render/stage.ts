@@ -24,6 +24,8 @@ export const LANE_Z = [0, 52];
 export type TimeOfDay = 'day' | 'dusk' | 'night';
 export type NearStyle = 'curb' | 'barrier' | 'mixed';
 export const ARCH_K = 2.2;                        // design → real scale for the street's buildings and furniture
+/** Street built past the finish line: ~480 m, enough for a 250 mph hypercar to brake (owner Q89). */
+export const RUNOFF_BLOCKS = 7000;
 const CHUNK = 660, VIEW_BEHIND = 2, VIEW_AHEAD = 3;   // real blocks per chunk (= 300 design); chunks kept visible
 const BOX = new THREE.BoxGeometry(1, 1, 1);
 /** Back of the widened near pavement, where the low wall stands (design units, near side). */
@@ -126,7 +128,7 @@ export class Stage {
   constructor(private def: StageDef, public finishBlocks: number, private mats: Materials, private time: TimeOfDay = 'day', private near: NearStyle = 'mixed') {
     this.night = time !== 'day';
     // Build the whole strip up front (start runway → finish → run-off) so nothing is generated mid-race.
-    const last = Math.ceil((finishBlocks + 3600) / CHUNK);
+    const last = Math.ceil((finishBlocks + RUNOFF_BLOCKS) / CHUNK);
     for (let i = -VIEW_BEHIND - 1; i <= last; i++) this.chunkAt(i).visible = false;
     this.buildTree();
     this.group.add(this.tree);

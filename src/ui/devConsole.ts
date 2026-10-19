@@ -2,7 +2,8 @@
 // changes THIS browser's local save, so it grants nothing anywhere else. The real admin role will be checked by the
 // server against the owner's account.
 // Turn on: open the game once with ?dev in the address (stays on in this browser). Open/close: the ` key, or the DEV tag.
-import { SaveV1 } from '../save/save';
+import { SaveV1, addCar, freshCar } from '../save/save';
+import { CARS, STARTER_CAR } from '../data/cars';
 import { ENGINE, TRANSMISSION, Tier } from '../data/parts';
 import { PADDLES, PADDLE_SHAPES, PEDALS, PaddleShape, PedalStyle } from '../data/cosmetics';
 import { Race } from '../game/race';
@@ -50,7 +51,7 @@ export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
       <div class="dev-h hd">Test console <span>local save only</span></div>
       <div class="dev-sec"><b>Voxels</b> <span class="dev-v">${DEV.unlimited ? '∞ (free purchases)' : s.voxels.toLocaleString() + ' VX'}</span><div>
         ${btn('vx1k', '+1,000')}${btn('vx10k', '+10,000')}${btn('vx100k', '+100,000')}${btn('vx0', 'Set 0')}${btn('unl', 'Unlimited', DEV.unlimited)}</div></div>
-      <div class="dev-sec"><b>Unlock</b><div>${btn('parts', 'All parts')}${btn('cosm', 'All cosmetics')}${btn('relock', 'Re-lock to stock')}</div></div>
+      <div class="dev-sec"><b>Unlock</b><div>${btn('cars', 'All cars')}${btn('parts', 'All parts (every owned car)')}${btn('cosm', 'All cosmetics')}${btn('relock', 'Re-lock to stock (starter car only)')}</div></div>
       <div class="dev-sec"><b>Equip</b><div class="dev-row">
         <label>Paddle skin ${sel('skin', Object.values(PADDLES).map(p => [p.id, p.name]), s.paddles.equipped)}</label>
         <label>Paddle shape ${sel('shape', Object.values(PADDLE_SHAPES).map(p => [p.id, p.name]), s.paddles.shape)}</label>
@@ -83,9 +84,14 @@ export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
       case 'vx100k': s.voxels += 100000; break;
       case 'vx0': s.voxels = 0; break;
       case 'unl': DEV.unlimited = !DEV.unlimited; msg = DEV.unlimited ? 'Unlimited voxels on' : 'Unlimited voxels off'; break;
-      case 'parts': s.owned.engine = all.filter(t => ENGINE.D[t - 1]); s.owned.trans = all.filter(t => TRANSMISSION.D[t - 1]); msg = 'All parts unlocked'; break;
+      case 'cars': Object.keys(CARS).forEach(id => addCar(s, id)); msg = 'All cars unlocked (Catalog → Use this car)'; break;
+      case 'parts': {
+        const eng = all.filter(t => ENGINE.D[t - 1]), tr = all.filter(t => TRANSMISSION.D[t - 1]);
+        for (const c of Object.values(s.cars)) c.owned = { engine: [...eng], trans: [...tr] };
+        s.owned.engine = [...eng]; s.owned.trans = [...tr]; msg = 'All parts unlocked'; break;
+      }
       case 'cosm': s.paddles.owned = Object.keys(PADDLES); s.paddles.shapes = Object.keys(PADDLE_SHAPES) as PaddleShape[]; s.pedals.owned = Object.keys(PEDALS) as PedalStyle[]; msg = 'All cosmetics unlocked'; break;
-      case 'relock': s.owned = { engine: [1], trans: [1] }; s.equipped = { engine: 1, trans: 1 }; s.paddles = { owned: ['stock'], equipped: 'stock', shapes: ['arc', 'tab'], shape: 'arc' }; s.pedals = { owned: ['alloy'], equipped: 'alloy' }; msg = 'Back to stock'; break;
+      case 'relock': s.carId = STARTER_CAR; s.cars = { [STARTER_CAR]: freshCar() }; s.owned = { engine: [1], trans: [1] }; s.equipped = { engine: 1, trans: 1 }; s.paddles = { owned: ['stock'], equipped: 'stock', shapes: ['arc', 'tab'], shape: 'arc' }; s.pedals = { owned: ['alloy'], equipped: 'alloy' }; msg = 'Back to stock'; break;
       case 'races0': s.races = 0; break;
       case 'perf100': s.perfectShifts = 100; break;
       case 'wins25': s.wins += 25; break;

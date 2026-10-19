@@ -10,7 +10,17 @@ export const PAL = {
   head: '#fff3c4', amber: '#f2a43a', tail: '#e0261c', tailSmoke: '#5a1512', reverse: '#f4f4f4', plate: '#f2f2ea', caliper: '#d23a2a', white: '#eeeae0',
 };
 
-export interface CarLook { paint: string; head: string; tail: string; grille: string; wing: string | null; exhaust: string; rim: string }
+export interface CarLook {
+  paint: string; head: string; tail: string; grille: string; wing: string | null; exhaust: string; rim: string;
+  /** Body to build (S28): omitted / 'civix' = the Panda Civix; otherwise a profile from bodies.ts. */
+  body?: string;
+  /** Selectable body features (e.g. popups: 'up', wing: 'off') — visual only. */
+  opts?: Record<string, string>;
+}
+export interface BuiltCar { body: Vox[]; wheels: WheelVox[]; wheelY: number; L: number; W: number }
+// bodies.ts registers its builder here (avoids an import cycle: it uses PAL and buildWheels from this file)
+let bodyBuilder: ((look: CarLook) => BuiltCar | null) | null = null;
+export function setBodyBuilder(f: (look: CarLook) => BuiltCar | null) { bodyBuilder = f; }
 export const STOCK_LOOK: CarLook = { paint: '#d23a2a', head: 'stock', tail: 'stock', grille: 'slats', wing: null, exhaust: 'x1', rim: 'steel' };
 
 const L = 58, W = 28, ROOF = 21, BODY_DY = 1;
@@ -21,7 +31,8 @@ const yBot = 2;
 
 export interface WheelVox { cx: number; side: 0 | 1; items: Vox[] }
 
-export function buildCarVoxels(look: CarLook): { body: Vox[]; wheels: WheelVox[] } {
+export function buildCarVoxels(look: CarLook): BuiltCar {
+  if (look.body && look.body !== 'civix' && bodyBuilder) { const b = bodyBuilder(look); if (b) return b; }
   const body: Vox[] = [];
   const put = (x: number, y: number, z: number, c: string | null, role: Role = 'trim', shade = 'mid') => body.push({ x, y: y + BODY_DY, z, c, role, s: 1, shade });
   const put2 = (x: number, y: number, z: number, c: string | null, role: Role = 'trim') => body.push({ x, y: y + 2 * BODY_DY, z, c, role, s: 0.5 });
@@ -137,7 +148,7 @@ export function buildCarVoxels(look: CarLook): { body: Vox[]; wheels: WheelVox[]
   if (look.exhaust === 'x1') for (const z of [W - 7, W - 6]) { put(L, 3, z, PAL.chrome); put(L + 1, 3, z, PAL.midGrey); }
   if (look.exhaust === 'x2') { const zc = (W - 6) * 2; for (let z = zc - 3; z < zc + 3; z++) for (let y = 4; y < 9; y++) { const d = Math.hypot((z + .5 - zc) / 1.3, y + .5 - 6.5); if (d < 2.3) put2(L * 2 + 1, y, z, d < 1.3 ? '#0d0d10' : PAL.chrome); } }
 
-  return { body, wheels: buildWheels(look.rim) };
+  return { body, wheels: buildWheels(look.rim), wheelY: WHEEL_Y, L, W };
 }
 
 // ---- slot: wheels (2×), each wheel built around its own centre so it can spin ----
@@ -147,6 +158,11 @@ const RIMS: Record<string, { tireT: number; lip: string | null; face: (dx: numbe
   gold5: { tireT: 1.8, lip: '#b8901c', face: (dx, dy, r) => r < 1.8 ? '#8a6c1c' : spoke(Math.atan2(dy, dx), 5, 0.27) ? '#d4a62a' : null, recess: 1, caliper: true },   // rally-style gold five-spoke
   fivespoke: { tireT: 1.8, lip: PAL.chrome, face: (dx, dy, r) => r < 1.8 ? '#9ca1a8' : spoke(Math.atan2(dy, dx), 5, 0.27) ? PAL.chrome : null, recess: 1, caliper: true },
   sixblack: { tireT: 1.7, lip: '#3d4046', face: (dx, dy, r) => r < 1.8 ? PAL.caliper : spoke(Math.atan2(dy, dx), 6, 0.2) ? '#1a1a1e' : null, recess: 1, caliper: true },
+  // League D hatchback wheels (owner: make each model look different)
+  dish: { tireT: 2.2, lip: null, face: (dx, dy, r) => r < 1.8 ? PAL.hub : (r > 2.6 && r < 3.8 && spoke(Math.atan2(dy, dx), 6, 0.32)) ? '#3d4046' : '#c9ccd2', recess: 0, caliper: false },        // flat silver dish with round holes
+  mesh: { tireT: 1.8, lip: PAL.chrome, face: (dx, dy, r) => r < 1.8 ? '#9ca1a8' : (Math.round(dx + dy) % 3 === 0 || Math.round(dx - dy) % 3 === 0) ? '#d9dbe0' : null, recess: 1, caliper: true },    // cross-lace mesh
+  multi: { tireT: 1.7, lip: '#8e939b', face: (dx, dy, r) => r < 1.8 ? '#9ca1a8' : spoke(Math.atan2(dy, dx), 10, 0.11) ? '#c9ccd2' : null, recess: 1, caliper: true },                         // thin ten-spoke
+  twin5: { tireT: 1.7, lip: '#3d4046', face: (dx, dy, r) => r < 1.8 ? '#3d4046' : spoke(Math.atan2(dy, dx) + 0.2, 10, 0.12) ? '#5a5e66' : null, recess: 1, caliper: true },                // gunmetal twin five-spoke
   turbofan: { tireT: 2.0, lip: null, face: (dx, dy, r) => r < 2.0 ? PAL.hub : (r > 4.2 && spoke(Math.atan2(dy, dx), 12, 0.13)) ? PAL.hub : PAL.white, recess: 0, caliper: false },
 };
 /** Wheels for a body: rim style, wheel centres (x, body blocks), wheel radius (body blocks), body width. */
@@ -177,10 +193,10 @@ export const SHADE: Record<string, number> = { light: 1.12, mid: 0.92, dark: 0.6
 
 /** Whole car as one static voxel list (wheels folded in at their centres) — used for parked/background cars. */
 export function carVoxelsStatic(look: CarLook): Vox[] {
-  const { body, wheels } = buildCarVoxels(look);
+  const { body, wheels, wheelY } = buildCarVoxels(look);
   const paint = new THREE.Color(look.paint);
   const out: Vox[] = body.map(v => v.role === 'paint' ? { ...v, c: '#' + paint.clone().multiplyScalar(SHADE[v.shade || 'mid'] || 1).getHexString() } : v);
-  for (const w of wheels) for (const v of w.items) out.push({ ...v, x: v.x + 2 * w.cx, y: v.y + 2 * WHEEL_Y });
+  for (const w of wheels) for (const v of w.items) out.push({ ...v, x: v.x + 2 * w.cx, y: v.y + 2 * wheelY });
   return out;
 }
 
@@ -210,14 +226,17 @@ export class CarModel {
   private discs: THREE.Group[] = [];
   private discMat: THREE.MeshStandardMaterial;
   private spin = 0;
+  /** Body length / width in blocks (differs per body). */
+  L: number; W: number;
   constructor(look: CarLook, mats: Materials) {
-    const { body, wheels } = buildCarVoxels(look);
+    const { body, wheels, wheelY, L: bl, W: bw } = buildCarVoxels(look);
+    this.L = bl; this.W = bw;
     const paint = new THREE.Color(look.paint);
     this.group.add(mergedVoxMeshes(body, mats, v => paint.clone().multiplyScalar(SHADE[v.shade || 'mid'] || 1)));
     this.discMat = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, flatShading: true, roughness: 0.6, transparent: true, opacity: 0, depthWrite: false, envMapIntensity: 0.25 });
     for (const w of wheels) {
       const pivot = new THREE.Group();
-      pivot.position.set(w.cx, WHEEL_Y, 0);
+      pivot.position.set(w.cx, wheelY, 0);
       pivot.add(mergedVoxMeshes(w.items, mats, () => paint));
       this.group.add(pivot);
       this.wheelGroups.push(pivot);
@@ -251,7 +270,7 @@ function motionDisc(items: Vox[], side: 0 | 1, mat: THREE.Material): THREE.Group
     tmp.set(v.c || '#4a4d53');
     const a = rings.get(r) || { r: 0, g: 0, b: 0, n: 0 }; a.r += tmp.r; a.g += tmp.g; a.b += tmp.b; a.n++; rings.set(r, a);
   }
-  const R = WHEEL_R * 2, outer = side === 0 ? Math.min(...items.map(v => v.z)) - 1 : Math.max(...items.map(v => v.z)) + 1;
+  const R = Math.max(...items.map(v => Math.hypot(v.x + 0.5, v.y + 0.5))) + 0.5, outer = side === 0 ? Math.min(...items.map(v => v.z)) - 1 : Math.max(...items.map(v => v.z)) + 1;
   const pos: number[] = [], col: number[] = [], idx: number[] = [];
   for (let x = -Math.ceil(R); x <= Math.ceil(R); x++) for (let y = -Math.ceil(R); y <= Math.ceil(R); y++) {
     const rr = Math.hypot(x + 0.5, y + 0.5); if (rr >= R - 0.2) continue;

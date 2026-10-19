@@ -96,14 +96,63 @@ export class World {
     const key = new THREE.DirectionalLight('#fff4e6', 2.2); key.position.set(-60, 140, 120); key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048); Object.assign(key.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 1, far: 400 }); key.shadow.bias = -0.0005;
     s.add(key);
-    this.garageCam.position.set(-118, 46, 92); this.garageCam.lookAt(18, 8, 0);
+    this.setGarageView('home');
+  }
+
+  /** Garage camera framing (owner: Garage HUD). home = car centred above the bottom bar; catalog = car on the right
+   *  half, next to the car list. */
+  setGarageView(v: 'home' | 'catalog' | 'panel') {
+    if (v === 'catalog') { this.garageCam.position.set(-178, 62, 138); this.garageCam.lookAt(-44, -10, -14); }
+    else if (v === 'panel') { this.garageCam.position.set(-132, 54, 104); this.garageCam.lookAt(34, 4, 0); }   // car shifts left of a right-hand panel
+    else { this.garageCam.position.set(-122, 50, 96); this.garageCam.lookAt(0, 4, 0); }
   }
 
   setGarageCar(look: CarLook) {
     if (this.garageCar) this.turntable.remove(this.garageCar.group);
     this.garageCar = new CarModel(look, this.mats);
-    this.garageCar.group.position.set(-CAR_L / 2, 0, -CAR_W / 2);
+    this.garageCar.group.position.set(-this.garageCar.L / 2, 0, -this.garageCar.W / 2);
+    this.garageCar.group.traverse((o: any) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     this.turntable.add(this.garageCar.group);
+  }
+
+  // ---------- catalog thumbnails (owner Q78: a 3D still of each car) ----------
+  private thumbs = new Map<string, string>();
+  private thumbScene?: THREE.Scene;
+  private thumbCam = new THREE.PerspectiveCamera(24, 2, 1, 1000);
+  /** A still picture of a car (PNG data URL), rendered once with the game renderer and cached by look + size. */
+  thumbnail(look: CarLook, w = 296, h = 124): string {
+    const key = JSON.stringify(look) + `@${w}x${h}`;
+    const hit = this.thumbs.get(key); if (hit) return hit;
+    if (!this.thumbScene) {
+      const s = this.thumbScene = new THREE.Scene();
+      s.background = new THREE.Color('#252935');
+      s.environment = this.garageScene.environment;
+      s.add(new THREE.HemisphereLight('#e4ecff', '#3a3a44', 1.2));
+      const key = new THREE.DirectionalLight('#fff4e6', 2.2); key.position.set(-60, 140, 120); key.castShadow = true;
+      key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 400 }); key.shadow.bias = -0.0005;
+      s.add(key);
+      const floor = new THREE.Mesh(new THREE.CylinderGeometry(52, 52, 1, 32), new THREE.MeshStandardMaterial({ color: '#30343f', roughness: 0.9 }));
+      floor.position.y = -0.5; floor.receiveShadow = true; s.add(floor);
+    }
+    const car = new CarModel(look, this.mats);
+    car.group.position.set(-car.L / 2, 0, -car.W / 2);
+    car.group.traverse((o: any) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    this.thumbScene.add(car.group);
+    // same three-quarter front view as the garage, one fixed distance so sizes compare honestly between cars
+    this.thumbCam.aspect = w / h; this.thumbCam.updateProjectionMatrix();
+    this.thumbCam.position.set(-0.74, 0.36, 0.57).normalize().multiplyScalar(100); this.thumbCam.lookAt(6, 4, 0);
+    const r = this.renderer, pr = r.getPixelRatio(), full = r.getSize(new THREE.Vector2());
+    r.setScissorTest(true); r.setViewport(0, 0, w, h); r.setScissor(0, 0, w, h);
+    r.render(this.thumbScene, this.thumbCam);
+    const c = document.createElement('canvas'); c.width = Math.round(w * pr); c.height = Math.round(h * pr);
+    const src = r.domElement;
+    c.getContext('2d')!.drawImage(src, 0, src.height - c.height, c.width, c.height, 0, 0, c.width, c.height);
+    r.setScissorTest(false); r.setViewport(0, 0, full.x, full.y);
+    this.thumbScene.remove(car.group);
+    car.group.traverse((o: any) => { if (o.isMesh) o.geometry.dispose(); });
+    const url = c.toDataURL('image/png');
+    this.thumbs.set(key, url);
+    return url;
   }
 
   // ---------- race ----------
@@ -131,7 +180,7 @@ export class World {
     s.add(this.stage.group);
     this.player = new CarModel(playerLook, this.mats); this.player.group.position.z = LANE_Z[0]; s.add(this.player.group);
     this.opponent = new CarModel(oppLook, this.mats); this.opponent.group.position.z = LANE_Z[1]; s.add(this.opponent.group);
-    if (time !== 'day') for (const car of [this.player, this.opponent]) car.group.add(carLightPools(time === 'night' ? 1 : 0.6));
+    if (time !== 'day') for (const car of [this.player, this.opponent]) car.group.add(carLightPools(time === 'night' ? 1 : 0.6, car.L, car.W));
     // the two race cars also live on the "car" layer so speed blur can keep them sharp
     for (const car of [this.player, this.opponent]) car.group.traverse((o: any) => o.isMesh && !o.material?.map && o.layers.enable(CAR_LAYER));
     this.blur.reset();
@@ -223,13 +272,13 @@ const LIGHTING: Record<TimeOfDay, { hemi: [string, string, number]; sun: [string
 };
 
 /** Additive voxel-stepped headlight / tail-light pools on the road, parented to a car (front at x = 0, facing −x). */
-function carLightPools(k: number) {
+function carLightPools(k: number, L = CAR_L, W = CAR_W) {
   const g = new THREE.Group();
   const pool = (w: number, d: number, x: number, colour: string, a: number) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, color: new THREE.Color(colour).multiplyScalar(a * k) }));
-    m.rotation.x = -Math.PI / 2; m.position.set(x, 0.35, CAR_W / 2); m.renderOrder = 2; g.add(m);
+    m.rotation.x = -Math.PI / 2; m.position.set(x, 0.35, W / 2); m.renderOrder = 2; g.add(m);
   };
   pool(90, 40, -34, '#fff1c8', 0.9);
-  pool(26, 30, CAR_L + 8, '#ff3a2a', 0.5);
+  pool(26, 30, L + 8, '#ff3a2a', 0.5);
   return g;
 }

@@ -3,13 +3,15 @@ import { World } from './render/scene';
 import { prewarmVehicles } from './render/stage';
 import { STOCK_LOOK, CarLook } from './render/carBuilder';
 import { CSS } from './ui/styles';
-import { renderGarage, renderResults, ResultData } from './ui/screens';
+import { renderResults, ResultData } from './ui/screens';
+import { renderGarage, garageInCatalog } from './ui/garage';
 import { Hud } from './ui/hud';
-import { loadSave, writeSave, SaveV1 } from './save/save';
+import { loadSave, writeSave, SaveV1, addCar, switchCar } from './save/save';
 import { STAGES, START_STAGE } from './data/stages';
-import { OPPONENTS, ECONOMY } from './data/economy';
+import { ECONOMY } from './data/economy';
 import { ENGINE, TRANSMISSION, Tier } from './data/parts';
-import { carPaint } from './data/cars';
+import { CARS, carBody, carName, carPaint } from './data/cars';
+import { makeRival, Rival } from './game/rivals';
 import { Race, Racer, Controller } from './game/race';
 import { AIController } from './game/ai';
 import { carStats } from './game/stats';
@@ -39,9 +41,21 @@ if (params.get('elev')) world.camFrame.elev = +params.get('elev')!;
 if (params.get('lyaw')) world.camFrame.levelYaw = +params.get('lyaw')!;
 if (params.get('dmin')) { world.camFrame.dMin = +params.get('dmin')!; world.camFrame.dMax = Math.max(world.camFrame.dMax, world.camFrame.dMin); }
 const stage = STAGES[START_STAGE];
-const opp = OPPONENTS[0];
-const playerLook = (): CarLook => ({ ...STOCK_LOOK, paint: carPaint(save.carId) });
-const oppLook: CarLook = { ...STOCK_LOOK, paint: opp.paint };
+/** A new random rival for the car + upgrades in use (owner Q87); rolled again after every race or when the car/parts change. */
+let opp: Rival, oppKey = '';
+const rivalKey = () => `${save.carId}:${save.equipped.engine}:${save.equipped.trans}`;
+function rollRival(force = false) {
+  if (!force && oppKey === rivalKey() && opp) return;
+  const seed = params.get('rseed') ? +params.get('rseed')! : undefined;                 // test hook: fixed rival
+  opp = makeRival(save.carId, save.equipped.engine, save.equipped.trans, stage, seed); oppKey = rivalKey();
+}
+rollRival();
+/** The car in use, as the player has painted and optioned it (Q79). */
+const playerLook = (): CarLook => {
+  const c = save.cars[save.carId];
+  return { ...STOCK_LOOK, body: carBody(save.carId).profile ?? 'civix', paint: c?.paint || carPaint(save.carId), opts: { ...(c?.opts || {}) } };
+};
+const oppLook = (): CarLook => ({ ...STOCK_LOOK, body: carBody(opp.carId).profile ?? 'civix', paint: opp.paint });
 
 // ---------------- input: SPACE or the on-screen Shift button ----------------
 const input = { held: false, shiftQueued: false, downQueued: false };
@@ -76,8 +90,30 @@ let screen: Screen = 'garage';
 let race: Race | null = null, hud: Hud | null = null, oppRacer: Racer | null = null, finishedAt = 0;
 
 function showGarage(toast?: string) {
-  screen = 'garage'; world.mode = 'garage'; world.setGarageCar(playerLook());
-  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onRace: startRace, onSetting: setSetting }, toast);
+  screen = 'garage'; world.mode = 'garage'; rollRival(); if (!garageInCatalog()) world.setGarageCar(playerLook());
+  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onRace: startRace, onSetting: setSetting,
+    onPreview: look => world.setGarageCar(look ?? playerLook()), onView: v => world.setGarageView(v),
+    onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, thumb: look => world.thumbnail(look) }, toast);
+}
+
+/** Catalog (Q79): buy a car (it comes with the paint/options picked and goes straight into use). */
+function buyCar(id: string, paint: string, opts: Record<string, string>) {
+  const def = CARS[id]; if (!def || save.cars[id]) return;
+  if (!DEV.unlimited && save.voxels < def.price) return showGarage(`Need ${(def.price - save.voxels).toLocaleString()} more VX for the ${carName(id)}`);
+  if (!DEV.unlimited) save.voxels -= def.price;
+  addCar(save, id, paint, opts); switchCar(save, id); writeSave(save);
+  showGarage(`Bought the ${carName(id)} — now in use`);
+}
+function useCar(id: string) {
+  if (!save.cars[id] || save.carId === id) return;
+  switchCar(save, id); writeSave(save);
+  showGarage(`Now driving the ${carName(id)}`);
+}
+/** Paint / body options on an owned car save straight away (visual only). */
+function carStyle(id: string, paint: string, opts: Record<string, string>) {
+  const c = save.cars[id]; if (!c) return;
+  c.paint = paint; c.opts = { ...opts }; writeSave(save);
+  showGarage();
 }
 
 function setSetting(key: string, value: string) {
@@ -88,7 +124,7 @@ function setSetting(key: string, value: string) {
 }
 
 function buyOrEquip(kind: 'engine' | 'trans', tier: Tier) {
-  const def = (kind === 'engine' ? ENGINE.D : TRANSMISSION.D)[tier - 1];
+  const lg = CARS[save.carId].league, def = (kind === 'engine' ? ENGINE[lg] : TRANSMISSION[lg])[tier - 1];
   let msg: string | undefined;
   if (!save.owned[kind].includes(tier)) {
     if (!DEV.unlimited && save.voxels < def.price) return showGarage(`Need ${(def.price - save.voxels).toLocaleString()} more VX for ${def.label}`);
@@ -101,13 +137,12 @@ function buyOrEquip(kind: 'engine' | 'trans', tier: Tier) {
 }
 
 function startRace() {
-  screen = 'race';
+  screen = 'race'; rollRival();
   input.held = false; input.shiftQueued = false; input.downQueued = false;
   race = new Race(stage.distanceM);
-  const seed = (Date.now() & 0xffff) || 1;
   playerRacer = race.add('player', carStats(save.carId, save.equipped.engine, save.equipped.trans, stage), AUTOPLAY || (DEV.enabled && DEV.autoDrive) ? new AIController(1, [0.15, 0.15], 3) : new PlayerController());
-  oppRacer = race.add(opp.id, carStats(opp.carId, opp.engineTier as Tier, opp.transTier as Tier, stage), new AIController(devOppSkill() ?? opp.skill, opp.reaction, seed));
-  world.setupRace(stage, stage.distanceM, playerLook(), oppLook, { time: save.settings.time, near: save.settings.nearSide });
+  oppRacer = race.add(opp.id, carStats(opp.carId, opp.engineTier as Tier, opp.transTier as Tier, stage), new AIController(devOppSkill() ?? opp.skill, opp.reaction, opp.seed));
+  world.setupRace(stage, stage.distanceM, playerLook(), oppLook(), { time: save.settings.time, near: save.settings.nearSide });
   // the "Space or click" hint shows for the player's first 3 races (owner Q29)
   hud = new Hud(ui, race, playerRacer, oppRacer, { oppName: opp.name, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
   const btn = hud.shiftBtn;
@@ -137,6 +172,7 @@ function finishRace() {
   save.voxels += total; save.races += 1; save.perfectShifts += perfects; if (won) save.wins += 1; if (newBest) save.bestTime = me.finish!;
   writeSave(save);
   const data: ResultData = { won, myTime: me.finish!, oppTime: them.finish!, oppName: opp.name, launch: me.launchGrade || 'Bog', shifts: me.shifts.map(s => s.grade), earnings, total, newBest };
+  rollRival(true);                                                                   // next race: a new rival
   renderResults(ui, data, { again: startRace, garage: () => showGarage() });
   (window as any).__vc.lastResult = data;
 }
@@ -171,7 +207,7 @@ function pose(playerM: number, oppM: number, speedMs = 30, t = 10) {
   race!.t = t; playerRacer!.x = playerRacer!.px = playerM; oppRacer!.x = oppRacer!.px = oppM; playerRacer!.v = oppRacer!.v = speedMs;
   playerRacer!.launched = oppRacer!.launched = t > 3;
 }
-(window as any).__vc = { get screen() { return screen; }, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
+(window as any).__vc = { get screen() { return screen; }, get opp() { return opp; }, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
   /** preview hook: rebuild the race HUD with another paddle shape/skin (review renders) */
   hudPreview: (shape: string, skin: string, pedalStyle?: string) => { if (race && playerRacer && oppRacer) { hud = new Hud(ui, race, playerRacer, oppRacer, { oppName: opp.name, paddle: skin, paint: playerLook().paint, showKeyHint: true, paddleShape: shape as any, pedal: (pedalStyle || params.get('pedal') || 'alloy') as any }); hud.update(); } }, startRace, showGarage, buyOrEquip, pose, setCam: (m: string) => (world.camMode = m as any), setSetting, world, setNoRender: (b: boolean) => (NO_RENDER = b), setPaused: (b: boolean) => (paused = b) };
 // test console (owner Q58): ?dev once turns it on for this browser; ` opens it

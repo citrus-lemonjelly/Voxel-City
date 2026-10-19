@@ -1,6 +1,6 @@
 // Local save (P5: localStorage until the backend exists). Versioned so later steps can migrate old saves.
 import { ECONOMY } from '../data/economy';
-import { STARTER_CAR } from '../data/cars';
+import { STARTER_CAR, CARS } from '../data/cars';
 import { Tier } from '../data/parts';
 import { PaddleShape, PedalStyle, STANDARD_PADDLE, STANDARD_PEDAL, STANDARD_SHAPES } from '../data/cosmetics';
 
@@ -21,6 +21,17 @@ export interface SaveV1 {
   pedals: { owned: PedalStyle[]; equipped: PedalStyle };
   /** Lifetime perfect shifts (unlocks the Perfect Shift paddle at 100). */
   perfectShifts: number;
+  /** Every car the player owns (owner Q79), keyed by car id: its own parts, paint and body options. `owned`/`equipped`
+   *  above always mirror the car in use (`carId`), so the rest of the game only ever looks at the active car. */
+  cars: Record<string, CarState>;
+}
+export interface CarState {
+  owned: { engine: Tier[]; trans: Tier[] };
+  equipped: { engine: Tier; trans: Tier };
+  /** chosen paint (empty = the car's factory paint) */
+  paint: string;
+  /** body options (e.g. popups: 'up', wing: 'off') */
+  opts: Record<string, string>;
 }
 export interface Settings {
   camera: 'dynamic' | 'close';            // C = Dynamic, C2 = Dynamic close
@@ -33,8 +44,12 @@ const KEY = 'voxelcity.save';
 
 const freshPaddles = (): SaveV1['paddles'] => ({ owned: [STANDARD_PADDLE], equipped: STANDARD_PADDLE, shapes: [...STANDARD_SHAPES], shape: 'arc' });
 
+const stockParts = () => ({ owned: { engine: [1] as Tier[], trans: [1] as Tier[] }, equipped: { engine: 1 as Tier, trans: 1 as Tier } });
+export const freshCar = (paint = '', opts: Record<string, string> = {}): CarState => ({ ...stockParts(), paint, opts: { ...opts } });
+const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
+
 export function freshSave(): SaveV1 {
-  return { version: 1, voxels: ECONOMY.startingVoxels, carId: STARTER_CAR, owned: { engine: [1], trans: [1] }, equipped: { engine: 1, trans: 1 }, bestTime: null, races: 0, wins: 0, settings: { ...DEFAULT_SETTINGS }, paddles: freshPaddles(), pedals: { owned: [STANDARD_PEDAL], equipped: STANDARD_PEDAL }, perfectShifts: 0 };
+  return { cars: { [STARTER_CAR]: freshCar() }, version: 1, voxels: ECONOMY.startingVoxels, carId: STARTER_CAR, owned: { engine: [1], trans: [1] }, equipped: { engine: 1, trans: 1 }, bestTime: null, races: 0, wins: 0, settings: { ...DEFAULT_SETTINGS }, paddles: freshPaddles(), pedals: { owned: [STANDARD_PEDAL], equipped: STANDARD_PEDAL }, perfectShifts: 0 };
 }
 
 export function loadSave(): SaveV1 {
@@ -42,11 +57,33 @@ export function loadSave(): SaveV1 {
     const raw = localStorage.getItem(KEY);
     if (!raw) return freshSave();
     const data = JSON.parse(raw);
-    if (data && data.version === 1) return { ...freshSave(), ...data, settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) }, paddles: { ...freshPaddles(), ...(data.paddles || {}) }, pedals: { owned: [STANDARD_PEDAL], equipped: STANDARD_PEDAL, ...(data.pedals || {}) } };
+    if (data && data.version === 1) {
+      const s: SaveV1 = { ...freshSave(), ...data, settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) }, paddles: { ...freshPaddles(), ...(data.paddles || {}) }, pedals: { owned: [STANDARD_PEDAL], equipped: STANDARD_PEDAL, ...(data.pedals || {}) } };
+      // saves from before car buying (Q79): the one car they had keeps its parts
+      if (!data.cars) s.cars = { [s.carId]: { owned: clone(s.owned), equipped: clone(s.equipped), paint: '', opts: {} } };
+      if (!CARS[s.carId] || !s.cars[s.carId]) { s.carId = STARTER_CAR; s.cars[STARTER_CAR] ??= freshCar(); Object.assign(s, clone(stockFor(s))); }
+      return s;
+    }
   } catch { /* storage blocked or corrupt: start fresh */ }
   return freshSave();
 }
 
+const stockFor = (s: SaveV1) => ({ owned: s.cars[s.carId].owned, equipped: s.cars[s.carId].equipped });
+/** Copy the active car's parts into its entry in `cars`. */
+function syncActive(s: SaveV1) { const c = s.cars[s.carId]; if (c) { c.owned = clone(s.owned); c.equipped = clone(s.equipped); } }
+
+export const ownsCar = (s: SaveV1, id: string) => !!s.cars[id];
+/** Add a newly bought car (keeps the paint/options the player picked in the Catalog). */
+export function addCar(s: SaveV1, id: string, paint = '', opts: Record<string, string> = {}) { if (!s.cars[id]) s.cars[id] = freshCar(paint, opts); }
+/** Make an owned car the one in use: its parts become `owned`/`equipped`. */
+export function switchCar(s: SaveV1, id: string) {
+  if (!s.cars[id]) return;
+  syncActive(s);
+  s.carId = id;
+  s.owned = clone(s.cars[id].owned); s.equipped = clone(s.cars[id].equipped);
+}
+
 export function writeSave(s: SaveV1) {
+  syncActive(s);
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* private mode etc. — game still works, just doesn't persist */ }
 }

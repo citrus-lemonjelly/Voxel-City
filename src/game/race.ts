@@ -77,7 +77,7 @@ export class Race {
 
   private stepRacer(r: Racer, dt: number) {
     const s = r.stats;
-    if (r.finish !== undefined) { r.v = Math.max(0, r.v - 6 * dt); r.x += r.v * dt; return; }
+    if (r.finish !== undefined) { r.v = Math.max(0, r.v - (6 + r.v * 0.08) * dt); r.x += r.v * dt; return; }   // brake past the line, harder from high speed
     const held = r.ctl.held(r, this);
 
     // ---- before launch: free-revving engine ----
