@@ -2,7 +2,7 @@
 // a bottom bar of four icon buttons (Profile · Upgrades · Catalog · Settings) and a RACE button bottom-right that opens
 // Street Race / Typing Race (Coming soon, Q69). Panels open on the right; the Catalog (Q76) is a scrolling car list on the
 // left with the turntable on the right, paint swatches and the car's optional features under it.
-import { SaveV1 } from '../save/save';
+import { SaveV1, RACE_DISTS, RaceDist } from '../save/save';
 import { ENGINE, TRANSMISSION, TIERS, Tier } from '../data/parts';
 import { CARS, CATALOG_ORDER, carBody, carBrand, carName, carPaint } from '../data/cars';
 import { DEV } from './devConsole';
@@ -10,6 +10,8 @@ import { OpponentDef } from '../data/economy';
 import { StageDef } from '../data/stages';
 import { carStats, displayStats } from '../game/stats';
 import { BODY_OPTIONS } from '../render/bodies';
+import { infoRows } from '../game/carInfo';
+import { STRIP, levelInfo } from '../game/strip';
 import { CarLook, STOCK_LOOK } from '../render/carBuilder';
 
 const h = (html: string) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild as HTMLElement; };
@@ -18,22 +20,31 @@ const fmtTime = (s: number) => s.toFixed(3) + ' s';
 export interface GarageHandlers {
   onBuyOrEquip(kind: 'engine' | 'trans', tier: Tier): void;
   onRace(): void;
+  /** The Strip: race the next rung; and what that rung is (null = this league's Strip is done). */
+  onStrip(): void;
+  stripNext(): import('../game/strip').Rung | null;
   onSetting(key: string, value: string): void;
   /** show a car on the turntable (Catalog preview) or put the player's car back (null) */
   onPreview(look: CarLook | null): void;
-  onView(v: 'home' | 'catalog' | 'panel'): void;
+  onView(v: 'home' | 'catalog' | 'panel' | 'strip'): void;
+  /** claim a cleared Strip level's one-time reward */
+  onClaim(n: number): void;
   /** Catalog (Q79): buy a car with the paint/options picked; use an owned car; save paint/options on an owned car. */
   onBuyCar(id: string, paint: string, opts: Record<string, string>): void;
   onUseCar(id: string): void;
   onCarStyle(id: string, paint: string, opts: Record<string, string>): void;
+  /** Street Race length (600 / 700 / 800 m). */
+  onDistance(d: RaceDist): void;
   /** 3D still of a car for the Catalog cards (Q78). */
   thumb(look: CarLook): string;
 }
-type Panel = 'profile' | 'upgrades' | 'catalog' | 'settings' | null;
+type Panel = 'profile' | 'upgrades' | 'catalog' | 'settings' | 'strip' | null;
 /** UI state that survives re-renders (buying a part re-draws the screen). */
 const ui = { panel: null as Panel, raceMenu: false, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
 export function resetGarageUI() { ui.panel = null; ui.raceMenu = false; }
 export const garageInCatalog = () => ui.panel === 'catalog';
+/** Open the Strip screen on the next garage render (results → "The Strip"). */
+export function garageOpenStrip() { ui.panel = 'strip'; ui.raceMenu = false; stripFocus = true; }
 
 const SETTING_ROWS: [string, string, [string, string][]][] = [
   ['camera', 'Race camera', [['dynamic', 'Dynamic'], ['close', 'Dynamic close']]],
@@ -77,18 +88,20 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   const vx = DEV.unlimited ? '∞' : save.voxels.toLocaleString();
   root.innerHTML = '';
   const inCat = ui.panel === 'catalog';
-  const el = h(`<div id="garage" class="${inCat ? 'catalog-mode' : ''}">
+  const el = h(`<div id="garage" class="${inCat ? 'catalog-mode' : ui.panel === 'strip' ? 'strip-mode' : ''}">
     <div class="g-title">${inCat ? `<div class="hd screen-title">Garage</div><h1 class="hd">Catalog</h1>`
       : `<div class="hd screen-title">${carBrand(save.carId)} · League ${car.league}</div><h1 class="hd">${carName(save.carId)}</h1>
       <div class="g-stats"><span><b>${st.hp}</b> hp</span><span><b>${st.shifts}</b> shifts</span><span><b>${st.shiftTime.toFixed(2)}s</b> shift</span><span><b>${(st.redline / 1000).toFixed(1)}k</b> redline</span></div>`}</div>
-    <div class="g-wallet"><span class="voxels">${vx} VX</span><span class="crowns">${crownIcon()}${DEV.unlimited ? '∞' : save.crowns.toLocaleString()}</span><span class="g-rec">Best ${save.bestTime ? fmtTime(save.bestTime) : '—'} · ${save.wins}–${save.races - save.wins}</span></div>
+    <div class="g-wallet"><span class="voxels">${vx} VX</span><span class="crowns">${crownIcon()}${DEV.unlimited ? '∞' : save.crowns.toLocaleString()}</span><span class="g-rec">Best ${save.raceDist} m ${save.best[save.raceDist] ? fmtTime(save.best[save.raceDist]!) : '—'} · ${save.wins}–${save.races - save.wins}</span></div>
     <div class="g-bar">${(['profile', 'upgrades', 'catalog', 'settings'] as const).map(k => `<button class="g-tab ${ui.panel === k ? 'on' : ''}" data-panel="${k}">${icon(k)}<span>${k[0].toUpperCase() + k.slice(1)}</span></button>`).join('')}</div>
     <button class="btn race g-racebtn" id="raceBtn">Race ▸</button>
     ${ui.raceMenu ? `<div class="g-racemenu">
-      <button class="g-mode blk" id="streetRace"><span class="hd">Street Race</span><span class="g-mode-sub">vs ${opp.name} · ${carName(opp.carId)} · engine T${opp.engineTier} · box T${opp.transTier}<br>${stage.name} · ${stage.distanceM} m · new rival every race</span><span class="g-go">Go ▸</span></button>
+      <button class="g-mode blk" id="streetRace"><span class="hd">Street Race</span><span class="g-mode-sub">vs ${opp.name} · ${carName(opp.carId)}<br>${stage.name} · ${save.raceDist} m · new rival every race</span><span class="g-go">Go ▸</span></button>
+      <div class="g-dist seg" role="group" aria-label="Race length">${RACE_DISTS.map(d => `<button class="${save.raceDist === d ? 'on' : ''}" data-dist="${d}">${d} m</button>`).join('')}</div>
+      ${stripCard(save)}
       <div class="g-mode blk off"><span class="hd">Typing Race</span><span class="g-mode-sub">Race by typing — words per minute drive your car</span><span class="g-soon">Coming soon</span></div>
     </div>` : ''}
-    ${panelHtml(save, on)}
+    ${ui.panel === 'strip' ? stripHtml(save, on) : panelHtml(save, on)}
   </div>`);
   root.appendChild(el);
   if (toast) root.appendChild(h(`<div class="toast blk">${toast}</div>`));
@@ -103,6 +116,27 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
     renderGarage(root, save, opp, stage, on);
   }));
   el.querySelector('#raceBtn')!.addEventListener('click', () => { ui.raceMenu = !ui.raceMenu; renderGarage(root, save, opp, stage, on); });
+  el.querySelectorAll<HTMLButtonElement>('[data-dist]').forEach(b => b.addEventListener('click', () => on.onDistance(+b.dataset.dist! as RaceDist)));
+  el.querySelector('#stripOpen')?.addEventListener('click', () => { if (ui.panel === 'catalog') on.onPreview(null); ui.panel = 'strip'; ui.raceMenu = false; stripFocus = true; on.onView('strip'); renderGarage(root, save, opp, stage, on); });
+  el.querySelector('#stripGo')?.addEventListener('click', () => { on.onView('home'); resetGarageUI(); on.onStrip(); });
+  el.querySelectorAll<HTMLButtonElement>('[data-claim]').forEach(b => b.addEventListener('click', () => on.onClaim(+b.dataset.claim!)));
+  // the scroller: arrows, mouse wheel and drag all slide it sideways; cards snap into place
+  const track = el.querySelector<HTMLElement>('.strip-track');
+  if (track) {
+    const cardW = () => (track.querySelector('.sl-card') as HTMLElement).offsetWidth + 12;
+    el.querySelectorAll<HTMLButtonElement>('[data-scroll]').forEach(b => b.addEventListener('click', () => track.scrollBy({ left: +b.dataset.scroll! * cardW() * 3, behavior: 'smooth' })));
+    track.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); track.scrollBy({ left: e.deltaY }); } }, { passive: false });
+    let drag: { x: number; left: number; moved: boolean } | null = null;
+    track.addEventListener('pointerdown', e => { if ((e.target as HTMLElement).closest('button')) return; drag = { x: e.clientX, left: track.scrollLeft, moved: false }; track.setPointerCapture(e.pointerId); track.classList.add('dragging'); });
+    track.addEventListener('pointermove', e => { if (!drag) return; const dx = e.clientX - drag.x; if (Math.abs(dx) > 3) drag.moved = true; track.scrollLeft = drag.left - dx; });
+    const endDrag = () => { if (drag) { drag = null; track.classList.remove('dragging'); } };
+    track.addEventListener('pointerup', endDrag); track.addEventListener('pointercancel', endDrag);
+    // open on the level you're up to (centred); keep your place when the screen redraws (e.g. after a claim)
+    const focus = track.querySelector<HTMLElement>('.sl-card.claim') ?? track.querySelector<HTMLElement>('.sl-card.next') ?? track.lastElementChild as HTMLElement;
+    track.scrollLeft = stripFocus || stripScroll < 0 ? focus.offsetLeft - (track.clientWidth - focus.offsetWidth) / 2 : stripScroll;
+    stripFocus = false;
+    track.addEventListener('scroll', () => (stripScroll = track.scrollLeft));
+  }
   el.querySelector('#streetRace')?.addEventListener('click', () => { if (ui.panel === 'catalog') on.onPreview(null); on.onView('home'); resetGarageUI(); on.onRace(); });
   el.querySelectorAll<HTMLButtonElement>('.g-close').forEach(b => b.addEventListener('click', () => { if (ui.panel === 'catalog') on.onPreview(null); on.onView('home'); ui.panel = null; renderGarage(root, save, opp, stage, on); }));
   el.querySelectorAll<HTMLButtonElement>('.tier').forEach(b => b.addEventListener('click', () => on.onBuyOrEquip(b.dataset.kind as any, +b.dataset.tier! as Tier)));
@@ -117,6 +151,38 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   const list = el.querySelector('.cat-list'); if (list) list.scrollTop = catScroll; list?.addEventListener('scroll', () => (catScroll = (list as HTMLElement).scrollTop));
 }
 let catScroll = 0;
+
+/** Race-menu card for the Strip: opens the Strip screen (owner: a sliding level scroller, like CSR). */
+function stripCard(save: SaveV1): string {
+  const lg = CARS[save.carId].league, done = save.strip[lg] ?? 0, total = STRIP.rungs;
+  const toClaim = Array.from({ length: done }, (_, i) => i + 1).filter(n => !(save.stripClaimed[lg] ?? []).includes(n)).length;
+  const bar = `<i class="g-strip-bar"><u style="width:${Math.round(done / total * 100)}%"></u></i>`;
+  return `<button class="g-mode blk" id="stripOpen"><span class="hd">The Strip</span>
+    <span class="g-mode-sub">League ${lg} · ${done >= total ? 'complete' : `Level ${done + 1} of ${total}`}${toClaim ? ` · <b class="g-claimable">${toClaim} reward${toClaim > 1 ? 's' : ''} to claim</b>` : ''}</span>${bar}<span class="g-go">Open ▸</span></button>`;
+}
+
+/** The Strip screen: every level as a card on a sideways scroller — cleared / claim / race / locked. */
+function stripHtml(save: SaveV1, on: GarageHandlers): string {
+  const lg = CARS[save.carId].league, done = save.strip[lg] ?? 0, claimed = save.stripClaimed[lg] ?? [], next = on.stripNext();
+  const cards = Array.from({ length: STRIP.rungs }, (_, i) => {
+    const n = i + 1, L = levelInfo(lg, n), state = n <= done ? (claimed.includes(n) ? 'done' : 'claim') : n === done + 1 ? 'next' : 'locked';
+    const rewards = `<span class="sl-rw"><b>+${L.reward.vx} VX</b>${L.reward.crowns ? `<b class="cr">${crownIcon()}+${L.reward.crowns}</b>` : ''}</span>`;
+    const foot = state === 'done' ? `<span class="sl-st ok">Cleared ✓ · claimed</span>`
+      : state === 'claim' ? `<button class="btn sl-btn" data-claim="${n}">Claim</button>`
+      : state === 'next' ? `<button class="btn race sl-btn" id="stripGo">Race ▸</button>`
+      : `<span class="sl-st">Locked</span>`;
+    const rival = state === 'next' && next ? `vs ${next.rival.name} · ${carName(next.rival.carId)}` : `vs ${L.name}`;
+    return `<div class="sl-card ${state}${L.boss ? ' boss' : ''}" data-level="${n}">
+      <span class="sl-top"><b class="hd">Level ${n}</b>${L.boss ? '<em class="g-boss">Boss</em>' : ''}</span>
+      <span class="sl-dist">${L.dist} m</span><span class="sl-rival">${rival}</span>${rewards}${foot}</div>`;
+  }).join('');
+  return `<div class="strip-wrap">
+    <div class="sl-head"><h2 class="hd">The Strip</h2><span>League ${lg} · ${done} of ${STRIP.rungs} cleared · each level is harder than the last</span><button class="g-close" aria-label="Close">✕</button></div>
+    <div class="sl-row"><button class="sl-arrow" data-scroll="-1" aria-label="Scroll left">◀</button><div class="strip-track">${cards}</div><button class="sl-arrow" data-scroll="1" aria-label="Scroll right">▶</button></div>
+    <i class="g-strip-bar sl-bar"><u style="width:${Math.round(done / STRIP.rungs * 100)}%"></u></i>
+  </div>`;
+}
+let stripScroll = -1, stripFocus = false;
 
 function panelHtml(save: SaveV1, on: GarageHandlers): string {
   const close = `<button class="g-close" aria-label="Close">✕</button>`;
@@ -141,7 +207,7 @@ function panelHtml(save: SaveV1, on: GarageHandlers): string {
     return `<div class="g-panel blk">${close}<h2 class="hd">Profile</h2>
       <div class="g-avatar"><div class="g-avatar-box">${icon('profile', 7)}</div><div><b class="hd">Driver</b><span>League ${CARS[save.carId].league}</span><span class="g-note">Avatar comes with the avatar system.</span></div></div>
       <div class="g-grid"><div><b>${save.races}</b><span>races</span></div><div><b>${save.wins}</b><span>wins</span></div><div><b>${rate}</b><span>win rate</span></div>
-        <div><b>${save.bestTime ? fmtTime(save.bestTime) : '—'}</b><span>best 800 m</span></div><div><b>${save.perfectShifts}</b><span>perfect shifts</span></div><div><b>${DEV.unlimited ? '∞' : save.voxels.toLocaleString()}</b><span>voxels</span></div></div></div>`;
+        ${RACE_DISTS.map(d => `<div><b>${save.best[d] ? fmtTime(save.best[d]!) : '—'}</b><span>best ${d} m</span></div>`).join('')}<div><b>${save.perfectShifts}</b><span>perfect shifts</span></div><div><b>${DEV.unlimited ? '∞' : save.voxels.toLocaleString()}</b><span>voxels</span></div></div></div>`;
   }
   if (ui.panel === 'catalog') {
     const id = ui.cat.id, spec = CARS[id], paint = ui.cat.paint || save.cars[id]?.paint || carPaint(id), opts = BODY_OPTIONS[profileOf(id)] || [];
@@ -160,6 +226,7 @@ function panelHtml(save: SaveV1, on: GarageHandlers): string {
     return `<div class="cat-list blk">${list}</div>
       <div class="cat-under">${close}
         <div class="cat-name"><b class="hd">${carName(id)}</b><span>${carBrand(id)} · ${TYPE_SUB[id] ?? ''} · ${spec.hp} hp · ${spec.massKg.toLocaleString()} kg · ${spec.drive} · League ${spec.league} · ${CHARACTER[spec.character ?? 'balanced']}${spec.currency === 'crowns' ? ' · Crowns only' : ''}</span></div>
+        <div class="cat-stats">${infoRows(id).map(r => `<div class="cs"><span>${r.label}</span><b>${r.value}</b><i><u style="width:${Math.round(r.bar * 100)}%"></u></i></div>`).join('')}</div>
         <div class="cat-paints">${PAINTS.map(([c, n]) => `<button class="swatch ${c === paint ? 'on' : ''}" data-paint="${c}" title="${n}" style="background:${c}"></button>`).join('')}</div>
         ${opts.length ? `<div class="cat-opts">${opts.map(o => `<div class="setrow"><span>${o.label}</span><div class="seg">${o.values.map(([v, t]) => `<button class="${(ui.cat.opts[o.id] ?? o.values[0][0]) === v ? 'on' : ''}" data-opt="${o.id}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>` : `<div class="g-note">No optional features on this body yet.</div>`}
         <div class="cat-buy">${action}<span class="g-note">${owned ? 'Paint and options save to this car.' : 'Paint and options you pick here come with the car.'}</span></div>

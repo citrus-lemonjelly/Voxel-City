@@ -101,8 +101,9 @@ export class World {
 
   /** Garage camera framing (owner: Garage HUD). home = car centred above the bottom bar; catalog = car on the right
    *  half, next to the car list. */
-  setGarageView(v: 'home' | 'catalog' | 'panel') {
+  setGarageView(v: 'home' | 'catalog' | 'panel' | 'strip') {
     if (v === 'catalog') { this.garageCam.position.set(-178, 62, 138); this.garageCam.lookAt(-44, -10, -14); }
+    else if (v === 'strip') { this.garageCam.position.set(-196, 64, 154); this.garageCam.lookAt(0, -34, 0); }   // car sits high, above the Strip scroller
     else if (v === 'panel') { this.garageCam.position.set(-132, 54, 104); this.garageCam.lookAt(34, 4, 0); }   // car shifts left of a right-hand panel
     else { this.garageCam.position.set(-122, 50, 96); this.garageCam.lookAt(0, 4, 0); }
   }

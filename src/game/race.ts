@@ -149,9 +149,10 @@ export class Race {
   private launch(r: Racer) {
     const s = r.stats, frac = r.rpm / s.redline;
     let g: LaunchGrade;
-    if (frac >= LAUNCH.perfectMin && frac <= LAUNCH.perfectMax) g = 'Perfect';
-    else if (frac >= LAUNCH.perfectMin - LAUNCH.goodPad && frac <= LAUNCH.perfectMax + LAUNCH.goodPad) g = 'Good';
-    else g = frac < LAUNCH.perfectMin ? 'Bog' : 'Wheelspin';
+    const L = s.launch;                                                // this car's launch window (owner Q97)
+    if (frac >= L.perfectMin && frac <= L.perfectMax) g = 'Perfect';
+    else if (frac >= L.perfectMin - L.goodPad && frac <= L.perfectMax + L.goodPad) g = 'Good';
+    else g = frac < L.perfectMin ? 'Bog' : 'Wheelspin';
     r.launched = true; r.launchGrade = g; r.launchTime = this.raceTime; r.launchTimer = 0;
     r.lastEvent = { text: g === 'Perfect' ? 'Perfect launch' : g === 'Good' ? 'Good launch' : g, t: this.t };
   }

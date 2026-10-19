@@ -7,6 +7,7 @@ import { STAGES } from '../src/data/stages';
 import { Tier } from '../src/data/parts';
 import { CARS, CATALOG_ORDER, LEAGUES } from '../src/data/cars';
 import { makeRival, simTime, MATCH } from '../src/game/rivals';
+import { stripRung, stripBand, STRIP, levelReward } from '../src/game/strip';
 
 declare const process: { exit(code: number): never };
 const stage = STAGES.downtown_grid;
@@ -129,4 +130,17 @@ check(sameLeague, 'rivals always drive a car from your league');
 check(inWindow, `rivals finish just behind your perfect run (gaps ${Math.min(...gaps).toFixed(2)}–${Math.max(...gaps).toFixed(2)} s)`);
 check(perfectWins === n, `a perfect run beats every rival (${perfectWins}/${n})`);
 check(sloppyWins < n * 0.4, `a sloppy run (skill 0.7) mostly loses — races are a challenge (${sloppyWins}/${n} wins)`);
+// the Strip (owner Q100): a stock starter clears the first rungs, mid upgrades get halfway, a maxed car reaches the top
+const climb = (id: string, e: Tier, t: Tier) => { let n = 0; while (n < STRIP.rungs) { const r = stripRung(CARS[id].league, n + 1, stage); if (simTime(id, e, t, stage, 1, [MATCH.reaction, MATCH.reaction], 7, r.dist) >= r.rival.expect) break; n++; } return n; };
+const cl = [climb('panda_civix', 1, 1), climb('panda_civix', 3, 3), climb('panda_civix', 5, 5)];
+check(cl[0] >= 10 && cl[0] < 30 && cl[1] > cl[0] && cl[1] < 50 && cl[2] >= 55, `Strip D climb with perfect driving: stock ${cl[0]} · T3 ${cl[1]} · T5 ${cl[2]} of ${STRIP.rungs} rungs`);
+const rungs = Array.from({ length: STRIP.rungs }, (_, i) => stripRung('D', i + 1, stage));
+check(rungs.every(r => r.dist === [800, 600, 700][(r.n - 1) % 3]) && rungs.filter(r => r.boss).length === 6, 'Strip rungs rotate 800 / 600 / 700 m with a boss every 10th');
+// every rung harder than the last (owner): position of the rival between the easiest time and the final rival, at that length
+const last = rungs[STRIP.rungs - 1].rival;
+const rels = rungs.map(r => { const b = stripBand('D', r.dist, stage); return (b.easy - r.rival.expect) / (b.easy - b.final.expect); });
+check(rels.every((v, i) => i === 0 || v >= rels[i - 1] - 0.01), `every Strip rung is harder than the one before (difficulty ${rels[0].toFixed(2)} → ${rels[29].toFixed(2)} → ${rels[59].toFixed(2)})`);
+check(last.engineTier === 5 && last.transTier === 5 && last.skill >= 0.9 && last.expect - last.yours >= 0.02 && last.expect - last.yours < 0.15, `final rung: maxed-out car, near-perfect driver, beaten only by a perfect maxed run (${last.name} · ${last.carId} T5/T5 · skill ${last.skill} · ${(last.expect - last.yours).toFixed(3)} s behind perfect)`);
+check(levelReward(1).vx === 100 && levelReward(1).crowns === 0 && levelReward(10).crowns === 5 && levelReward(11).crowns === 0 && levelReward(60).crowns === 5 && levelReward(60).vx > levelReward(59).vx, `Strip level rewards: L1 +100 VX, every 10th +5 Crowns (L60 +${levelReward(60).vx} VX)`);
+check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'early Strip rivals drive worse than late ones');
 process.exit(fail ? 1 : 0);

@@ -202,7 +202,7 @@ export class Hud {
     // gauge
     const frac = Math.min(1, r.rpm / (this.gaugeMax * 1000));
     const red0 = s.redline / (this.gaugeMax * 1000);
-    const [z0r, z1r] = r.launched ? [s.trans.zoneCentre - s.trans.zoneWidth / 2, s.trans.zoneCentre + s.trans.zoneWidth / 2] : [LAUNCH.perfectMin, LAUNCH.perfectMax];
+    const [z0r, z1r] = r.launched ? [s.trans.zoneCentre - s.trans.zoneWidth / 2, s.trans.zoneCentre + s.trans.zoneWidth / 2] : [s.launch.perfectMin, s.launch.perfectMax];
     const z0 = z0r * red0, z1 = z1r * red0, inZone = frac >= z0 && frac <= z1;
     const zoneKey = `${z0.toFixed(3)}`;
     this.dashes.forEach((d, i) => {

@@ -1,6 +1,6 @@
 // Effective car stats = base car data + equipped performance tiers. Pure functions (testable headless).
 import { CARS, CarDef } from '../data/cars';
-import { ENGINE, TRANSMISSION, Tier, TransmissionTier } from '../data/parts';
+import { ENGINE, TRANSMISSION, Tier, TransmissionTier, LAUNCH } from '../data/parts';
 import { StageDef } from '../data/stages';
 
 export interface CarStats {
@@ -16,6 +16,8 @@ export interface CarStats {
   rollingCoeff: number;
   tractionN: number;        // max tractive force before wheelspin
   trans: TransmissionTier;
+  /** this car's launch window (fractions of redline) — LAUNCH widened/narrowed by the car's feel */
+  launch: { perfectMin: number; perfectMax: number; goodPad: number };
   engineTier: Tier;
   transTier: Tier;
 }
@@ -23,7 +25,10 @@ export interface CarStats {
 export function carStats(carId: string, engineTier: Tier, transTier: Tier, stage?: StageDef): CarStats {
   const car = CARS[carId];
   const eng = ENGINE[car.league][engineTier - 1];
-  const trans = TRANSMISSION[car.league][transTier - 1];
+  const base = TRANSMISSION[car.league][transTier - 1], f = car.feel || {};
+  const trans: TransmissionTier = { ...base, shiftTime: base.shiftTime * (f.shift ?? 1), zoneWidth: base.zoneWidth * (f.window ?? 1) };
+  const lc = (LAUNCH.perfectMin + LAUNCH.perfectMax) / 2, lh = (LAUNCH.perfectMax - LAUNCH.perfectMin) / 2 * (f.launch ?? 1);
+  const launch = { perfectMin: lc - lh, perfectMax: lc + lh, goodPad: LAUNCH.goodPad * (f.launch ?? 1) };
   const redline = car.redline + eng.redlineAdd;
   const grip = stage ? stage.modifiers.gripMult : 1;
   return {
@@ -39,6 +44,7 @@ export function carStats(carId: string, engineTier: Tier, transTier: Tier, stage
     rollingCoeff: car.rollingCoeff,
     tractionN: car.gripG * grip * car.massKg * 9.81 * car.drivenWeightShare,
     trans,
+    launch,
     engineTier,
     transTier,
   };
