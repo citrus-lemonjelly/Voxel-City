@@ -24,7 +24,7 @@ export interface CarLook {
   opts?: Record<string, string>;
 }
 export interface BuiltCar { body: Vox[]; wheels: WheelVox[]; wheelY: number; L: number; W: number; /** shape facts the kit / decals / underglow use */ dims: BodyDims;
-  /** rear plate face (voxel cells) for the plate design + text */ plate?: { x: number; y0: number; y1: number; z0: number; z1: number } }
+  /** plate faces (voxel cells) for the plate design + text */ plates?: { x: number; y0: number; y1: number; z0: number; z1: number; front: boolean }[] }
 // bodies.ts registers its builder here (avoids an import cycle: it uses PAL and buildWheels from this file)
 let bodyBuilder: ((look: CarLook) => BuiltCar | null) | null = null;
 export function setBodyBuilder(f: (look: CarLook) => BuiltCar | null) { bodyBuilder = f; }
@@ -42,15 +42,18 @@ export interface WheelVox { cx: number; side: 0 | 1; items: Vox[] }
 const CIVIX_WING: Record<string, string | null> = { none: null, lip: 'lip', ducktail: 'ducktail', roof: 'roof', gt: 'gt1x' };
 const CIVIX_EXHAUST: Record<string, string> = { dual: 'x1', single: 'x2', split: 'split', quad: 'quad', twinCentre: 'twinCentre', side: 'side' };
 const CIVIX_HEAD: Record<string, string> = { rect: 'stock', slim: 'slim', round: 'round', quad: 'proj2x' };
+const CIVIX_GRILLE: Record<string, string> = { slats: 'slats', mesh: 'mesh', wide: 'open' };
 const CIVIX_TAIL: Record<string, string> = { rect: 'stock', smoked: 'smoked', quad: 'round', bar: 'bar' };
 export const HOOD_CARBON = (x: number, z: number) => ((x + z) % 2 ? '#1c1d21' : '#2c2e34');
 function civixLook(look: CarLook): CarLook & { hood?: string; mirrors?: string } {
   const p = look.parts || {}, on = (v?: string) => v && v !== 'stock';
   return { ...look, wing: on(p.spoiler) ? CIVIX_WING[p.spoiler!] ?? look.wing : look.wing, exhaust: on(p.exhaust) ? CIVIX_EXHAUST[p.exhaust!] ?? look.exhaust : look.exhaust,
     rim: on(p.wheels) ? p.wheels! : look.rim, hood: on(p.hood) ? p.hood : undefined,
-    head: on(p.headlights) ? CIVIX_HEAD[p.headlights!] ?? look.head : look.head, tail: on(p.taillights) ? CIVIX_TAIL[p.taillights!] ?? look.tail : look.tail, mirrors: p.mirrors };
+    head: on(p.headlights) ? CIVIX_HEAD[p.headlights!] ?? look.head : look.head, tail: on(p.taillights) ? CIVIX_TAIL[p.taillights!] ?? look.tail : look.tail, mirrors: p.mirrors, grille: on(p.grille) ? CIVIX_GRILLE[p.grille!] ?? look.grille : look.grille };
 }
 
+/** Window tint colours: [glass, streak]. */
+const TINTS: Record<string, [string, string]> = { light: ['#2c4652', '#527584'], dark: ['#0c171c', '#22343b'], limo: ['#06090b', '#141c20'], blue: ['#123a66', '#3f78b0'], gold: ['#5a4310', '#b8902c'] };
 /** Collision checker hook (tools/collide.mjs): cells where a later block replaced a different one, and kit blocks hidden by the body. */
 let CHECK: { replaced: string[]; hidden: string[] } | null = null;
 export function checkBuild(look: CarLook) { CHECK = { replaced: [], hidden: [] }; try { const b = buildCarVoxels(look); return { b, ...CHECK }; } finally { CHECK = null; } }
@@ -71,9 +74,15 @@ export function buildCarVoxels(lookIn: CarLook): BuiltCar {
   b.body.push(...kit.filter(v => !seen.has(key(v))));
   applyDecal(b.body, b.dims, parts.decal, lookIn.paint);
   // license plate (Body Shop): recolour the plate blocks to the design; the rear plate face carries the text (CarModel)
-  const pd = PLATE_DESIGNS[parts.plate ?? 'stock'] ?? PLATE_DESIGNS.stock, rear = b.body.filter(v => v.c === PAL.plate && v.x >= b.L - 1);
+  const pd = PLATE_DESIGNS[parts.plate ?? 'stock'] ?? PLATE_DESIGNS.stock;
+  b.plates = [true, false].map(front => {
+    const vs = b!.body.filter(v => v.c === PAL.plate && v.s === 1 && (front ? v.x <= 0 : v.x >= b!.L - 1));
+    return vs.length ? { x: front ? Math.min(...vs.map(v => v.x)) : Math.max(...vs.map(v => v.x)), y0: Math.min(...vs.map(v => v.y)), y1: Math.max(...vs.map(v => v.y)) + 1, z0: Math.min(...vs.map(v => v.z)), z1: Math.max(...vs.map(v => v.z)) + 1, front } : null;
+  }).filter(p => !!p) as BuiltCar['plates'];
   for (const v of b.body) if (v.c === PAL.plate) v.c = pd.bg;
-  if (rear.length) b.plate = { x: rear[0].x, y0: Math.min(...rear.map(v => v.y)), y1: Math.max(...rear.map(v => v.y)) + 1, z0: Math.min(...rear.map(v => v.z)), z1: Math.max(...rear.map(v => v.z)) + 1 };
+  // window tint (Body Shop): recolour the glass, keeping the streaks lighter
+  const glass = TINTS[parts.tint ?? ''];
+  if (glass) for (const v of b.body) if (v.role === 'glass') v.c = v.c === PAL.streak ? glass[1] : glass[0];
   return b;
 }
 
@@ -147,7 +156,7 @@ function buildCivix(lookIn: CarLook): BuiltCar {
   const mc = look.mirrors && look.mirrors !== 'stock' && look.mirrors !== 'body' ? ({ black: PAL.dark, chrome: PAL.chrome, carbon: '#2a2b30' } as Record<string, string>)[look.mirrors] : null;
   if (look.mirrors !== 'none') for (const z of [1, W - 2]) { put(17, 12, z, null, 'paint', 'mid'); if (mc) put(17, 13, z, mc); else put(17, 13, z, null, 'paint', 'light'); }
   put(-1, 7, 13, PAL.white); put(-1, 7, 14, PAL.white); put(-1, 6, 13, PAL.dark); put(-1, 6, 14, PAL.dark);
-  for (let z = 11; z < 17; z++) { put(-1, 3, z, PAL.plate); put(L, 6, z, PAL.plate); put(L, 5, z, PAL.plate); }   // rear plate clear of the centre pipes
+  for (let z = 11; z < 17; z++) { put(-2, 3, z, PAL.plate); put(-2, 4, z, PAL.plate); put(L, 6, z, PAL.plate); put(L, 5, z, PAL.plate); }   // front plate 2 tall (text); rear clear of the centre pipes
 
   // ---- slot: headlights ----
   for (const [z0, z1] of [[2, 9], [W - 9, W - 2]]) {
@@ -290,7 +299,7 @@ export class CarModel {
   /** Body length / width in blocks (differs per body). */
   L: number; W: number;
   constructor(look: CarLook, mats: Materials) {
-    const { body, wheels, wheelY, L: bl, W: bw, dims, plate } = buildCarVoxels(look);
+    const { body, wheels, wheelY, L: bl, W: bw, dims, plates } = buildCarVoxels(look);
     this.L = bl; this.W = bw;
     const paint = new THREE.Color(look.paint);
     const fin = look.parts?.finish, bodyMats = fin && fin !== 'gloss' && fin !== 'stock' ? { ...mats, paintV: finishMaterial(fin) } : mats;
@@ -298,7 +307,7 @@ export class CarModel {
     this.group.add(mergedVoxMeshes(body, bodyMats, v => (v.c ? new THREE.Color(v.c) : paint.clone()).multiplyScalar(SHADE[v.shade || 'mid'] || 1)));
     const glow = look.parts?.underglow ? underglowGroup(look.parts.underglow, dims) : null;
     if (glow) this.group.add(glow);
-    if (plate) this.group.add(plateMesh(look.parts?.plate ?? 'stock', look.plateText || DEFAULT_PLATE, plate));
+    for (const p of plates ?? []) this.group.add(plateMesh(look.parts?.plate ?? 'stock', look.plateText || DEFAULT_PLATE, p));
     this.discMat = new THREE.MeshStandardMaterial({ color: '#ffffff', vertexColors: true, flatShading: true, roughness: 0.6, transparent: true, opacity: 0, depthWrite: false, envMapIntensity: 0.25 });
     for (const w of wheels) {
       const pivot = new THREE.Group();

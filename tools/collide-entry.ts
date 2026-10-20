@@ -15,6 +15,7 @@ function problems(look: CarLook) {
     const k = `${v.s}|${v.x}|${v.y}|${v.z}`, o = cells.get(k);
     if (o && col(o) !== col(v)) clash.add(k); else if (!o) cells.set(k, v);
     if (v.s !== 1) continue;
+    if ((v.x < 0 || v.x >= b.L) && (v.z < 0 || v.z > b.W - 1)) clash.add('outside ' + k);   // a nose / tail block hanging off the side of the car
     for (const cx of b.dims.wheels) {                                   // tyre: radius wheelR (body blocks), 4 blocks wide at each side
       const r = Math.hypot(v.x + 0.5 - cx, v.y + 0.5 - b.wheelY), inSide = (v.z >= 0 && v.z <= 2) || (v.z >= b.W - 3 && v.z <= b.W - 1) || v.z < 0 || v.z > b.W - 1;
       if (r < b.wheelY - 0.7 && inSide && (v.z < 4 || v.z > b.W - 5)) tyre.add(k);
@@ -34,7 +35,7 @@ for (const body of bodies) {
   }
 }
 // parts that sit near each other, fitted together
-const PAIRS: [string, string][] = [['exhaust', 'skirts'], ['roof', 'spoiler'], ['taillights', 'spoiler'], ['plate', 'exhaust']];
+const PAIRS: [string, string][] = [['exhaust', 'skirts'], ['roof', 'spoiler'], ['taillights', 'spoiler'], ['plate', 'exhaust'], ['grille', 'headlights'], ['plate', 'bumper']];
 let pairs = 0;
 for (const body of bodies) for (const [a, b] of PAIRS) for (const pa of parts.filter(p => p.slot === a)) for (const pb of parts.filter(p => p.slot === b)) {
   pairs++;

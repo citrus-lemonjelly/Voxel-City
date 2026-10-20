@@ -29,9 +29,9 @@ for (const tab of ['profile', 'garage', 'upgrades', 'catalog', 'settings']) {
   await pg.click(`[data-panel="${tab}"]`); await pg.waitForTimeout(400);
   const open = await ev(() => !!document.querySelector('.g-panel, .cat-list, .gr-list'));
   ok(`tab opens: ${tab}`, open);
-  if (tab === 'garage') { await pg.click('.gr-card'); await pg.waitForTimeout(300); ok('garage: Drive / Body Shop / Upgrade pop out', await ev(() => document.querySelectorAll('.gr-dbtn').length === 3));
+  if (tab === 'garage') { await pg.click('.gr-card'); await pg.waitForTimeout(300); ok('garage: Drive / Body Shop / Upgrade pop out', await ev(() => document.querySelectorAll('.g-subtab').length === 3));
     await pg.click('#gParts'); await pg.waitForTimeout(500);
-    const paint = await ev(() => document.querySelectorAll('.pt-paint').length);
+    const paint = await ev(() => document.querySelectorAll('.pt-swatch').length);
     await pg.click('[data-slot="plate"]'); await pg.waitForTimeout(500);
     ok('body shop: paint tab + plate text box', paint >= 20 && await ev(() => !!document.querySelector('#plateText')), `${paint} paints`);
     await pg.click('[data-slot="paint"]'); await pg.waitForTimeout(200); await pg.click('#garage .g-close'); await pg.waitForTimeout(300); continue; }

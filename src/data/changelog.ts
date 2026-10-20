@@ -26,6 +26,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.8.0', date: '2026-10-19', title: 'Grilles, window tint, front plate text and a tidier Body Shop', header: 'Tint & Grille Update',
+    added: [
+      'Grille parts: Slats, Mesh, Chrome bars, Framed and Shaved (styles that do not fit a car are hidden).',
+      'Window tint: Light, Dark, Limo, Blue mirror and Gold mirror.',
+      'Your plate text now shows on the front plate too (front plates are 2 blocks tall).',
+      'The car turns on the turntable to show the part you are looking at (rear for tail lights and plates, nose for headlights and grilles, side for wheels). Drag it to look around yourself.',
+    ],
+    changed: [
+      'Body Shop tabs are grouped: Paint · Wheels · Aero · Lights · Details.',
+      'Paint is a compact swatch grid like the Catalog: standard paints, then premium. Yellow = selected, white = on the car.',
+      'The Spin button icon is full size, like the other buttons.',
+      'Garage: Drive / Body Shop / Upgrade are now small sub-tabs that pop up above the Garage button for the car you pick.',
+    ],
+    fixed: [
+      'Fitted quad / round tail lights no longer hang off the side of cars with narrow tall lamps (Supermini and others). The collision check now also catches blocks hanging off the nose or tail.',
+    ],
+  },
+  {
     version: '0.7.0', date: '2026-10-19', title: 'Body Shop: paint, plates, lights, mirrors, roof parts and more', header: 'Body Shop Update',
     added: [
       'Parts is now the Body Shop (Garage → pick a car → Body Shop).',

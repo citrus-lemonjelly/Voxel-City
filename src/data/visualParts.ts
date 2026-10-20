@@ -2,20 +2,30 @@
 // data/economy.ts (COSMETIC_PRICES). Each part sets one slot; 'stock' = the car's own factory part (free, always owned).
 // v1 slots (owner Q112): Spoiler, Exhaust, Hood, Wheels, Paint finish. v2 (owner Q117): Decals, Underglow, then the body kit
 // (Front bumper, Side skirts, Rear diffuser). The other tabs are listed as coming soon.
-export type PartSlot = 'spoiler' | 'exhaust' | 'hood' | 'wheels' | 'finish' | 'decal' | 'underglow' | 'bumper' | 'skirts' | 'diffuser' | 'headlights' | 'taillights' | 'mirrors' | 'roof' | 'plate';
+export type PartSlot = 'spoiler' | 'exhaust' | 'hood' | 'wheels' | 'finish' | 'decal' | 'underglow' | 'bumper' | 'skirts' | 'diffuser' | 'headlights' | 'taillights' | 'mirrors' | 'roof' | 'plate' | 'grille' | 'tint';
 export type Rarity = 'common' | 'rare' | 'epic';
 export interface VisualPart { id: string; slot: PartSlot; name: string; rarity: Rarity; value: string; blurb: string; /** won on the Strip, never sold */ won?: boolean; /** card camera, when the slot's default can't see this part */ view?: ThumbView }
 
 // Body Shop tabs (owner 2026-10-19: Parts renamed Body Shop; Paint is its own tab, handled in the UI)
-export const PART_SLOTS: { id: PartSlot; label: string }[] = [
-  { id: 'finish', label: 'Paint finish' }, { id: 'decal', label: 'Decals' }, { id: 'wheels', label: 'Wheels' },
-  { id: 'spoiler', label: 'Spoiler' }, { id: 'hood', label: 'Hood' }, { id: 'roof', label: 'Roof' }, { id: 'exhaust', label: 'Exhaust' },
-  { id: 'bumper', label: 'Front bumper' }, { id: 'skirts', label: 'Side skirts' }, { id: 'diffuser', label: 'Rear diffuser' },
-  { id: 'headlights', label: 'Headlights' }, { id: 'taillights', label: 'Taillights' }, { id: 'mirrors', label: 'Mirrors' },
-  { id: 'plate', label: 'License plate' }, { id: 'underglow', label: 'Underglow' },
+export type SlotGroup = 'Paint' | 'Wheels' | 'Aero' | 'Lights' | 'Details';
+export const PART_SLOTS: { id: PartSlot; label: string; group: SlotGroup }[] = [
+  { id: 'finish', label: 'Paint finish', group: 'Paint' }, { id: 'decal', label: 'Decals', group: 'Paint' }, { id: 'tint', label: 'Window tint', group: 'Paint' },
+  { id: 'wheels', label: 'Wheels', group: 'Wheels' },
+  { id: 'spoiler', label: 'Spoiler', group: 'Aero' }, { id: 'hood', label: 'Hood', group: 'Aero' }, { id: 'roof', label: 'Roof', group: 'Aero' },
+  { id: 'bumper', label: 'Front bumper', group: 'Aero' }, { id: 'skirts', label: 'Side skirts', group: 'Aero' }, { id: 'diffuser', label: 'Rear diffuser', group: 'Aero' },
+  { id: 'headlights', label: 'Headlights', group: 'Lights' }, { id: 'taillights', label: 'Taillights', group: 'Lights' }, { id: 'underglow', label: 'Underglow', group: 'Lights' },
+  { id: 'grille', label: 'Grille', group: 'Details' }, { id: 'exhaust', label: 'Exhaust', group: 'Details' }, { id: 'mirrors', label: 'Mirrors', group: 'Details' },
+  { id: 'plate', label: 'License plate', group: 'Details' },
 ];
+export const SLOT_GROUPS: SlotGroup[] = ['Paint', 'Wheels', 'Aero', 'Lights', 'Details'];
+/** Which way the turntable turns the car for each tab (car x = nose→tail, z = camera side→far side). */
+export const SLOT_FACE: Record<PartSlot | 'paint', [number, number]> = {
+  finish: [-1, -0.8], decal: [0.1, -1], tint: [0.3, -1], wheels: [0.1, -1], spoiler: [1, -0.8], hood: [-1, -0.6], roof: [-0.6, -1],
+  bumper: [-1, -0.7], skirts: [0.1, -1], diffuser: [1, -0.7], headlights: [-1, -0.6], taillights: [1, -0.6], underglow: [0.1, -1],
+  grille: [-1, -0.5], exhaust: [1, -0.8], mirrors: [-1, -0.9], plate: [1, -0.35], paint: [-1, -0.8],
+};
 /** Tabs shown greyed out until their parts exist (PART_SLOTS.md planned slots). */
-export const SOON_SLOTS = ['Grille', 'Window tint'];
+export const SOON_SLOTS: string[] = [];
 
 const P = (slot: PartSlot, value: string, name: string, rarity: Rarity, blurb: string): VisualPart => ({ id: `${slot}.${value}`, slot, value, name, rarity, blurb });
 
@@ -118,6 +128,19 @@ export const VISUAL_PARTS: VisualPart[] = [
   P('mirrors', 'chrome', 'Chrome', 'rare', 'Bright chrome caps.'),
   P('mirrors', 'carbon', 'Carbon', 'epic', 'Woven carbon caps.'),
   P('mirrors', 'none', 'Shaved', 'rare', 'No mirrors at all.'),
+  // grille + window tint (owner 2026-10-19)
+  P('grille', 'stock', 'Factory', 'common', 'The car\'s own grille.'),
+  P('grille', 'slats', 'Slats', 'common', 'Horizontal slats.'),
+  P('grille', 'mesh', 'Mesh', 'common', 'Fine black mesh.'),
+  P('grille', 'wide', 'Chrome bars', 'rare', 'Bright chrome bars top and bottom.'),
+  P('grille', 'frame', 'Framed', 'rare', 'Dark mesh in a chrome frame.'),
+  P('grille', 'none', 'Shaved', 'epic', 'No grille — a smooth nose.'),
+  P('tint', 'stock', 'Factory', 'common', 'Factory glass.'),
+  P('tint', 'light', 'Light', 'common', 'A light smoke tint.'),
+  P('tint', 'dark', 'Dark', 'common', 'Dark smoke.'),
+  P('tint', 'limo', 'Limo', 'rare', 'Nearly black.'),
+  P('tint', 'blue', 'Blue mirror', 'rare', 'Mirrored blue.'),
+  P('tint', 'gold', 'Gold mirror', 'epic', 'Mirrored gold.'),
   // license plates (owner 2026-10-19): pre-made designs; your own text costs Crowns per change (economy.ts PLATE_TEXT)
   P('plate', 'stock', 'Factory', 'common', 'A plain white plate.'),
   P('plate', 'city', 'City plate', 'common', 'White with a blue city band.'),
@@ -163,7 +186,7 @@ export function lookParts(fitted: Record<string, string> = {}): Partial<Record<P
 export type ThumbView = 'front' | 'rear' | 'tail' | 'hood' | 'wheel' | 'side' | 'nose' | 'low' | 'sill' | 'top';
 export const SLOT_VIEW: Record<PartSlot, ThumbView> = {
   spoiler: 'rear', exhaust: 'tail', hood: 'hood', wheels: 'wheel', finish: 'front', decal: 'side', underglow: 'low', bumper: 'nose', skirts: 'sill', diffuser: 'tail',
-  headlights: 'nose', taillights: 'tail', mirrors: 'front', roof: 'rear', plate: 'tail',
+  headlights: 'nose', taillights: 'tail', mirrors: 'front', roof: 'rear', plate: 'tail', grille: 'nose', tint: 'side',
 };
 
 /** Rivals wear random visual parts (owner Q118) — looks only. Boss decals stay with the player. */

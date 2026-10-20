@@ -89,6 +89,8 @@ export const COSMETIC_PRICES: Record<string, { price: number; currency?: 'vx' | 
   'headlights.notch': { price: 8_000 }, 'headlights.bar': { price: 9_000 }, 'headlights.blade': { price: 25, currency: 'crowns' }, 'headlights.popup': { price: 30, currency: 'crowns' },
   'taillights.rect': { price: 2_500 }, 'taillights.tall': { price: 3_000 }, 'taillights.smoked': { price: 5_000 }, 'taillights.bar': { price: 6_000 }, 'taillights.quad': { price: 6_000 }, 'taillights.blade': { price: 20, currency: 'crowns' },
   'mirrors.body': { price: 1_500 }, 'mirrors.black': { price: 1_500 }, 'mirrors.chrome': { price: 3_500 }, 'mirrors.none': { price: 5_000 }, 'mirrors.carbon': { price: 15, currency: 'crowns' },
+  'grille.slats': { price: 2_000 }, 'grille.mesh': { price: 2_500 }, 'grille.wide': { price: 5_000 }, 'grille.frame': { price: 6_000 }, 'grille.none': { price: 15, currency: 'crowns' },
+  'tint.light': { price: 2_000 }, 'tint.dark': { price: 3_000 }, 'tint.limo': { price: 6_000 }, 'tint.blue': { price: 8_000 }, 'tint.gold': { price: 20, currency: 'crowns' },
   'plate.city': { price: 1_500 }, 'plate.classic': { price: 2_000 }, 'plate.euro': { price: 2_000 }, 'plate.racing': { price: 3_500 }, 'plate.gold': { price: 20, currency: 'crowns' },
 };
 /** Your own text on a license plate: Crowns for every change (owner 2026-10-19). Up to 7 letters / numbers. */

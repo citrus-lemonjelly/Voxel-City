@@ -198,7 +198,7 @@ export function buildBodyVoxels(P: BodyProfile): { body: Vox[]; wheels: WheelVox
     const outer = z0 < W / 2 ? z0 : z1 - 1;
     if (H.style === 'rect') for (let z = z0; z < z1; z++) for (let y = H.y0; y < H.y1; y++) put(-1, y, z, z === outer ? PAL.amber : PAL.head, 'light');
     if (H.style === 'slim') { for (let z = z0 - 1; z < z1 + 1; z++) put(-1, H.y1 - 1, z, PAL.head, 'light'); for (let z = z0; z < z1; z++) for (let y = H.y0; y < H.y1 - 1; y++) put(-1, y, z, PAL.darkGrey); }
-    if (H.style === 'quad') for (const zc of [z0 + 1.8, z0 + 5.2]) for (let z = Math.floor(zc - 2); z < zc + 2; z++) for (let y = H.y0; y < H.y1; y++) {
+    if (H.style === 'quad') for (const zc of [z0 + (z1 - z0) * 0.26, z1 - (z1 - z0) * 0.26]) for (let z = Math.floor(zc - 2); z < zc + 2; z++) for (let y = H.y0; y < H.y1; y++) {
       const d = Math.hypot(z + .5 - zc, y + .5 - (H.y0 + H.y1) / 2); if (d < 1.9) put(-1, y, z, d < 1.0 ? PAL.head : PAL.chrome, d < 1.0 ? 'light' : 'trim');
     }
     if (H.style === 'wrap') {                                                      // lamp that sweeps back onto the wing
@@ -250,13 +250,13 @@ export function buildBodyVoxels(P: BodyProfile): { body: Vox[]; wheels: WheelVox
   // lower intake: leaves room for the fog lamps when there are any (collision check)
   const iz0 = P.fogs ? LZ[0] + 5 : 4;
   if (P.frontIntake) for (let z = iz0; z < W - iz0; z++) for (let y = P.frontIntake[0]; y < P.frontIntake[1]; y++) put(-1, y, z, (y + z) % 2 ? '#121214' : PAL.darkGrey);
-  for (let z = Math.floor(W / 2) - 3; z < Math.floor(W / 2) + 3; z++) put(-2, yBot + 1, z, PAL.plate);
+  for (let z = Math.floor(W / 2) - 3; z < Math.floor(W / 2) + 3; z++) { put(-2, yBot + 1, z, PAL.plate); put(-2, yBot + 2, z, PAL.plate); }   // 2 tall so it carries text
   // ---- rear: tail lights, plate, exhaust, diffuser ----
   const TC = P.tailSmoke ? PAL.tailSmoke : PAL.tail, TC2 = P.tailSmoke ? '#8a2a22' : '#ff6a5a';
   const TZ = P.tailZ ?? [1, 8], T = P.tail, tl: [number, number][] = [[TZ[0], TZ[1]], [W - TZ[1], W - TZ[0]]];
   for (const [z0, z1] of tl) {
     if (T.style === 'rect') for (let z = z0; z < z1; z++) for (let y = T.y0; y < T.y1; y++) put(L, y, z, (y === T.y0 && (z === z0 + 3 || z === z1 - 4)) ? PAL.reverse : TC, 'light');
-    if (T.style === 'quad') for (const zc of [z0 + 1.8, z0 + 5.2]) for (let z = Math.floor(zc - 2); z < zc + 2; z++) for (let y = T.y0; y < T.y1; y++) {
+    if (T.style === 'quad') for (const zc of [z0 + (z1 - z0) * 0.26, z1 - (z1 - z0) * 0.26]) for (let z = Math.floor(zc - 2); z < zc + 2; z++) for (let y = T.y0; y < T.y1; y++) {
       const d = Math.hypot(z + .5 - zc, y + .5 - (T.y0 + T.y1) / 2); if (d < 1.9) put(L, y, z, d < 1.0 ? TC2 : TC, 'light');
     }
     if (T.style === 'bar') for (let z = z0; z < z1; z++) for (let y = T.y0; y < T.y1; y++) put(L, y, z, TC, 'light');
@@ -448,6 +448,7 @@ export function partFits(body: string | undefined, slot: string, value: string):
     if (value === 'popup') { if (!P) return false; const nose = lerpPts(P.lower, 3); return P.head.style === 'popup' || P.head.style === 'popupUp' || (nose <= 11 && P.head.y1 >= nose - 2); }
   }
   if (slot === 'taillights' && civix) return ['stock', 'rect', 'smoked', 'quad', 'bar'].includes(value);
+  if (slot === 'grille' && civix) return ['stock', 'slats', 'mesh', 'wide'].includes(value);
   return true;
 }
 
@@ -469,7 +470,8 @@ export function profileFor(look: CarLook): BodyProfile | null {
   // lights + mirrors (Body Shop, owner 2026-10-19); a style that doesn't fit the body is ignored (partFits)
   if (on(parts.headlights) && partFits(look.body, 'headlights', parts.headlights!)) P = { ...P, head: { ...P.head, style: (parts.headlights === 'popup' && o.popups === 'up' ? 'popupUp' : parts.headlights) as HeadStyle } };
   if (parts.taillights === 'smoked') P = { ...P, tailSmoke: true };
-  else if (on(parts.taillights)) P = { ...P, tail: { ...P.tail, style: parts.taillights as TailStyle } };
+  else if (on(parts.taillights) && parts.taillights !== base.tail.style) { const TZ = P.tailZ ?? [1, 8]; P = { ...P, tail: { ...P.tail, style: parts.taillights as TailStyle }, tailZ: [TZ[0], Math.max(TZ[1], TZ[0] + 7)] }; }   // fitted lamps get a full-size span (narrow tall-lamp bodies)
+  if (on(parts.grille) && partFits(look.body, 'grille', parts.grille!)) P = { ...P, grille: { ...P.grille, style: parts.grille as BodyProfile['grille']['style'] } };
   if (on(parts.mirrors)) P = parts.mirrors === 'none' ? { ...P, mirrors: false } : { ...P, mirrors: true, mirrorColor: MIRROR[parts.mirrors!] };
   // body kit (kit.ts draws it): a fitted bumper / diffuser replaces the body's own splitter / diffuser
   if (on(parts.bumper)) P = { ...P, splitter: false };
@@ -486,11 +488,11 @@ setBodyBuilder(look => {
 });
 
 /** The part values a body comes with from the factory (owner Q114: a part identical to these is the Factory part). */
-export function stockParts(body?: string): Record<'spoiler' | 'exhaust' | 'hood' | 'wheels' | 'bumper' | 'diffuser' | 'headlights' | 'taillights' | 'mirrors', string> {
+export function stockParts(body?: string): Record<'spoiler' | 'exhaust' | 'hood' | 'wheels' | 'bumper' | 'diffuser' | 'headlights' | 'taillights' | 'mirrors' | 'grille', string> {
   const P = body && body !== 'civix' ? BODY_PROFILES[body] : undefined;
-  if (!P) return { spoiler: 'none', exhaust: 'dual', hood: 'none', wheels: 'steel', bumper: 'none', diffuser: 'none', headlights: 'rect', taillights: 'rect', mirrors: 'body' };   // Panda Civix
+  if (!P) return { spoiler: 'none', exhaust: 'dual', hood: 'none', wheels: 'steel', bumper: 'none', diffuser: 'none', headlights: 'rect', taillights: 'rect', mirrors: 'body', grille: 'slats' };   // Panda Civix
   return { spoiler: P.wing ?? 'none', exhaust: P.exhaust ?? (P.quadExhaust ? 'quad' : 'dual'), hood: P.scoop ? 'scoop' : (P.hood ?? 'none'), wheels: P.rim,
     bumper: P.splitter === true ? 'lip' : 'none', diffuser: P.diffuser ? 'fins' : 'none',
-    headlights: P.head.style === 'popupUp' ? 'popup' : P.head.style, taillights: P.tail.style,
+    headlights: P.head.style === 'popupUp' ? 'popup' : P.head.style, taillights: P.tail.style, grille: P.grille.style,
     mirrors: !P.mirrors ? 'none' : Object.keys(MIRROR).find(k => MIRROR[k] === P.mirrorColor) ?? 'custom' };
 }

@@ -25,6 +25,8 @@ export class World {
   /** garage: slow turntable spin (Settings toggle); the player can also drag the car round (owner 2026-10-19) */
   autoSpin = true;
   private drag = { on: false, x: 0, v: 0, id: -1 };
+  /** Body Shop: the car side to show the camera (car x, z); set per tab, cleared by a drag */
+  private face: [number, number] | null = null; private faceKey = '';
   stage?: Stage;
   player?: CarModel;
   opponent?: CarModel;
@@ -63,7 +65,7 @@ export class World {
     canvasHost.appendChild(this.renderer.domElement);
     // drag the car round on the turntable; it keeps a little momentum, then the slow spin (if on) takes over again
     const cv = this.renderer.domElement as HTMLCanvasElement, D = this.drag;
-    cv.addEventListener('pointerdown', (e: PointerEvent) => { if (this.mode !== 'garage') return; D.on = true; D.x = e.clientX; D.v = 0; D.id = e.pointerId; cv.setPointerCapture(e.pointerId); cv.classList.add('grabbing'); });
+    cv.addEventListener('pointerdown', (e: PointerEvent) => { if (this.mode !== 'garage') return; D.on = true; D.x = e.clientX; D.v = 0; this.face = null; D.id = e.pointerId; cv.setPointerCapture(e.pointerId); cv.classList.add('grabbing'); });
     cv.addEventListener('pointermove', (e: PointerEvent) => {
       cv.classList.toggle('grab', this.mode === 'garage');
       if (!D.on || e.pointerId !== D.id) return;
@@ -128,6 +130,9 @@ export class World {
     else if (v === 'panel') { this.garageCam.position.set(-132, 54, 104); this.garageCam.lookAt(34, 4, 0); }   // car shifts left of a right-hand panel
     else { this.garageCam.position.set(-122, 50, 96); this.garageCam.lookAt(0, 4, 0); }
   }
+
+  /** Turn the car so this side (car x = nose→tail, z = near→far) faces the camera; null = back to free spin. Same value again = no change (keeps a drag). */
+  faceGarage(d: [number, number] | null) { const k = d ? d.join(',') : ''; if (k === this.faceKey) return; this.faceKey = k; this.face = d; this.drag.v = 0; }
 
   setGarageCar(look: CarLook) {
     if (this.garageCar) this.turntable.remove(this.garageCar.group);
@@ -294,7 +299,11 @@ export class World {
     if (this.mode === 'garage') {
       const D = this.drag;
       if (!D.on) { this.turntable.rotation.y += D.v; D.v *= Math.pow(0.02, dt); if (Math.abs(D.v) < 0.0005) D.v = 0; }
-      if (this.autoSpin && !D.on && D.v === 0) this.turntable.rotation.y += dt * 0.25;
+      if (this.face && !D.on) {                                                     // ease round to the part (shortest way)
+        const c = this.garageCam.position, want = Math.atan2(-c.z, c.x) - Math.atan2(-this.face[1], this.face[0]);
+        let diff = (want - this.turntable.rotation.y) % (2 * Math.PI); if (diff > Math.PI) diff -= 2 * Math.PI; if (diff < -Math.PI) diff += 2 * Math.PI;
+        this.turntable.rotation.y += diff * (1 - Math.exp(-5 * dt));
+      } else if (this.autoSpin && !D.on && D.v === 0) this.turntable.rotation.y += dt * 0.25;
       this.renderer.render(this.garageScene, this.garageCam);
     } else if (this.mode === 'typing' && this.typing) this.renderer.render(this.typing.scene, this.typing.cam); else if (this.blur.strength > 0) this.blur.render(this.raceScene, this.raceCam, dt);
     else this.renderer.render(this.raceScene, this.raceCam);

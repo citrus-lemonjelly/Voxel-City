@@ -25,10 +25,10 @@ export function plateTexture(design: string, text: string, wBlocks: number, hBlo
   t = new THREE.CanvasTexture(cv); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.colorSpace = THREE.SRGBColorSpace; t.generateMipmaps = false;
   CACHE.set(key, t); return t;
 }
-/** The rear plate as a flat panel just outside the plate blocks (faces +x, the car's tail). */
-export function plateMesh(design: string, text: string, p: { x: number; y0: number; y1: number; z0: number; z1: number }): THREE.Mesh {
+/** A plate as a flat panel just outside its blocks (rear faces +x, front faces −x). */
+export function plateMesh(design: string, text: string, p: { x: number; y0: number; y1: number; z0: number; z1: number; front?: boolean }): THREE.Mesh {
   const w = p.z1 - p.z0, h = p.y1 - p.y0;
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ map: plateTexture(design, text, w, h), roughness: 0.55, metalness: 0, envMapIntensity: 0.3 }));
-  m.rotation.y = Math.PI / 2; m.position.set(p.x + 1.02, (p.y0 + p.y1) / 2, (p.z0 + p.z1) / 2);
+  m.rotation.y = p.front ? -Math.PI / 2 : Math.PI / 2; m.position.set(p.front ? p.x - 0.02 : p.x + 1.02, (p.y0 + p.y1) / 2, (p.z0 + p.z1) / 2);
   return m;
 }
