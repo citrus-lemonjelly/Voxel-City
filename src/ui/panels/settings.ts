@@ -1,0 +1,41 @@
+// Settings panel: race camera, near side, speed blur (time of day moved to the test console, 2026-10-20), and
+// Settings ▸ Controls (owner 2026-10-19): two key sets, Drag Race and Typing Race.
+import { SaveV1 } from '../../save/save';
+import { keysOf, keyName, KEY_ACTIONS } from '../../game/keys';
+import { ui, Wire } from './shared';
+
+const SETTING_ROWS: [string, string, [string, string][]][] = [
+  ['camera', 'Race camera', [['dynamic', 'Dynamic'], ['close', 'Dynamic close']]],
+  ['nearSide', 'Near side', [['mixed', 'Mixed'], ['curb', 'Curb'], ['barrier', 'Barrier']]],
+  ['blur', 'Speed blur', [['off', 'Off'], ['low', 'Low'], ['full', 'Full']]],
+];
+
+export function settingsHtml(save: SaveV1, close: string): string {
+  return `<div class="g-panel blk">${close}<h2 class="hd">Settings</h2><div class="settings">${SETTING_ROWS.map(([key, label, opts]) => `<div class="setrow"><span>${label}</span><div class="seg">${opts.map(([v, t]) => `<button class="${(save.settings as any)[key] === v ? 'on' : ''}" data-set="${key}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>
+      ${controlsHtml(save)}</div>`;
+}
+
+function controlsHtml(save: SaveV1): string {
+  const K = keysOf(save.settings), m = ui.kmode;
+  const rows = (KEY_ACTIONS[m] as [string, string][]).map(([a, label]) => { const id = `${m}.${a}`, wait = ui.capture === id;
+    return `<div class="setrow"><span>${label}</span><button class="keycap ${wait ? 'wait' : ''}" data-bind="${id}">${wait ? 'Press a key…' : keyName((K[m] as any)[a])}</button></div>`; }).join('');
+  return `<div class="ctl"><h3 class="hd">Controls</h3><div class="seg ctl-tabs"><button class="${m === 'drag' ? 'on' : ''}" data-kmode="drag">Drag Race</button><button class="${m === 'typing' ? 'on' : ''}" data-kmode="typing">Typing Race</button></div>
+    ${rows}<div class="ctl-foot"><span class="g-note">${ui.kmsg || (m === 'drag' ? 'Hold gas to rev, let go on green to launch; gas shifts up after that.' : 'Letters, numbers, space and punctuation always type.')}</span><button class="keycap ghost" id="kReset">Reset</button></div></div>`;
+}
+
+// while a Controls key is waiting, the next key press goes to it (before the game's own key handling)
+let onCapture: ((e: KeyboardEvent) => void) | null = null;
+window.addEventListener('keydown', e => { if (!onCapture || ui.panel !== 'settings' || e.repeat) return; e.preventDefault(); e.stopImmediatePropagation(); const f = onCapture; onCapture = null; f(e); }, true);
+
+export const wireSettings: Wire = (el, _save, on, redraw) => {
+  el.querySelectorAll<HTMLButtonElement>('[data-set]').forEach(b => b.addEventListener('click', () => on.onSetting(b.dataset.set!, b.dataset.val!)));
+  // Controls: pick Drag Race / Typing Race, click a key, press the new key
+  el.querySelectorAll<HTMLButtonElement>('[data-kmode]').forEach(b => b.addEventListener('click', () => { ui.kmode = b.dataset.kmode as any; ui.capture = ''; ui.kmsg = ''; redraw(); }));
+  el.querySelectorAll<HTMLButtonElement>('[data-bind]').forEach(b => b.addEventListener('click', () => { ui.capture = ui.capture === b.dataset.bind ? '' : b.dataset.bind!; ui.kmsg = ''; redraw(); }));
+  el.querySelector('#kReset')?.addEventListener('click', () => { ui.capture = ''; ui.kmsg = ''; on.onKeyBind(ui.kmode, '', null); });
+  onCapture = ui.capture ? (e: KeyboardEvent) => {
+    const [mode, action] = ui.capture.split('.') as ['drag' | 'typing', string];
+    if (mode === 'typing' && e.key.length === 1) { ui.kmsg = 'That key is used for typing — pick Enter, Tab, Shift, Ctrl, an arrow or an F key.'; return redraw(); }
+    ui.capture = ''; ui.kmsg = ''; on.onKeyBind(mode, action, e.code);
+  } : null;
+};

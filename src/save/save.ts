@@ -77,11 +77,15 @@ export interface CarState {
 }
 export interface Settings {
   camera: 'dynamic' | 'close';            // C = Dynamic, C2 = Dynamic close
-  time: 'day' | 'dusk' | 'night';         // time-of-day preview (stages will set this later)
+  time: 'day' | 'dusk' | 'night';         // no longer used (2026-10-20): races pick a random time; the test console can force one
   nearSide: 'mixed' | 'curb' | 'barrier'; // near-side dressing (preview while we choose)
   blur: 'off' | 'low' | 'full';           // speed blur on the world (cars stay sharp)
   /** garage turntable slow spin (owner 2026-10-19); missing = on */
   spin?: 'on' | 'off';
+  /** garage roll-up door (owner Q157, 2026-10-20); missing = open */
+  door?: 'open' | 'closed';
+  /** garage camera angle A–D (owner Q163, 2026-10-20); missing = d */
+  gcam?: 'a' | 'b' | 'c' | 'd';
   /** key bindings (owner 2026-10-19; defaults in game/keys.ts) */
   keys?: Partial<{ drag: Partial<Record<'gas' | 'down', string>>; typing: Partial<Record<'nitro' | 'leave', string>> }>;
 }

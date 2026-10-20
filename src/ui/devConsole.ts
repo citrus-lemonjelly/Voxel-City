@@ -12,8 +12,10 @@ import { dragPerMin, EcoLeague } from '../data/economy';
 import { shiftDay, today } from '../game/daily';
 
 const KEY = 'voxelcity.dev';
-export interface DevState { enabled: boolean; unlimited: boolean; debug: boolean; autoDrive: boolean; opp: 'normal' | 'perfect' | 'sloppy' }
-const DEFAULTS: DevState = { enabled: false, unlimited: false, debug: false, autoDrive: false, opp: 'normal' };
+export interface DevState { enabled: boolean; unlimited: boolean; debug: boolean; autoDrive: boolean; opp: 'normal' | 'perfect' | 'sloppy';
+  /** race time of day (owner 2026-10-20: moved here from Settings; races pick one at random unless forced) */
+  time: 'random' | 'day' | 'dusk' | 'night' }
+const DEFAULTS: DevState = { enabled: false, unlimited: false, debug: false, autoDrive: false, opp: 'normal', time: 'random' };
 /** Live dev flags (read by the garage, the race setup and the purchase code). */
 export const DEV: DevState = (() => {
   let s: DevState = { ...DEFAULTS };
@@ -34,6 +36,8 @@ export interface DevHooks { /** Car Lab (owner 2026-10-19) */ openLab?(): void;
 
 /** Opponent skill override for test races (null = the opponent's own skill). */
 export const devOppSkill = (): number | null => DEV.enabled ? (DEV.opp === 'perfect' ? 1 : DEV.opp === 'sloppy' ? 0.3 : null) : null;
+/** Forced race time of day (null = random). */
+export const devTime = (): 'day' | 'dusk' | 'night' | null => DEV.enabled && DEV.time !== 'random' ? DEV.time : null;
 
 export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
   if (urlHasDev && !DEV.enabled) { DEV.enabled = true; persist(); }
@@ -66,7 +70,8 @@ export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
       <div class="dev-sec"><b>The Strip</b> <span class="dev-v">${Object.entries(s.strip).map(([l, n]) => `${l} ${n}`).join(' · ')}</span><div>${btn('strip10', '+10 levels (this car\'s league)')}</div></div>
       <div class="dev-sec"><b>Race</b><div>
         ${btn('auto', 'Auto-drive my car', DEV.autoDrive)}${btn('dbg', 'Debug readout', DEV.debug)}</div><div>
-        Opponent: ${btn('oppN', 'Normal', DEV.opp === 'normal')}${btn('oppP', 'Perfect', DEV.opp === 'perfect')}${btn('oppS', 'Sloppy', DEV.opp === 'sloppy')}</div></div>
+        Opponent: ${btn('oppN', 'Normal', DEV.opp === 'normal')}${btn('oppP', 'Perfect', DEV.opp === 'perfect')}${btn('oppS', 'Sloppy', DEV.opp === 'sloppy')}</div><div>
+        Time of day: ${btn('tR', 'Random', DEV.time === 'random')}${btn('tD', 'Force day', DEV.time === 'day')}${btn('tK', 'Force dusk', DEV.time === 'dusk')}${btn('tN', 'Force night', DEV.time === 'night')}</div></div>
       <div class="dev-sec"><b>Tools</b><div>${btn('lab', 'Car Lab (designer)')}</div></div>
       <div class="dev-sec"><b>Save</b><div>${btn('wipe', wipeArmed ? 'Click again to wipe the save' : 'Reset save', wipeArmed)}${btn('off', 'Turn dev mode off')}</div></div>`;
   }
@@ -113,6 +118,10 @@ export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
       case 'oppN': DEV.opp = 'normal'; break;
       case 'oppP': DEV.opp = 'perfect'; break;
       case 'oppS': DEV.opp = 'sloppy'; break;
+      case 'tR': DEV.time = 'random'; msg = 'Races: random time of day'; break;
+      case 'tD': DEV.time = 'day'; msg = 'Races: always day'; break;
+      case 'tK': DEV.time = 'dusk'; msg = 'Races: always dusk'; break;
+      case 'tN': DEV.time = 'night'; msg = 'Races: always night'; break;
       case 'wipe': if (!wipeArmed) { wipeArmed = true; render(); return; } wipeArmed = false; hooks.resetSave(); msg = 'Save wiped'; break;
       case 'lab': toggle(false); hooks.openLab?.(); return;
       case 'off': DEV.enabled = false; persist(); panel.remove(); tag.remove(); readout.remove(); hooks.refresh('Dev mode off — reopen with ?dev'); return;

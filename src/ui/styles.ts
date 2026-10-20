@@ -73,11 +73,12 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .upd-txt{display:flex;flex-direction:column;gap:2px}.upd-txt .hd{color:var(--accent);font-size:16px}.upd-txt span{font-size:12.5px;color:#cfd3dc}
 .upd .btn{font-size:14px;padding:9px 14px;white-space:nowrap}
 /* patch notes (owner 2026-10-19): small paper button bottom-left, panel opens above it */
-.g-notesbtn{position:absolute;left:28px;bottom:22px;border:0;cursor:pointer;width:62px;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#14161cd8;color:#cfd3dc;box-shadow:0 0 0 3px var(--edge),4px 4px 0 3px #0b0c10;font:800 10px "Courier New",monospace;letter-spacing:.04em}
-.g-notesbtn:hover{color:#fff;box-shadow:0 0 0 3px #5a5f6d,4px 4px 0 3px #0b0c10}
+.g-notesbtn,.g-cambtn{position:absolute;left:28px;bottom:22px;border:0;cursor:pointer;width:62px;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#14161cd8;color:#cfd3dc;box-shadow:0 0 0 3px var(--edge),4px 4px 0 3px #0b0c10;font:800 10px "Courier New",monospace;letter-spacing:.04em}
+.g-cambtn{left:104px}
+.g-notesbtn:hover,.g-cambtn:hover{color:#fff;box-shadow:0 0 0 3px #5a5f6d,4px 4px 0 3px #0b0c10}
 .g-notesbtn.on{color:#fff;box-shadow:0 0 0 3px var(--accent),4px 4px 0 3px #0b0c10}
 .g-new{position:absolute;top:-9px;right:-12px;font:900 9px system-ui;letter-spacing:.08em;text-transform:uppercase;font-style:normal;padding:2px 5px;background:var(--accent);color:#14161c;box-shadow:0 0 0 2px #b8901c}
-.catalog-mode .g-notesbtn,.strip-mode .g-notesbtn{display:none}
+.catalog-mode .g-notesbtn,.strip-mode .g-notesbtn,.catalog-mode .g-cambtn,.strip-mode .g-cambtn{display:none}
 .g-panel.g-notes{left:28px;right:auto;top:160px;bottom:106px;width:470px;gap:10px}
 .pn-ver{padding:12px 14px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge)}
 .pn-ver.big{box-shadow:0 0 0 2px var(--accent)}.pn-banner{margin:-12px -14px 10px;padding:8px 14px;background:var(--accent);color:#14161c;font-size:15px;letter-spacing:.1em}

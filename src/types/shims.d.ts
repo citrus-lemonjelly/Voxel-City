@@ -16,6 +16,7 @@ declare module 'three' {
   export const MeshPhysicalMaterial: any; export type MeshPhysicalMaterial = any;
   export const MeshBasicMaterial: any; export type MeshBasicMaterial = any;
   export const HemisphereLight: any; export type HemisphereLight = any;
+  export const PointLight: any; export type PointLight = any;
   export const CylinderGeometry: any; export type CylinderGeometry = any;
   export const PMREMGenerator: any; export type PMREMGenerator = any;
   export const Fog: any; export type Fog = any;

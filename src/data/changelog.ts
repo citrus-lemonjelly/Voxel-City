@@ -26,6 +26,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.0', date: '2026-10-20', title: 'A real garage behind the menus', header: 'Garage Room Update',
+    added: [
+      'The menus now sit in a full 3D garage: your car on a showcase turntable with a lit ring, a loft upstairs, an office nook with the Garage Terminal, and a mechanic bay.',
+      'Loft lounge: couch, TV, bookshelves, posters, a mini fridge, plants, and a racing jacket over the railing.',
+      'Mechanic bay: a two-post lift with a stripped body shell in primer, a red toolbox, pegboard of tools, workbench, tyre stacks, rims on the wall, an engine on a stand, oil drums and a compressor.',
+      'A roll-up door with the street outside (parked car, lamp post, a diner across the road).',
+      'Garage door button in the small button block beside Profile (the spare slot): open or close the roll-up door.',
+      'Camera button beside Patch notes: four garage camera angles — A High, B Low, C Hero, D Wide (the new default, shows the loft).',
+      'Upgrades turns the camera toward the mechanic bay; Profile turns it toward the loft.',
+      'Test console: race time of day — Random, or force Day / Dusk / Night.',
+    ],
+    changed: [
+      'The plain grey checker floor and block wall are gone; the turntable has a new look.',
+      'Every race now picks its time of day at random (day, dusk or night).',
+      'Behind the scenes: each garage panel now has its own file, so new features are quicker to add and fix.',
+    ],
+    removed: [
+      'Time of day is no longer in Settings (it moved to the test console).',
+    ],
+  },
+  {
     version: '0.9.1', date: '2026-10-19', title: 'Mini buttons beside Profile and a quicker Garage',
     added: [
       'A small 2×2 button block beside Profile: Spin, Daily, Calendar and a spare slot for later. A yellow dot means something is ready to claim.',

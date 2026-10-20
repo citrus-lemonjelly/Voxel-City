@@ -8,6 +8,31 @@ import { Sky, SKY } from './sky';
 import { SpeedBlur, BLUR_LEVELS, BlurLevel, CAR_LAYER } from './speedBlur';
 import { StageDef } from '../data/stages';
 import { TypingView } from './typingView';
+import { buildGarageRoom, GarageRoom } from './garage';
+
+/** Garage camera framings at angle A (the original angles): [camera position, look-at point].
+ *  home = car centred above the bottom bar · catalog = car on the right of the list · strip = car high, above the scroller ·
+ *  panel = car left of a right-hand panel · mycars = whole car between the list and the stats box ·
+ *  upgrades = turned toward the mechanic bay, profile = turned toward the loft (owner E2 test, 2026-10-20). */
+export type GarageView = 'home' | 'catalog' | 'panel' | 'strip' | 'mycars' | 'upgrades' | 'profile';
+const GARAGE_VIEWS: Record<GarageView, [number[], number[], number?]> = {   // 3rd = share of the angle's aim used (catalog: 0, keeps the car above its info box)
+  home: [[-122, 50, 96], [0, 4, 0]],
+  catalog: [[-178, 62, 138], [-44, -10, -14], 0],
+  strip: [[-196, 64, 154], [0, -34, 0]],
+  panel: [[-132, 54, 104], [34, 4, 0]],
+  mycars: [[-184, 92, 131], [-6, -8, -9]],
+  upgrades: [[-140, 58, 125], [79, 4, 17]],
+  profile: [[131, 50, 132], [-40, 0, -100]],
+};
+/** Camera angles (owner Q163). Each pulls the camera back from the look-at point (k), lowers it (m = share of its height
+ *  kept) and aims higher (aim, blocks), so more of the room — the loft — comes into view. */
+export type GarageCam = 'a' | 'b' | 'c' | 'd';
+export const GARAGE_CAMS: Record<GarageCam, { label: string; k: number; m: number; aim: number }> = {
+  a: { label: 'High', k: 1, m: 1, aim: 0 },
+  b: { label: 'Low', k: 1, m: 0.48, aim: 10 },
+  c: { label: 'Hero', k: 1.07, m: 0.22, aim: 16 },
+  d: { label: 'Wide', k: 1.23, m: 0.48, aim: 18 },
+};
 
 /** Where a thumbnail camera points: the whole car, or close-ups for the Parts screen. */
 export type ThumbView = 'front' | 'rear' | 'tail' | 'hood' | 'wheel' | 'side' | 'nose' | 'low' | 'sill' | 'top';
@@ -90,29 +115,19 @@ export class World {
     this.typing?.resize(w, h);
   }
 
-  // ---------- garage (static showroom; the Terminal UI sits on the right) ----------
+  // ---------- garage (the 3D room behind the menus, render/garage.ts; the Terminal UI sits on top) ----------
+  private garageRoom?: GarageRoom;
   private buildGarage() {
     const s = this.garageScene;
-    s.background = new THREE.Color('#2a2d36');
-    const tiles: THREE.Mesh[] = [];
-    const tileMat = new THREE.MeshStandardMaterial({ color: '#ffffff', flatShading: true, roughness: 0.9, envMapIntensity: 0.2 });
-    const box = new THREE.BoxGeometry(1, 1, 1);
-    const floor = new THREE.InstancedMesh(box, tileMat, 26 * 26);
-    const o = new THREE.Object3D(); let i = 0;
-    for (let x = -13; x < 13; x++) for (let z = -13; z < 13; z++) {
-      o.position.set(x * 10 + 5, -1, z * 10 + 5); o.scale.set(10, 2, 10); o.updateMatrix(); floor.setMatrixAt(i, o.matrix);
-      floor.setColorAt(i++, new THREE.Color(((x + z) & 1) ? '#5d6069' : '#555861'));
-    }
-    floor.receiveShadow = true; s.add(floor); tiles.push(floor as any);
-    // back wall of stacked blocks with a light strip, and a raised turntable
-    const wall: { p: number[]; sc: number[]; c: string }[] = [];
-    for (let x = -130; x < 130; x += 20) for (let y = 0; y < 90; y += 15) wall.push({ p: [x + 10, y + 7.5, -95], sc: [20, 15, 6], c: ((x / 20 + y / 15) & 1) ? '#3a3e48' : '#363a44' });
-    wall.push({ p: [0, 60, -91.5], sc: [180, 3, 1], c: '#e8e4d8' });
-    const wm = new THREE.InstancedMesh(box, tileMat, wall.length);
-    wall.forEach((b, k) => { o.position.set(b.p[0], b.p[1], b.p[2]); o.scale.set(b.sc[0], b.sc[1], b.sc[2]); o.updateMatrix(); wm.setMatrixAt(k, o.matrix); wm.setColorAt(k, new THREE.Color(b.c)); });
-    wm.receiveShadow = true; s.add(wm);
-    const table = new THREE.Mesh(new THREE.CylinderGeometry(46, 46, 2, 24), new THREE.MeshStandardMaterial({ color: '#6b6f78', flatShading: true, roughness: 0.6 }));
-    table.position.y = 0.6; table.receiveShadow = true; s.add(table);
+    s.background = new THREE.Color('#22252d');
+    this.garageRoom = buildGarageRoom(this.mats); s.add(this.garageRoom.group);
+    // showcase turntable: dark base, a lit ring, the deck the car stands on (top at y 1.6)
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(49, 49, 1, 32), new THREE.MeshStandardMaterial({ color: '#2c2f36', flatShading: true, roughness: 0.7 }));
+    base.position.y = 0.5; base.receiveShadow = true; s.add(base);
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(47, 47, 0.5, 48), new THREE.MeshBasicMaterial({ color: '#dfe8ff', toneMapped: false }));
+    ring.position.y = 1.1; s.add(ring);
+    const table = new THREE.Mesh(new THREE.CylinderGeometry(45.5, 45.5, 1.4, 32), new THREE.MeshStandardMaterial({ color: '#6b6f78', flatShading: true, roughness: 0.6 }));
+    table.position.y = 0.9; table.receiveShadow = true; s.add(table);
     this.turntable.position.y = 1.6; s.add(this.turntable);
     s.add(new THREE.HemisphereLight('#e4ecff', '#3a3a44', 1.2));
     const key = new THREE.DirectionalLight('#fff4e6', 2.2); key.position.set(-60, 140, 120); key.castShadow = true;
@@ -121,17 +136,22 @@ export class World {
     this.setGarageView('home');
   }
 
-  /** Garage camera framing (owner: Garage HUD). home = car centred above the bottom bar; catalog = car on the right
-   *  half, next to the car list. */
-  setGarageView(v: 'home' | 'catalog' | 'panel' | 'strip' | 'mycars') {
-    if (v === 'mycars') { this.garageCam.position.set(-184, 92, 131); this.garageCam.lookAt(-6, -8, -9); return; }   // Garage list: pulled back so the whole car fits between the list and the stats box
-    if (v === 'catalog') { this.garageCam.position.set(-178, 62, 138); this.garageCam.lookAt(-44, -10, -14); }
-    else if (v === 'strip') { this.garageCam.position.set(-196, 64, 154); this.garageCam.lookAt(0, -34, 0); }   // car sits high, above the Strip scroller
-    else if (v === 'panel') { this.garageCam.position.set(-132, 54, 104); this.garageCam.lookAt(34, 4, 0); }   // car shifts left of a right-hand panel
-    else { this.garageCam.position.set(-122, 50, 96); this.garageCam.lookAt(0, 4, 0); }
+  /** Garage camera framing (owner: Garage HUD) at the current camera angle — see GARAGE_VIEWS / GARAGE_CAMS. */
+  setGarageView(v: GarageView) {
+    this.gView = v;
+    const [P, T, ak = 1] = GARAGE_VIEWS[v] || GARAGE_VIEWS.home, c = GARAGE_CAMS[this.gCam], ty = T[1] + c.aim * ak;
+    this.garageCam.position.set(T[0] + (P[0] - T[0]) * c.k, ty + (P[1] - T[1]) * c.m, T[2] + (P[2] - T[2]) * c.k);
+    this.garageCam.lookAt(T[0], ty, T[2]);
   }
+  private gView: GarageView = 'home';
+  private gCam: GarageCam = 'd';
+  /** Garage camera angle (owner Q163: camera button beside the patch notes; default D). */
+  setGarageCam(id: GarageCam) { this.gCam = GARAGE_CAMS[id] ? id : 'd'; this.setGarageView(this.gView); }
 
   /** Turn the car so this side (car x = nose→tail, z = near→far) faces the camera; null = back to free spin. Same value again = no change (keeps a drag). */
+  /** Roll-up door open (street outside) or closed (owner Q157; mini button beside Profile). */
+  setGarageDoor(open: boolean) { this.garageRoom?.setDoor(open); }
+
   faceGarage(d: [number, number] | null) { const k = d ? d.join(',') : ''; if (k === this.faceKey) return; this.faceKey = k; this.face = d; this.drag.v = 0; }
 
   setGarageCar(look: CarLook) {
