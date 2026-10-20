@@ -1,7 +1,9 @@
-// Ship It (owner 2026-10-19): release → smoke test → commit → push, in one go. GitHub Pages then publishes `build`.
+// Ship It (owner 2026-10-19): release → commit → push, in one go. No smoke test here (owner: it already ran while the
+// update was built — run `npm run smoke` before shipping). GitHub Pages then publishes `build`.
 //   node tools/ship.mjs              the full routine (stops at the first problem, nothing is pushed)
 //   node tools/ship.mjs --no-push    everything except the push (commit stays on this PC)
-//   node tools/ship.mjs --no-smoke   skip the browser smoke test (only when it was just run)
+//   node tools/ship.mjs --smoke      also run the browser smoke test before committing
+//   node tools/ship.mjs --same       ship a version built here but never pushed (e.g. built for a smoke test)
 //   node tools/ship.mjs --trailer "Co-Authored-By: …"   extra line at the end of the commit message
 // The release step refuses if the version in src/data/changelog.ts wasn't raised.
 import { execFileSync } from 'node:child_process';
@@ -33,14 +35,14 @@ if (!flag('--no-push')) {
 }
 say(flag('--no-push') ? 'on main' : 'on main, up to date with GitHub');
 
-// 2. release (version check, sim, collisions, build) then 3. smoke test
-run('Release', 'tools/release.mjs');
-if (!flag('--no-smoke')) run('Smoke test', 'tests/smoke.mjs');
+// 2. release (version check, sim, collisions, build); 3. smoke test only when asked (--smoke)
+run('Release', 'tools/release.mjs', flag('--same') ? ['--same'] : []);
+if (flag('--smoke')) run('Smoke test', 'tests/smoke.mjs');
 
 // 4. commit
 const { version } = JSON.parse(readFileSync(resolve(root, 'build/version.json'), 'utf8'));
 say('\n== Commit ==');
-git('add', '-A');
+git('-c', 'core.safecrlf=false', 'add', '-A');
 if (!git('status', '--porcelain')) fail('nothing to commit');
 const msg = [`V${version}`, ...(opt('--trailer') ? ['', opt('--trailer')] : [])].join('\n');
 git('commit', '-q', '-m', msg);

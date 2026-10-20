@@ -104,17 +104,46 @@ export const PAINT = {
     { id: 'midnight', name: 'Midnight purple', color: '#3d1f78', crowns: 30 }, { id: 'sunburst', name: 'Sunburst gold', color: '#e6a822', crowns: 30 },
     { id: 'ocean', name: 'Deep ocean', color: '#0b5a8c', crowns: 25 }, { id: 'magenta', name: 'Hot magenta', color: '#e0287a', crowns: 25 },
     { id: 'steel', name: 'Liquid steel', color: '#b4bcc6', crowns: 35 }, { id: 'onyx', name: 'Onyx black', color: '#0c0c0f', crowns: 35 },
-  ],
+    // login calendar only (owner Q151): never sold, won on day 28
+    { id: 'champion', name: 'Champion teal', color: '#19b5a5', crowns: 0, calendar: true },
+  ] as { id: string; name: string; color: string; crowns: number; calendar?: boolean }[],
 };
 export const repaintPrice = (league: EcoLeague) => round(PAINT.repaintVx * LEAGUE_SCALE[league], 50);
-export const cosmeticPrice = (id: string) => COSMETIC_PRICES[id] ?? { price: 0 };
+/** A visual part's price. VX parts cost more in higher leagues (owner 2026-10-19, Q156: × LEAGUE_SCALE of the car it is
+ *  bought for) and are owned per league (Q158a: buy it once for every car in that league). Crowns parts stay one price,
+ *  bought once for every car. */
+export function cosmeticPrice(id: string, league: EcoLeague = 'D'): { price: number; currency?: 'vx' | 'crowns' } {
+  const c = COSMETIC_PRICES[id] ?? { price: 0 };
+  return c.currency === 'crowns' ? c : { price: round(c.price * LEAGUE_SCALE[league], 50) };
+}
+
+// ---------------- Garage: slots and selling (owner Q152–Q153) ----------------
+export const GARAGE = {
+  /** car slots: boss cars don't take one */
+  freeSlots: 6, slotCrowns: 50, maxSlots: 30,
+  /** selling: share of the car's price and of the upgrades bought for it. The starter, boss cars and Crowns cars can't be sold. */
+  sellCar: 0.5, sellUpgrades: 0.5,
+};
+/** VX for selling a car: half its price + half of the engine / gearbox tiers bought for it (owner Q153). */
+export function sellValue(league: EcoLeague, carPrice: number, owned: { engine: number[]; trans: number[] }) {
+  const upg = owned.engine.filter(t => t > 1).reduce((a, t) => a + partPrice('engine', t, league), 0) + owned.trans.filter(t => t > 1).reduce((a, t) => a + partPrice('trans', t, league), 0);
+  return round(carPrice * GARAGE.sellCar + upg * GARAGE.sellUpgrades, 50);
+}
+
+// ---------------- Dailies + login calendar (owner Q150–Q151, trial) ----------------
+/** Three tasks a day (new ones at midnight, your clock). VX = share of a Medium Street Race win in the league of the car in
+ *  use when you claim; Crowns are flat. */
+export const DAILY = { tasks: 3, vxShare: 0.75, crownsEach: 2, crownsAll: 3 };
+/** 28 days; claim one day per calendar day, missed days don't reset. Day 28 = a calendar-only paint (Crowns once owned). */
+export const CALENDAR = { days: 28, vxShare: 0.5, crownDays: { 7: 10, 14: 10, 21: 10 } as Record<number, number>, finalPaint: 'champion', finalCrownsIfOwned: 25 };
+export const dailyVx = (league: EcoLeague, share: number) => round(ECONOMY.winPayout * LEAGUE_SCALE[league] * share, 10);
 
 // ---------------- The Strip ----------------
 /** One-time level rewards (owner): level 1 = 100 VX, +10 VX a level (× LEAGUE_SCALE); every 10th level is a boss. */
 export const STRIP_REWARDS = {
   firstVx: 100, perLevelVx: 10,
   /** boss levels (every 10th) — owner 2026-10-19: Crowns, a lump sum of cash, a universal decal, and on the final boss the boss car */
-  boss: { crowns: 5, cashPerBoss: 2_500 /* × boss number (1–6) × LEAGUE_SCALE */, decal: true, carOnFinal: true },
+  boss: { crowns: 5, cashPerBoss: 1_000 /* × boss number (1–6) × LEAGUE_SCALE (owner Q149: was 2,500 — the Strip paid ~2/3 of a league) */, decal: true, carOnFinal: true },
 };
 
 // ---------------- Typing Race (owner 2026-10-19, Q122–Q129) ----------------
@@ -124,6 +153,9 @@ export const TYPING = {
   winPayout: 1_000,
   /** share of the win pay for 1st … 5th */
   place: [1, 0.6, 0.4, 0.3, 0.25],
+  /** league boost (owner Q148): Street Races get shorter in higher leagues, so a 40 wpm typist earns about the same per
+   *  minute in both race types (check with `npm run economy`) */
+  leagueBoost: { D: 1, C: 1.2, B: 1.25, A: 1.35, S: 1.5 } as Record<EcoLeague, number>,
   /** bonuses as a share of the win pay */
   newBestBonus: 0.25, accuracyBonus: 0.25, accuracyAt: 0.98,
   /** typing speed assumed before your first race, and how many recent races make your average */
@@ -137,8 +169,33 @@ export const TYPING = {
 };
 /** VX for a Typing Race result (place 1–5). */
 export function typingPay(league: EcoLeague, diff: Difficulty, place: number, newBest: boolean, accuracy: number) {
-  const win = TYPING.winPayout * LEAGUE_SCALE[league] * DIFFICULTY[diff].pay;
+  const win = TYPING.winPayout * LEAGUE_SCALE[league] * TYPING.leagueBoost[league] * DIFFICULTY[diff].pay;
   return { result: round(win * (TYPING.place[place - 1] ?? 0)), newBest: newBest ? round(win * TYPING.newBestBonus) : 0, accuracy: accuracy >= TYPING.accuracyAt ? round(win * TYPING.accuracyBonus) : 0 };
+}
+
+// ---------------- Pacing (owner 2026-10-19): a typical player, for `npm run economy` and the test console ----------------
+/** League targets (hours to finish a league) and the typical player the numbers are checked against. */
+export const PACING = {
+  targetHours: { D: [2, 3], C: [3, 4], B: [3, 6], A: [3, 6], S: [3, 6] } as Record<EcoLeague, [number, number]>,
+  /** stock 800 m time per league (s, from the sim checks) — races get shorter in higher leagues */
+  raceSec: { D: 24.3, C: 19.4, B: 17.6, A: 15.5, S: 11.8 } as Record<EcoLeague, number>,
+  /** countdown + roll-out past the line + results and menus (s) */
+  dragOverhead: 17, dragWinRate: 0.7, perfectShiftsWin: 4, perfectShiftsLoss: 2, perfectLaunchRate: 0.6,
+  /** Typing Race: speed, Medium passage length (chars), countdown + results (s) */
+  wpm: 40, typingChars: 190, typingOverhead: 13, typingWinRate: 0.5, typingOtherPlace: 2, accuracyRate: 0.6,
+};
+/** VX a minute from Street Races (Medium) for the typical player. */
+export function dragPerMin(l: EcoLeague) {
+  const P = PACING, w = racePay(l, 'medium', true), lo = racePay(l, 'medium', false);
+  const win = w.result + P.perfectShiftsWin * w.perfectShift + P.perfectLaunchRate * w.perfectLaunch;
+  const loss = lo.result + P.perfectShiftsLoss * w.perfectShift + P.perfectLaunchRate * w.perfectLaunch;
+  return (P.dragWinRate * win + (1 - P.dragWinRate) * loss) / (P.raceSec[l] + P.dragOverhead) * 60;
+}
+/** VX a minute from Typing Races (Medium) for the typical player at `wpm`. */
+export function typingPerMin(l: EcoLeague, wpm = PACING.wpm) {
+  const P = PACING, best = typingPay(l, 'medium', 1, false, 1);
+  const at = (pl: number) => typingPay(l, 'medium', pl, false, 1).result + P.accuracyRate * best.accuracy;
+  return (P.typingWinRate * at(1) + (1 - P.typingWinRate) * at(P.typingOtherPlace)) / (P.typingChars / (wpm * 5) * 60 + P.typingOverhead) * 60;
 }
 
 // ---------------- Rivals ----------------

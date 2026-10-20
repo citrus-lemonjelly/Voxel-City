@@ -1,5 +1,5 @@
 // Local save (P5: localStorage until the backend exists). Versioned so later steps can migrate old saves.
-import { ECONOMY } from '../data/economy';
+import { ECONOMY, GARAGE } from '../data/economy';
 import { STARTER_CAR, CARS } from '../data/cars';
 import { Tier } from '../data/parts';
 import { PaddleShape, PedalStyle, STANDARD_PADDLE, STANDARD_PEDAL, STANDARD_SHAPES } from '../data/cosmetics';
@@ -51,6 +51,12 @@ export interface SaveV1 {
   /** Every car the player owns (owner Q79), keyed by car id: its own parts, paint and body options. `owned`/`equipped`
    *  above always mirror the car in use (`carId`), so the rest of the game only ever looks at the active car. */
   cars: Record<string, CarState>;
+  /** Garage car slots bought with Crowns on top of the free ones (owner Q152; boss cars don't take a slot). */
+  slotsBought?: number;
+  /** Today's three daily tasks (owner Q150): local date, task ids, progress, claimed. */
+  daily?: { day: string; ids: string[]; prog: number[]; claimed: boolean[]; bonus: boolean };
+  /** Login calendar (owner Q151): days claimed so far (0–28, then a new month) and the date of the last claim. */
+  cal?: { n: number; last: string; month: number };
 }
 export type RaceDist = 600 | 700 | 800;
 export const RACE_DISTS: RaceDist[] = [600, 700, 800];
@@ -140,4 +146,24 @@ export function typingStats(s: SaveV1): TypingStats {
 /** A car's upgrade tiers: the car in use keeps them at the top level of the save, the others in their own entry. */
 export function carTiers(s: SaveV1, id: string): { owned: CarState['owned']; equipped: CarState['equipped'] } {
   return id === s.carId ? { owned: s.owned, equipped: s.equipped } : { owned: s.cars[id].owned, equipped: s.cars[id].equipped };
+}
+
+// ---------------- Garage slots + selling (owner Q152–Q153) ----------------
+/** Cars that take a garage slot (boss cars don't). */
+export const slotsUsed = (s: SaveV1) => Object.keys(s.cars).filter(id => CARS[id] && !CARS[id].unique).length;
+export const slotsTotal = (s: SaveV1) => GARAGE.freeSlots + (s.slotsBought ?? 0);
+/** Why a car can't be sold (null = it can). */
+export function sellBlock(s: SaveV1, id: string): string | null {
+  const c = CARS[id];
+  if (!s.cars[id] || !c) return 'not owned';
+  if (id === STARTER_CAR) return 'Your starter car stays with you';
+  if (c.unique) return 'Boss cars can\'t be sold';
+  if (c.currency === 'crowns') return 'Crowns cars can\'t be sold';
+  if (id === s.carId) return 'Drive another car first';
+  return null;
+}
+export function removeCar(s: SaveV1, id: string) {
+  if (id === s.carId) return;
+  delete s.cars[id];
+  if (s.favs) s.favs = s.favs.filter(f => f !== id);
 }

@@ -28,6 +28,9 @@ import { keysOf, keyMatches, keyName, DEFAULT_KEYS } from './game/keys';
 import { TYPE_TRACK, laneZ } from './render/typingView';
 import { typingPay, TYPING, PAINT, PLATE_TEXT, repaintPrice } from './data/economy';
 import { cleanPlate, DEFAULT_PLATE } from './render/plate';
+import { slotsUsed, slotsTotal, sellBlock, removeCar } from './save/save';
+import { GARAGE, sellValue, EcoLeague } from './data/economy';
+import { dailyEvent, claimDaily, claimCalendar, paintName } from './game/daily';
 import { partFits } from './render/bodies';
 
 const params = new URLSearchParams(location.search);
@@ -124,7 +127,8 @@ function showGarage(toast?: string) {
       const cur = keysOf(save.settings)[mode] as Record<string, string>, other = Object.keys(cur).find(a => a !== action && keyMatches(code, cur[a]));
       const next = { ...cur, [action]: code } as any; if (other) next[other] = cur[action];      // taken? swap the two
       (k as any)[mode] = next; writeSave(save); showGarage(`${keyName(code)} set${other ? ` (swapped with ${keyName(cur[action])})` : ''}`);
-    }, onTyping: () => startTyping() }, toast);
+    }, onTyping: () => startTyping(),
+    onClaimDaily: claimDailyTask, onClaimCal: claimCal, onSellCar: sellCar, onBuySlot: buySlot }, toast);
 }
 
 /** Catalog (Q79): buy a car (it comes with the paint/options picked and goes straight into use). */
@@ -132,9 +136,35 @@ function buyCar(id: string, paint: string, opts: Record<string, string>) {
   const def = CARS[id]; if (!def || save.cars[id]) return;
   const crowns = def.currency === 'crowns', have = crowns ? save.crowns : save.voxels;
   if (!DEV.unlimited && have < def.price) return showGarage(`Need ${(def.price - have).toLocaleString()} more ${crowns ? 'Crowns' : 'VX'} for the ${carName(id)}`);
+  if (!def.unique && slotsUsed(save) >= slotsTotal(save)) return showGarage(`Garage full (${slotsUsed(save)}/${slotsTotal(save)}) — sell a car or buy a slot (${GARAGE.slotCrowns} Crowns) in the Garage`);
   if (!DEV.unlimited) { if (crowns) save.crowns -= def.price; else save.voxels -= def.price; }
   addCar(save, id, paint, opts); switchCar(save, id); writeSave(save);
   showGarage(`Bought the ${carName(id)} — now in use`);
+}
+/** Sell a car for half its price + half its upgrades (owner Q153). */
+function sellCar(id: string) {
+  const why = sellBlock(save, id); if (why) return showGarage(why);
+  const c = save.cars[id], v = sellValue(CARS[id].league as EcoLeague, CARS[id].price, c.owned);
+  removeCar(save, id); save.voxels += v; writeSave(save); world.setGarageCar(playerLook());
+  showGarage(`Sold the ${carName(id)} for ${v.toLocaleString()} VX`);
+}
+/** One more garage slot for Crowns (owner Q152). */
+function buySlot() {
+  if (slotsTotal(save) >= GARAGE.maxSlots) return showGarage('The garage is as big as it gets');
+  if (!DEV.unlimited && save.crowns < GARAGE.slotCrowns) return showGarage(`Need ${GARAGE.slotCrowns - save.crowns} more Crowns for a garage slot`);
+  if (!DEV.unlimited) save.crowns -= GARAGE.slotCrowns;
+  save.slotsBought = (save.slotsBought ?? 0) + 1; writeSave(save);
+  showGarage(`Garage slot bought — ${slotsTotal(save)} slots`);
+}
+/** Dailies (owner Q150): claim a finished task (i), or the all-three bonus (-1). */
+function claimDailyTask(i: number) {
+  const r = claimDaily(save, i, CARS[save.carId].league as EcoLeague); if (!r) return;
+  writeSave(save); showGarage(`Daily ${i < 0 ? 'bonus' : 'task'}: ${r.vx ? `+${r.vx.toLocaleString()} VX · ` : ''}+${r.crowns} Crowns`);
+}
+/** Login calendar (owner Q151): today's day. */
+function claimCal() {
+  const r = claimCalendar(save, CARS[save.carId].league as EcoLeague); if (!r) return;
+  writeSave(save); showGarage(`Calendar day ${r.day}: ${r.paint ? `${paintName(r.paint)} paint — in the Body Shop` : r.crowns ? `+${r.crowns} Crowns` : `+${r.vx.toLocaleString()} VX`}`);
 }
 function useCar(id: string) {
   if (!save.cars[id] || save.carId === id) return;
@@ -144,12 +174,13 @@ function useCar(id: string) {
 /** Visual parts (owner 2026-10-19): buy once for every car; fit to the car in use. Factory parts are free. */
 function buyPart(id: string, carId = save.carId) {
   const p = PART_BY_ID[id]; if (!p) return;
-  if (p.won && !ownsPart(id, save.partsOwned, save.decals)) return showGarage(`${p.name} is won on the Strip, not sold`);
-  if (!ownsPart(id, save.partsOwned, save.decals)) {
-    const c = cosmeticPrice(id), crowns = c.currency === 'crowns', have = crowns ? save.crowns : save.voxels;
+  const lg = CARS[carId].league as EcoLeague;                                   // VX parts: priced and owned per league (Q156, Q158a)
+  if (p.won && !ownsPart(id, save.partsOwned, save.decals, lg)) return showGarage(`${p.name} is won on the Strip, not sold`);
+  if (!ownsPart(id, save.partsOwned, save.decals, lg)) {
+    const c = cosmeticPrice(id, lg), crowns = c.currency === 'crowns', have = crowns ? save.crowns : save.voxels;
     if (!DEV.unlimited && have < c.price) return showGarage(`Need ${(c.price - have).toLocaleString()} more ${crowns ? 'Crowns' : 'VX'} for ${p.name}`);
     if (!DEV.unlimited) { if (crowns) save.crowns -= c.price; else save.voxels -= c.price; }
-    save.partsOwned.push(id);
+    save.partsOwned.push(crowns ? id : `${lg}:${id}`);
   }
   fitPart(id, `Bought ${p.name} — fitted`, carId);
 }
@@ -160,6 +191,7 @@ function repaint(carId: string, paint: string, premium?: string) {
   let msg = '';
   if (pr) {
     if (!owned.includes(pr.id)) {
+      if (pr.calendar) return showGarage(`${pr.name} is won on day 28 of the login calendar`);
       if (!DEV.unlimited && save.crowns < pr.crowns) return showGarage(`Need ${pr.crowns - save.crowns} more Crowns for ${pr.name}`);
       if (!DEV.unlimited) save.crowns -= pr.crowns;
       owned.push(pr.id); msg = `Bought ${pr.name} — yours on every car`;
@@ -183,7 +215,7 @@ function setPlateText(carId: string, text: string) {
 }
 function fitPart(id: string, msg?: string, carId = save.carId) {
   const p = PART_BY_ID[id], c = save.cars[carId]; if (!p || !c) return;
-  if (isFactory(p) || factoryTwin(carId, p.slot)?.id === id) delete c.parts[p.slot]; else if (ownsPart(id, save.partsOwned, save.decals)) c.parts[p.slot] = id; else return;
+  if (isFactory(p) || factoryTwin(carId, p.slot)?.id === id) delete c.parts[p.slot]; else if (ownsPart(id, save.partsOwned, save.decals, CARS[carId].league)) c.parts[p.slot] = id; else return;
   writeSave(save); world.setGarageCar(lookFor(carId)); showGarage(msg ?? `Fitted ${p.name}${carId !== save.carId ? ` to ${carName(carId)}` : ''}`);
 }
 /** Paint / body options on an owned car save straight away (visual only). */
@@ -277,7 +309,12 @@ function finishRace() {
   const diff: Difficulty = rung ? 'medium' : save.raceDiff, pay = racePay(CARS[save.carId].league, diff, won);
   const earnings: [string, number][] = [[won ? (rung ? `Strip level ${rung.n} win` : `${stage.races[diff]} win`) : 'Finish', pay.result]];
   const doneRung = rung;
+  if (rung && won && rung.n > (save.strip[rung.league] ?? 0)) dailyEvent(save, 'stripClear');
   if (rung && won) save.strip[rung.league] = Math.max(save.strip[rung.league] ?? 0, rung.n);
+  // dailies (owner Q150)
+  dailyEvent(save, 'race'); dailyEvent(save, 'perfectShift', perfects);
+  if (me.launchGrade === 'Perfect') dailyEvent(save, 'perfectLaunch');
+  if (won && !rung) { dailyEvent(save, 'streetWin'); if (diff === 'hard') dailyEvent(save, 'hardWin'); }
   if (perfects) earnings.push([`Perfect shifts ×${perfects}`, perfects * pay.perfectShift]);
   if (me.launchGrade === 'Perfect') earnings.push(['Perfect launch', pay.perfectLaunch]);
   if (newBest) earnings.push(['New best time', pay.newBest]);
@@ -409,6 +446,7 @@ function finishTyping() {
   if (pay.accuracy) earnings.push([`Accuracy ${Math.round(TYPING.accuracyAt * 100)}%+`, pay.accuracy]);
   const total = earnings.reduce((a, [, v]) => a + v, 0);
   save.voxels += total; stats.races++; if (place === 1) stats.wins++; if (newBest) stats.best = wpm;
+  dailyEvent(save, 'race'); if (place === 1) dailyEvent(save, 'typingWin'); if (acc >= TYPING.accuracyAt) dailyEvent(save, 'typingAcc');
   stats.recent = [...stats.recent, wpm].slice(-TYPING.recentRaces); stats.keys += run.keys; stats.errors += run.errors;
   stats.recentBy = { ...(stats.recentBy || {}), [diff]: [...(stats.recentBy?.[diff] ?? []), wpm].slice(-TYPING.recentRaces) };
   writeSave(save);

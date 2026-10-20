@@ -170,9 +170,11 @@ export const STOCK_PART = Object.fromEntries(SLOTS.map(s => [s, s === 'finish' ?
 export const isFactory = (p: VisualPart) => p.value === 'stock' || p.value === 'gloss';
 
 /** Does the player own a part? Factory parts always; boss decals once won on the Strip (save.decals ids decal_D_1 …). */
-export function ownsPart(id: string, partsOwned: string[], decals: string[] = []): boolean {
+/** Owned? Parts bought before V0.9.0 (plain id) fit every car; from V0.9.0 VX parts are owned per league ("D:spoiler.gt",
+ *  owner Q158a) — pass the league of the car being worked on. */
+export function ownsPart(id: string, partsOwned: string[], decals: string[] = [], league?: string): boolean {
   const p = PART_BY_ID[id]; if (!p) return false;
-  if (isFactory(p) || partsOwned.includes(id)) return true;
+  if (isFactory(p) || partsOwned.includes(id) || (league && partsOwned.includes(`${league}:${id}`))) return true;
   return !!p.won && decals.includes('decal_' + p.value.slice(5));
 }
 

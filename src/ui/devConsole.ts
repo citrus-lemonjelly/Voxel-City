@@ -8,6 +8,8 @@ import { VISUAL_PARTS } from '../data/visualParts';
 import { ENGINE, TRANSMISSION, Tier } from '../data/parts';
 import { PADDLES, PADDLE_SHAPES, PEDALS, PaddleShape, PedalStyle } from '../data/cosmetics';
 import { Race } from '../game/race';
+import { dragPerMin, EcoLeague } from '../data/economy';
+import { shiftDay, today } from '../game/daily';
 
 const KEY = 'voxelcity.dev';
 export interface DevState { enabled: boolean; unlimited: boolean; debug: boolean; autoDrive: boolean; opp: 'normal' | 'perfect' | 'sloppy' }
@@ -60,6 +62,7 @@ export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
         <label>Gas pedal ${sel('pedal', Object.values(PEDALS).map(p => [p.id, p.name]), s.pedals.equipped)}</label></div></div>
       <div class="dev-sec"><b>Progress</b> <span class="dev-v">races ${s.races} · wins ${s.wins} · perfect shifts ${s.perfectShifts}</span><div>
         ${btn('races0', 'Races = 0 (labels back)')}${btn('perf100', 'Perfect shifts = 100')}${btn('wins25', 'Wins +25')}</div></div>
+      <div class="dev-sec"><b>Economy</b> <span class="dev-v">day ${today()} · League ${CARS[s.carId].league} ≈ ${Math.round(dragPerMin(CARS[s.carId].league as EcoLeague) * 60).toLocaleString()} VX an hour</span><div>${btn('hour', 'Simulate 1 hour of play')}${btn('day', 'Next day (dailies + calendar)')}</div></div>
       <div class="dev-sec"><b>The Strip</b> <span class="dev-v">${Object.entries(s.strip).map(([l, n]) => `${l} ${n}`).join(' · ')}</span><div>${btn('strip10', '+10 levels (this car\'s league)')}</div></div>
       <div class="dev-sec"><b>Race</b><div>
         ${btn('auto', 'Auto-drive my car', DEV.autoDrive)}${btn('dbg', 'Debug readout', DEV.debug)}</div><div>
@@ -100,6 +103,8 @@ export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
       case 'cosm': s.partsOwned = VISUAL_PARTS.map(p => p.id); s.paddles.owned = Object.keys(PADDLES); s.paddles.shapes = Object.keys(PADDLE_SHAPES) as PaddleShape[]; s.pedals.owned = Object.keys(PEDALS) as PedalStyle[]; msg = 'All cosmetics unlocked'; break;
       case 'relock': s.partsOwned = []; s.carId = STARTER_CAR; s.cars = { [STARTER_CAR]: freshCar() }; s.owned = { engine: [1], trans: [1] }; s.equipped = { engine: 1, trans: 1 }; s.paddles = { owned: ['stock'], equipped: 'stock', shapes: ['arc', 'tab'], shape: 'arc' }; s.pedals = { owned: ['alloy'], equipped: 'alloy' }; msg = 'Back to stock'; break;
       case 'strip10': { const lg = CARS[s.carId].league; s.strip[lg] = Math.min(60, (s.strip[lg] ?? 0) + 10); msg = `Strip ${lg}: level ${s.strip[lg] + 1} next`; break; }
+      case 'hour': { const lg = CARS[s.carId].league as EcoLeague, vx = Math.round(dragPerMin(lg) * 60 / 10) * 10, races = Math.round(60 * 60 / 41); s.voxels += vx; s.races += races; s.wins += Math.round(races * 0.7); msg = `1 hour of League ${lg} play (typical player): +${vx.toLocaleString()} VX, ${races} races`; break; }
+      case 'day': shiftDay(1); msg = `It is now ${today()} — new dailies, calendar ready`; break;
       case 'races0': s.races = 0; break;
       case 'perf100': s.perfectShifts = 100; break;
       case 'wins25': s.wins += 25; break;

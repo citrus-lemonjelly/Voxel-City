@@ -2,7 +2,9 @@
 // a bottom bar of four icon buttons (Profile · Upgrades · Catalog · Settings) and a RACE button bottom-right that opens
 // Street Race / Typing Race (Coming soon, Q69). Panels open on the right; the Catalog (Q76) is a scrolling car list on the
 // left with the turntable on the right, paint swatches and the car's optional features under it.
-import { SaveV1, RACE_DISTS, RaceDist, typingStats, carTiers } from '../save/save';
+import { SaveV1, RACE_DISTS, RaceDist, typingStats, carTiers, slotsUsed, slotsTotal, sellBlock } from '../save/save';
+import { dailyFor, TASK_BY_ID, taskDone, calState, calReady, calReward, paintName } from '../game/daily';
+import { DAILY, CALENDAR, GARAGE, sellValue, dailyVx, EcoLeague } from '../data/economy';
 import { ENGINE, TRANSMISSION, TIERS, Tier } from '../data/parts';
 import { CARS, CATALOG_ORDER, LEAGUES, carBody, carBrand, carName, carPaint } from '../data/cars';
 import { DEV } from './devConsole';
@@ -64,11 +66,17 @@ export interface GarageHandlers {
   onKeyBind(mode: 'drag' | 'typing', action: string, code: string | null): void;
   /** Patch notes opened: remember the version so the NEW tag goes away. */
   onNotesSeen(): void;
+  /** Daily (owner Q150–Q151): claim a task (i), the all-three bonus (-1), or today's calendar day. */
+  onClaimDaily(i: number): void;
+  onClaimCal(): void;
+  /** Garage (owner Q152–Q153): sell a car; buy one more car slot with Crowns. */
+  onSellCar(id: string): void;
+  onBuySlot(): void;
 }
-type Panel = 'profile' | 'garage' | 'upgrades' | 'parts' | 'catalog' | 'settings' | 'strip' | 'notes' | null;
+type Panel = 'profile' | 'garage' | 'upgrades' | 'parts' | 'catalog' | 'daily' | 'calendar' | 'settings' | 'strip' | 'notes' | null;
 /** UI state that survives re-renders (buying a part re-draws the screen). */
 // work = the car Parts / Upgrades act on (the one in use, or the one picked in the Garage); back = panel to return to
-const ui = { kmode: 'drag' as 'drag' | 'typing', capture: '' as string, kmsg: '', panel: null as Panel, back: null as Panel, work: '', gsel: '', dial: false, favOnly: false, raceMenu: false, part: { slot: 'paint' as PartSlot | 'paint', sel: '' }, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
+const ui = { kmode: 'drag' as 'drag' | 'typing', capture: '' as string, kmsg: '', panel: null as Panel, back: null as Panel, work: '', gsel: '', dial: false, favOnly: false, gtab: 'cars' as 'cars' | 'boss', sellArm: '', raceMenu: false, part: { slot: 'paint' as PartSlot | 'paint', sel: '' }, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
 export function resetGarageUI() { ui.panel = null; ui.back = null; ui.dial = false; ui.raceMenu = false; }
 export const garageInCatalog = () => ui.panel === 'catalog' || ui.panel === 'parts' || ui.panel === 'garage' || !!ui.back;
 /** Open the Strip screen on the next garage render (results → "The Strip"). */
@@ -92,6 +100,10 @@ const ICONS: Record<string, string[]> = {
 ICONS.parts = ['000011110000', '001122221100', '011200002110', '012000000210', '120001100021', '120011110021', '120011110021', '120001100021', '012000000210', '011200002110', '001122221100', '000011110000'];   // wheel rim
 // garage: roof and a roller door
 ICONS.garage = ['000001100000', '000111111000', '011111111110', '111111111111', '110000000011', '110222222011', '110000000011', '110222222011', '110000000011', '110222222011', '110000000011', '110000000011'];
+// checklist (Daily tasks)
+ICONS.tasks = ['011111111110', '010000000010', '012010000010', '010201111010', '010000000010', '012010000010', '010201111010', '010000000010', '012010000010', '010201111010', '010000000010', '011111111110'];
+// calendar page with rings
+ICONS.daily = ['001100001100', '111111111111', '111111111111', '100000000001', '102202202201', '100000000001', '102202202201', '100000000001', '102202200001', '100000000001', '111111111111', '000000000000'];
 ICONS.crown = ['000000000000', '010001000100', '011001100110', '011101110110', '011111111110', '011111111110', '012112112110', '011111111110', '011111111110', '000000000000', '000000000000', '000000000000'];
 ICONS.notes = ['011111112000', '011111112200', '011111112220', '011111111110', '011111111110', '011000000110', '011111111110', '011000001110', '011111111110', '011000000110', '011111111110', '011111111110'];   // paper with a folded corner
 const icon = (k: string, px = 3) => `<svg width="${12 * px}" height="${12 * px}" viewBox="0 0 12 12" shape-rendering="crispEdges">${ICONS[k].map((row, y) => [...row].map((b, x) => b === '0' ? '' : `<rect x="${x}" y="${y}" width="1" height="1" fill="${b === '2' ? 'var(--accent)' : 'currentColor'}"/>`).join('')).join('')}</svg>`;
@@ -128,7 +140,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
       : `<div class="hd screen-title">${carBrand(save.carId)} · League ${car.league}</div><h1 class="hd">${carName(save.carId)}</h1>
       <div class="g-stats"><span><b>${st.hp}</b> hp</span><span><b>${st.shifts}</b> shifts</span><span><b>${st.shiftTime.toFixed(2)}s</b> shift</span><span><b>${(st.redline / 1000).toFixed(1)}k</b> redline</span></div>`}</div>
     <div class="g-wallet"><span class="voxels">${vx} VX</span><span class="crowns">${crownIcon()}${DEV.unlimited ? '∞' : save.crowns.toLocaleString()}</span><span class="g-rec">Best ${save.raceDist} m ${save.best[save.raceDist] ? fmtTime(save.best[save.raceDist]!) : '—'} · ${save.wins}–${save.races - save.wins}</span></div>
-    <div class="g-bar"><button class="g-tab g-spin ${save.settings.spin === 'off' ? '' : 'on'}" id="spinBtn" title="Turn the car's slow spin on or off (drag the car to turn it yourself)">${icon('spin')}<span>Spin ${save.settings.spin === 'off' ? 'off' : 'on'}</span></button>${(['profile', 'garage', 'upgrades', 'catalog', 'settings'] as const).map(k => `<div class="g-tabwrap"><button class="g-tab ${ui.panel === k ? 'on' : ''}" data-panel="${k}">${icon(k)}<span>${k[0].toUpperCase() + k.slice(1)}</span></button>${k === 'garage' ? subTabsHtml(save) : ''}</div>`).join('')}</div>
+    <div class="g-bar">${miniHud(save)}${(['profile', 'garage', 'upgrades', 'catalog', 'settings'] as const).map(k => `<div class="g-tabwrap"><button class="g-tab ${ui.panel === k ? 'on' : ''}" data-panel="${k}">${icon(k)}<span>${k[0].toUpperCase() + k.slice(1)}</span></button>${k === 'garage' ? subTabsHtml(save) : ''}</div>`).join('')}</div>
     <button class="g-notesbtn ${ui.panel === 'notes' ? 'on' : ''}" id="notesBtn" title="Patch notes" aria-label="Patch notes">${icon('notes', 2)}<span>V${VERSION}</span>${save.seenVersion !== VERSION ? '<em class="g-new">New</em>' : ''}</button>
     <button class="btn race g-racebtn" id="raceBtn">Race ▸</button>
     ${ui.raceMenu ? `<div class="g-racemenu">
@@ -200,14 +212,27 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   }));
   el.querySelectorAll<HTMLButtonElement>('.tier').forEach(b => b.addEventListener('click', () => on.onBuyOrEquip(b.dataset.kind as any, +b.dataset.tier! as Tier, ui.work)));
   // ---- Garage (owner 2026-10-19): pick a car → dial Drive / Parts / Upgrade; ◀ ▶; ★ favourites ----
-  const gPick = (id: string, dial = true) => { ui.gsel = id; ui.dial = dial; on.onPreview(lookOf(save, id)); renderGarage(root, save, opp, stage, on); };
+  const gPick = (id: string, dial = true) => { ui.gsel = id; ui.dial = dial; ui.sellArm = ''; on.onPreview(lookOf(save, id)); renderGarage(root, save, opp, stage, on); };
   el.querySelectorAll<HTMLElement>('[data-fav]').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); on.onFav(b.dataset.fav!); }));
-  el.querySelectorAll<HTMLButtonElement>('[data-gcar]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.gcar!; if (id === ui.gsel) { ui.dial = !ui.dial; renderGarage(root, save, opp, stage, on); } else gPick(id); }));
+  el.querySelectorAll<HTMLButtonElement>('[data-gcar]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.gcar!; if (id !== ui.gsel) gPick(id); }));
   // keep the dial beside the picked card (and follow the list as it scrolls; hide it when the card scrolls away)
   const gl = el.querySelector<HTMLElement>('.gr-list'), gd = el.querySelector<HTMLElement>('.gr-dial');
   const placeDial = () => { void gd; };   // (the dial is now sub-tabs above the Garage button)
   if (gl) { gl.scrollTop = garScroll; gl.addEventListener('scroll', () => { garScroll = gl.scrollTop; placeDial(); }); }
   requestAnimationFrame(placeDial);
+  el.querySelectorAll<HTMLButtonElement>('[data-dclaim]').forEach(b => b.addEventListener('click', () => on.onClaimDaily(+b.dataset.dclaim!)));
+  el.querySelector('#calClaim')?.addEventListener('click', () => on.onClaimCal());
+  el.querySelector('#gSlot')?.addEventListener('click', () => on.onBuySlot());
+  el.querySelectorAll<HTMLButtonElement>('[data-gtab]').forEach(b => b.addEventListener('click', () => {
+    ui.gtab = b.dataset.gtab as 'cars' | 'boss'; ui.dial = false; ui.sellArm = '';
+    const ids = garageCars(save); if (ids.length && !ids.includes(ui.gsel)) { ui.gsel = ids[0]; on.onPreview(lookOf(save, ui.gsel)); }
+    renderGarage(root, save, opp, stage, on);
+  }));
+  // Sell: the first click arms it (shows the price to confirm), the second click sells
+  el.querySelector('#gSell')?.addEventListener('click', () => {
+    if (ui.sellArm !== ui.gsel) { ui.sellArm = ui.gsel; return renderGarage(root, save, opp, stage, on); }
+    const id = ui.gsel; ui.sellArm = ''; ui.dial = false; ui.gsel = save.carId; on.onPreview(lookOf(save, save.carId)); on.onSellCar(id);
+  });
   el.querySelector('#gFavOnly')?.addEventListener('click', () => { ui.favOnly = !ui.favOnly; const ids = garageCars(save); if (ids.length && !ids.includes(ui.gsel)) { ui.gsel = ids[0]; on.onPreview(lookOf(save, ui.gsel)); } renderGarage(root, save, opp, stage, on); });
   el.querySelector('#gDrive')?.addEventListener('click', () => { ui.dial = false; on.onUseCar(ui.gsel); });
   el.querySelector('#gParts')?.addEventListener('click', () => {
@@ -291,15 +316,15 @@ function paintHtml(save: SaveV1, tabs: string): string {
   const sel = paintOf(ui.part.sel), owned = save.paintsOwned ?? [], vx = repaintPrice(CARS[W].league as any);
   const sw = (key: string, hex: string, name: string, extra = '') => `<button class="swatch pt-swatch ${key === ui.part.sel ? 'on' : ''} ${key === cur ? 'cur' : ''} ${extra}" data-part="${key}" title="${name}" style="background:${hex}"></button>`;
   const cards = `<div class="pt-paints"><div class="pt-group">Standard · ${vx.toLocaleString()} VX a repaint</div><div class="cat-paints">${PAINTS.map(([c, n]) => sw('paint:' + c, c, n)).join('')}</div>
-    <div class="pt-group">Premium · Crowns once, then free</div><div class="cat-paints">${PAINT.premium.map(p => sw('paint:' + p.id, p.color, `${p.name} · ${owned.includes(p.id) ? 'owned' : p.crowns + ' Crowns'}`, 'prem' + (owned.includes(p.id) ? ' own' : ''))).join('')}</div>
+    <div class="pt-group">Premium · Crowns once, then free</div><div class="cat-paints">${PAINT.premium.map(p => sw('paint:' + p.id, p.color, `${p.name} · ${owned.includes(p.id) ? 'owned' : p.calendar ? 'login calendar day 28' : p.crowns + ' Crowns'}`, 'prem' + (owned.includes(p.id) ? ' own' : ''))).join('')}</div>
     <div class="g-note pt-key">▣ yellow = selected · white = on the car now</div></div>`;
   const name = sel.premium?.name ?? PAINTS.find(p => p[0] === sel.hex)?.[1] ?? 'Factory paint';
   const action = ui.part.sel === cur ? `<button class="btn cat-act" disabled>On the car</button>`
-    : sel.premium ? (owned.includes(sel.premium.id) ? `<button class="btn race cat-act" id="repaint">Paint it · free</button>` : `<button class="btn race cat-act" id="repaint" ${DEV.unlimited || save.crowns >= sel.premium.crowns ? '' : 'disabled'}>Buy · ${crownIcon()}${sel.premium.crowns} Crowns</button>`)
+    : sel.premium ? (owned.includes(sel.premium.id) ? `<button class="btn race cat-act" id="repaint">Paint it · free</button>` : sel.premium.calendar ? `<button class="btn cat-act" disabled>Calendar reward</button>` : `<button class="btn race cat-act" id="repaint" ${DEV.unlimited || save.crowns >= sel.premium.crowns ? '' : 'disabled'}>Buy · ${crownIcon()}${sel.premium.crowns} Crowns</button>`)
     : `<button class="btn race cat-act" id="repaint" ${DEV.unlimited || save.voxels >= vx ? '' : 'disabled'}>Repaint · ${vx.toLocaleString()} VX</button>`;
   return `<div class="pt-tabs blk">${tabs}</div><div class="cat-list pt-list pt-plist blk">${cards}</div>
     <div class="cat-under"><button class="g-close" aria-label="Close">✕</button>
-      <div class="cat-name"><b class="hd">${name}</b><span>Paint · ${sel.premium ? 'Premium — buy once with Crowns, then free on every car' : `Standard — a repaint costs ${vx.toLocaleString()} VX`}</span></div>
+      <div class="cat-name"><b class="hd">${name}</b><span>Paint · ${sel.premium?.calendar ? 'Login calendar — won on day 28, then free on every car' : sel.premium ? 'Premium — buy once with Crowns, then free on every car' : `Standard — a repaint costs ${vx.toLocaleString()} VX`}</span></div>
       <div class="cat-buy">${action}<span class="g-note">Your first paint is picked free when you buy a car · looks only</span></div>
     </div>`;
 }
@@ -313,14 +338,15 @@ function partsHtml(save: SaveV1, on: GarageHandlers): string {
   if (twin && fitted === twin.id) fitted = STOCK_PART[slot];                       // fitting the factory twin = factory
   const sel = PART_BY_ID[ui.part.sel === twin?.id ? STOCK_PART[slot] : ui.part.sel] ?? PART_BY_ID[fitted];
   ui.part.sel = sel.id;
-  const owns = (id: string) => ownsPart(id, save.partsOwned, save.decals);
-  const priceTag = (id: string) => { const c = cosmeticPrice(id); return c.currency === 'crowns' ? `${crownIcon()}${c.price} Crowns` : `${c.price.toLocaleString()} VX`; };
-  const can = (id: string) => { const c = cosmeticPrice(id); return DEV.unlimited || (c.currency === 'crowns' ? save.crowns : save.voxels) >= c.price; };
+  const lg = CARS[W].league as EcoLeague;                                       // VX parts: priced + owned per league (Q156, Q158a)
+  const owns = (id: string) => ownsPart(id, save.partsOwned, save.decals, lg);
+  const priceTag = (id: string) => { const c = cosmeticPrice(id, lg); return c.currency === 'crowns' ? `${crownIcon()}${c.price} Crowns` : `${c.price.toLocaleString()} VX`; };
+  const can = (id: string) => { const c = cosmeticPrice(id, lg); return DEV.unlimited || (c.currency === 'crowns' ? save.crowns : save.voxels) >= c.price; };
   const nameOf = (p: VisualPart) => isFactory(p) && twin ? (twin.value === 'none' ? `${p.name} · none` : `${p.name} · ${twin.name}`) : p.name;
   const shown = partsFor(slot).filter(p => p !== twin && (!p.won || owns(p.id)) && partFits(body, slot, p.value));    // boss decals appear once won; styles that don't fit this car are hidden
   const lockedWon = partsFor(slot).filter(p => p.won && !owns(p.id)).length;
   const cards = shown.map(p => {
-    const tag = fitted === p.id ? '<em class="cat-tag use">Fitted</em>' : owns(p.id) ? `<em class="cat-tag own">${p.won ? 'Won' : 'Owned'}</em>` : `<em class="cat-tag ${can(p.id) ? '' : 'short'} ${cosmeticPrice(p.id).currency === 'crowns' ? 'cr' : ''}">${priceTag(p.id)}</em>`;
+    const tag = fitted === p.id ? '<em class="cat-tag use">Fitted</em>' : owns(p.id) ? `<em class="cat-tag own">${p.won ? 'Won' : 'Owned'}</em>` : `<em class="cat-tag ${can(p.id) ? '' : 'short'} ${cosmeticPrice(p.id, lg).currency === 'crowns' ? 'cr' : ''}">${priceTag(p.id)}</em>`;
     return `<button class="cat-card pt-card ${p.id === sel.id ? 'on' : ''}" data-part="${p.id}"><img class="cat-thumb" alt="" src="${on.thumb(partLook(save, p.id), p.view ?? SLOT_VIEW[slot])}">
       <span class="cat-row"><b>${nameOf(p)}</b>${tag}</span><span class="pt-rar ${p.rarity}">${p.won ? 'Strip boss' : RARITY[p.rarity]}</span></button>`;
   }).join('') + (lockedWon ? `<div class="pt-more g-note">${lockedWon} boss decals left to win — beat the boss on every 10th Strip level.</div>` : '');
@@ -330,7 +356,7 @@ function partsHtml(save: SaveV1, on: GarageHandlers): string {
   return `<div class="pt-tabs blk">${tabs}</div><div class="cat-list pt-list blk">${cards}</div>
     <div class="cat-under"><button class="g-close" aria-label="Close">✕</button>
       <div class="cat-name"><b class="hd">${nameOf(sel)}</b><span>${PART_SLOTS.find(t => t.id === slot)!.label} · ${sel.won ? 'Strip boss decal' : RARITY[sel.rarity]} · ${isFactory(sel) && twin ? (twin.value === 'none' ? 'This car has none from the factory.' : `This car comes with the ${twin.name} from the factory.`) : sel.blurb}</span></div>
-      <div class="cat-buy">${action}<span class="g-note">Bought once, fits every car · looks only — no effect on speed</span></div>
+      <div class="cat-buy">${action}<span class="g-note">${cosmeticPrice(sel.id, lg).currency === 'crowns' ? 'Crowns part: bought once, fits every car' : `Bought once for every League ${lg} car`} · looks only — no effect on speed</span></div>
       ${slot === 'plate' ? `<div class="pt-plate"><label>Plate text <input id="plateText" maxlength="${PLATE_TEXT.maxLength}" spellcheck="false" autocomplete="off" value="${save.cars[W]?.plateText || DEFAULT_PLATE}"></label>
         <button class="btn ghost" id="setPlate" ${DEV.unlimited || save.crowns >= PLATE_TEXT.crowns ? '' : 'disabled'}>Set text · ${crownIcon()}${PLATE_TEXT.crowns} Crowns</button><span class="g-note">A–Z, 0–9, space and - · up to ${PLATE_TEXT.maxLength} · Crowns for every change</span></div>` : ''}
     </div>`;
@@ -338,12 +364,19 @@ function partsHtml(save: SaveV1, on: GarageHandlers): string {
 
 /** Garage sub-tabs (owner 2026-10-19): small buttons that pop up above the Garage button for the picked car. */
 function subTabsHtml(save: SaveV1): string {
-  if (ui.panel !== 'garage' || !ui.dial || !ui.gsel || !CARS[ui.gsel]) return '';
+  if (ui.panel !== 'garage' || !ui.gsel || !CARS[ui.gsel]) return '';      // owner V0.9.1: shown as soon as the Garage opens
   const use = save.carId === ui.gsel, unique = !!CARS[ui.gsel].unique;
   return `<div class="g-sub blk"><b class="g-sub-name">${carName(ui.gsel)}</b>
     <button class="g-subtab drive" id="gDrive" ${use ? 'disabled' : ''}>${use ? 'Driving' : 'Drive'}</button>
     <button class="g-subtab" id="gParts">Body Shop</button>
-    <button class="g-subtab" id="gUpg" ${unique ? 'disabled' : ''}>Upgrade</button><i class="g-sub-stem"></i></div>`;
+    <button class="g-subtab" id="gUpg" ${unique ? 'disabled' : ''}>Upgrade</button>${sellTab(save)}<i class="g-sub-stem"></i></div>`;
+}
+/** Sell sub-tab (owner Q153): half the car's price + half its upgrades; a second click confirms. */
+function sellTab(save: SaveV1): string {
+  const id = ui.gsel, why = sellBlock(save, id);
+  if (why) return `<button class="g-subtab" id="gSell" disabled title="${why}">Sell</button>`;
+  const v = sellValue(CARS[id].league as EcoLeague, CARS[id].price, save.cars[id].owned).toLocaleString();
+  return ui.sellArm === id ? `<button class="g-subtab sell arm" id="gSell">Confirm · +${v} VX</button>` : `<button class="g-subtab sell" id="gSell" title="Sell for ${v} VX">Sell</button>`;
 }
 /** This car's drag-race record (owner Q138; counted from V0.6.1). */
 function recHtml(save: SaveV1, id: string): string {
@@ -353,7 +386,7 @@ function recHtml(save: SaveV1, id: string): string {
 /** Owned cars for the Garage list: favourites first, then by league and catalogue order; optionally favourites only. */
 function garageCars(save: SaveV1): string[] {
   const favs = save.favs ?? [], order = [...CATALOG_ORDER, ...Object.keys(CARS).filter(k => CARS[k].unique)];
-  const ids = Object.keys(save.cars).filter(id => CARS[id] && (!ui.favOnly || favs.includes(id)));
+  const ids = Object.keys(save.cars).filter(id => CARS[id] && !!CARS[id].unique === (ui.gtab === 'boss') && (!ui.favOnly || favs.includes(id)));
   const rank = (id: string) => (favs.includes(id) ? 0 : 1000) + LEAGUES.indexOf(CARS[id].league) * 100 + order.indexOf(id);
   return ids.sort((a, b) => rank(a) - rank(b));
 }
@@ -368,7 +401,10 @@ function garageHtml(save: SaveV1, on: GarageHandlers): string {
       <span class="cat-row"><b>${carName(cid)}</b>${tag}</span><span class="gr-sub">${c.unique ? 'No upgrades' : `Engine T${t.equipped.engine} · Gearbox T${t.equipped.trans}`}</span>
       <i class="gr-star ${fav ? 'on' : ''}" data-fav="${cid}" title="${fav ? 'Remove from favourites' : 'Add to favourites'}">★</i></button>`;
   };
-  const list = ids.length ? ids.map(card).join('') : `<div class="g-note gr-empty">${ui.favOnly ? 'No favourites yet — tap ★ on a car.' : 'No cars yet.'}</div>`;
+  const list = ids.length ? ids.map(card).join('') : `<div class="g-note gr-empty">${ui.favOnly ? 'No favourites yet — tap ★ on a car.' : ui.gtab === 'boss' ? 'No boss cars yet — beat the boss at level 60 of a Strip.' : 'No cars yet.'}</div>`;
+  const bossN = Object.keys(save.cars).filter(k => CARS[k]?.unique).length, used = slotsUsed(save), total = slotsTotal(save);
+  const tabs = `<div class="seg gr-tabs"><button class="${ui.gtab === 'cars' ? 'on' : ''}" data-gtab="cars">Cars ${used}/${total}</button><button class="${ui.gtab === 'boss' ? 'on' : ''}" data-gtab="boss">Boss cars ${bossN}</button></div>`;
+  const slot = ui.gtab === 'cars' && total < GARAGE.maxSlots ? `<button class="gr-slot" id="gSlot" ${DEV.unlimited || save.crowns >= GARAGE.slotCrowns ? '' : 'disabled'}>+1 slot · ${crownIcon()}${GARAGE.slotCrowns}</button>` : '';
   const more = Object.keys(save.cars).length < 2 ? `<div class="g-note gr-empty">Buy more cars in the Catalog ▸</div>` : '';
   const rows = garageRows(id, T.equipped.engine, T.equipped.trans);
   const pc = (v: number) => Math.round(Math.max(0, Math.min(1, v)) * 100);
@@ -377,9 +413,8 @@ function garageHtml(save: SaveV1, on: GarageHandlers): string {
     return `<div class="gr-stat"><span>${r.label}</span><b>${r.value}</b><i><u style="width:${lo}%"></u><s class="${worse ? 'worse' : ''}" style="left:${lo}%;width:${hi - lo}%"></s></i></div>`; }).join('');
   const use = save.carId === id;
   // Drive / Body Shop / Upgrade are small sub-tabs above the Garage button (owner drawing 2026-10-19), see subTabsHtml
-  const dial = ui.dial ? ''
-    : `<div class="gr-pick g-note">Click a car — Drive · Body Shop · Upgrade pop up over the Garage button · drag the car to turn it</div>`;
-  return `<div class="cat-list gr-list blk"><div class="gr-head"><b class="hd">${ids.length} car${ids.length === 1 ? '' : 's'}</b><button class="gr-favonly ${ui.favOnly ? 'on' : ''}" id="gFavOnly">★ Favourites only</button></div>${list}${more}</div>
+  const dial = '';                                                            // sub-tabs show as soon as the Garage opens (V0.9.1)
+  return `<div class="cat-list gr-list blk">${tabs}<div class="gr-head"><b class="hd">${ids.length} car${ids.length === 1 ? '' : 's'}</b>${slot}<button class="gr-favonly ${ui.favOnly ? 'on' : ''}" id="gFavOnly">★ Favourites</button></div>${list}${ui.gtab === 'cars' ? more : ''}</div>
     <div class="gr-info blk"><button class="g-close" aria-label="Close">✕</button>
       <div class="gr-name"><b class="hd">${carName(id)}</b><span>${spec.unique ? 'Boss car' : `${carBrand(id)} · ${TYPE_SUB[id] ?? ''}`} · League ${spec.league}</span></div>
       <div class="gr-rec">${recHtml(save, id)}</div>
@@ -439,6 +474,8 @@ function panelHtml(save: SaveV1, on: GarageHandlers): string {
       <div class="upg"><h3 class="hd">Transmission</h3><div class="desc">${eqT.label} — ${eqT.ratios.length} gears, ${eqT.shiftTime.toFixed(2)} s shifts, ${Math.round(eqT.zoneWidth * 100)}% shift zone</div><div class="tiers">${TIERS.map(t => tierBtn('trans', t)).join('')}</div></div>
       <div class="g-note">More part slots (tyres, nitrous, weight) come with the upgrade roadmap.</div></div>`;
   }
+  if (ui.panel === 'daily') return dailyHtml(save, close);
+  if (ui.panel === 'calendar') return calendarHtml(save, close);
   if (ui.panel === 'settings') return `<div class="g-panel blk">${close}<h2 class="hd">Settings</h2><div class="settings">${SETTING_ROWS.map(([key, label, opts]) => `<div class="setrow"><span>${label}</span><div class="seg">${opts.map(([v, t]) => `<button class="${(save.settings as any)[key] === v ? 'on' : ''}" data-set="${key}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>
       ${controlsHtml(save)}</div>`;
   if (ui.panel === 'notes') {
@@ -479,4 +516,49 @@ function panelHtml(save: SaveV1, on: GarageHandlers): string {
       </div>`;
   }
   return '';
+}
+
+/** Daily panel (owner Q150, trial): today's three tasks + the all-three bonus. */
+function dailyHtml(save: SaveV1, close: string): string {
+  const d = dailyFor(save), lg = CARS[save.carId].league as EcoLeague, vx = dailyVx(lg, DAILY.vxShare);
+  const cr = (n: number) => `<b class="dl-cr">${crownIcon()}+${n}</b>`;
+  const tasks = d.ids.map((id, i) => {
+    const t = TASK_BY_ID[id], done = taskDone(d, i), got = d.claimed[i];
+    const act = got ? '<em class="dl-st">Claimed ✓</em>' : done ? `<button class="btn dl-btn" data-dclaim="${i}">Claim</button>` : `<em class="dl-st">${d.prog[i]} / ${t.target}</em>`;
+    return `<div class="dl-task ${got ? 'got' : done ? 'done' : ''}"><span class="dl-txt">${t.text}</span><span class="dl-rw">+${vx.toLocaleString()} VX ${cr(DAILY.crownsEach)}</span>
+      <i class="dl-bar"><u style="width:${Math.round(Math.min(1, d.prog[i] / t.target) * 100)}%"></u></i>${act}</div>`;
+  }).join('');
+  const allGot = d.claimed.every(Boolean);
+  const bonus = `<div class="dl-task dl-bonus ${d.bonus ? 'got' : allGot ? 'done' : ''}"><span class="dl-txt">All three done</span><span class="dl-rw">${cr(DAILY.crownsAll)}</span><i></i>${d.bonus ? '<em class="dl-st">Claimed ✓</em>' : allGot ? '<button class="btn dl-btn" data-dclaim="-1">Claim</button>' : '<em class="dl-st">Bonus</em>'}</div>`;
+  return `<div class="g-panel g-daily blk">${close}<h2 class="hd">Daily <small class="g-sub">New tasks at midnight · pay is for League ${lg}</small></h2>
+    <div class="dl-list">${tasks}${bonus}</div>
+    <div class="g-note">Tasks count every race you finish today. Crowns buy garage slots, premium paints and special parts.</div></div>`;
+}
+/** Login calendar panel (owner Q151): 28 days, one claim per calendar day, missed days don't reset. */
+function calendarHtml(save: SaveV1, close: string): string {
+  const lg = CARS[save.carId].league as EcoLeague;
+  const c = calState(save), ready = calReady(save), fresh = c.n >= CALENDAR.days && ready, shown = fresh ? 0 : c.n, next = shown + 1;
+  const short = (n: number) => n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M' : n >= 1e4 ? Math.round(n / 1e3) + 'k' : n.toLocaleString();
+  const cells = Array.from({ length: CALENDAR.days }, (_, i) => {
+    const n = i + 1, r = calReward(n, lg, save.paintsOwned), st = n <= shown ? 'got' : n === next && ready ? 'today' : '';
+    const paint = r.paint ? PAINT.premium.find(p => p.id === r.paint) : undefined;
+    const what = paint ? `<i class="cal-sw" style="background:${paint.color}" title="${paintName(paint.id)} paint"></i>` : r.crowns ? `<span class="cal-cr">${crownIcon()}${r.crowns}</span>` : `<span>${short(r.vx)}</span>`;
+    return `<div class="cal-day ${st} ${n === CALENDAR.days ? 'big' : ''}"><b>${n}</b>${what}${n <= shown ? '<em>✓</em>' : ''}</div>`;
+  }).join('');
+  const calBtn = ready ? `<button class="btn race" id="calClaim">Claim day ${next}</button>` : `<span class="g-note">Day ${c.n} claimed — come back tomorrow.</span>`;
+  return `<div class="g-panel g-daily blk">${close}<h2 class="hd">Calendar <small class="g-sub">Month ${c.month + (fresh ? 1 : 0)} · ${shown} of ${CALENDAR.days} · missed days don't reset</small></h2>
+    <div class="cal-grid">${cells}</div>
+    <div class="cal-foot">${calBtn}<span class="g-note">Day 28: ${paintName(CALENDAR.finalPaint)} paint (calendar only) · VX days pay for League ${lg}</span></div></div>`;
+}
+/** Mini HUD (owner drawing, V0.9.1): four small square buttons in one tab-sized square beside Profile —
+ *  Spin · Daily / Calendar · a spare slot for later. A dot = something to claim. */
+function miniHud(save: SaveV1): string {
+  const d = dailyFor(save), dailyDot = d.ids.some((_, i) => !d.claimed[i] && taskDone(d, i)) || (!d.bonus && d.claimed.every(Boolean)), calDot = calReady(save), spin = save.settings.spin !== 'off';
+  const dot = (on: boolean) => on ? '<em class="g-dot"></em>' : '';
+  return `<div class="g-mini">
+    <button class="g-mb ${spin ? 'on' : 'off'}" id="spinBtn" title="Spin ${spin ? 'on' : 'off'} — the car's slow spin (drag the car to turn it yourself)" aria-label="Spin">${icon('spin', 2)}</button>
+    <button class="g-mb ${ui.panel === 'daily' ? 'sel' : ''}" data-panel="daily" title="Daily tasks" aria-label="Daily">${icon('tasks', 2)}${dot(dailyDot)}</button>
+    <button class="g-mb ${ui.panel === 'calendar' ? 'sel' : ''}" data-panel="calendar" title="Login calendar" aria-label="Calendar">${icon('daily', 2)}${dot(calDot)}</button>
+    <button class="g-mb empty" disabled title="Coming soon" aria-label="Empty"></button>
+  </div>`;
 }

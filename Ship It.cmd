@@ -1,7 +1,7 @@
 @echo off
 title Voxel City - Ship It
 cd /d "%~dp0"
-echo Voxel City SHIP IT: version check, sim, collisions, build, smoke test, then push to the website (about 2 minutes)...
+echo Voxel City SHIP IT: version check, sim, collisions, build, then push to the website (under a minute)...
 echo.
 call node tools/ship.mjs %*
 echo.

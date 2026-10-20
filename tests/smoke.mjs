@@ -25,11 +25,11 @@ await pg.goto(pathToFileURL(resolve(root, 'build/index.html')).href + '?fast=4&a
 await pg.waitForFunction(() => window.__vc && window.__vc.screen === 'garage');
 const v = await ev(() => [window.__vc.version, document.querySelector('#notesBtn span')?.textContent]);
 ok('garage loads, version shown', v[1] === `V${v[0]}`, v.join(' / '));
-for (const tab of ['profile', 'garage', 'upgrades', 'catalog', 'settings']) {
+for (const tab of ['profile', 'garage', 'upgrades', 'catalog', 'settings', 'daily', 'calendar']) {
   await pg.click(`[data-panel="${tab}"]`); await pg.waitForTimeout(400);
   const open = await ev(() => !!document.querySelector('.g-panel, .cat-list, .gr-list'));
   ok(`tab opens: ${tab}`, open);
-  if (tab === 'garage') { await pg.click('.gr-card'); await pg.waitForTimeout(300); ok('garage: Drive / Body Shop / Upgrade pop out', await ev(() => document.querySelectorAll('.g-subtab').length === 3));
+  if (tab === 'garage') { ok('garage: Drive / Body Shop / Upgrade / Sell show as soon as it opens', await ev(() => document.querySelectorAll('.g-subtab').length === 4 && document.querySelectorAll('[data-gtab]').length === 2));
     await pg.click('#gParts'); await pg.waitForTimeout(500);
     const paint = await ev(() => document.querySelectorAll('.pt-swatch').length);
     await pg.click('[data-slot="plate"]'); await pg.waitForTimeout(500);
@@ -52,6 +52,12 @@ const ty = await ev(() => [window.__vc.lastTyping.place, Math.round(window.__vc.
 ok('Typing Race finishes with places and pay', ty[0] >= 1 && ty[0] <= 5 && ty[1] > 0 && ty[2] > 0, JSON.stringify(ty));
 await pg.screenshot({ path: `${out}/typing-results.png` });
 await pg.click('#tyGarage');
+// Daily + calendar (V0.9.0): the two races count towards today's tasks; claim calendar day 1
+await pg.click('[data-panel="daily"]'); await pg.waitForTimeout(300);
+const dl = await ev(() => [document.querySelectorAll('.dl-task').length, window.__vc.save.daily?.prog.join(',')]);
+await pg.click('[data-panel="calendar"]'); await pg.waitForTimeout(300); await pg.click('#calClaim'); await pg.waitForTimeout(300);
+ok('daily tasks + login calendar', dl[0] === 4 && await ev(() => window.__vc.save.cal?.n === 1), JSON.stringify(dl));
+await pg.screenshot({ path: `${out}/calendar.png` }); await pg.click('[data-panel="calendar"]');
 // Car Lab (dev only)
 await ev(() => window.__vc.openLab()); await pg.waitForTimeout(800);
 await pg.fill('#carlab [data-n="L"]', '70'); await pg.dispatchEvent('#carlab [data-n="L"]', 'input'); await pg.waitForTimeout(600);

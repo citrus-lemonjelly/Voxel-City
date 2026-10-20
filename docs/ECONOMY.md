@@ -49,10 +49,10 @@ Bonuses (share of the win): Perfect shift 5% each · Perfect launch 8% · New be
 
 | League | Level 1 | Level 59 | Boss levels (10, 20 … 60) | Final boss car |
 |---|---|---|---|---|
-| D | 100 VX | 680 VX | +5 Crowns + decal + cash 2,500 → 15,000 VX (plus the level VX) | Rook's Performance hatch (League C) |
-| C | 250 VX | 1,700 VX | +5 Crowns + decal + cash 6,250 → 37,500 VX (plus the level VX) | Brass's Muscle coupe (League B) |
-| B | 600 VX | 4,080 VX | +5 Crowns + decal + cash 15,000 → 90,000 VX (plus the level VX) | Viper's Rally sedan (League A) |
-| A | 1,890 VX | 12,850 VX | +5 Crowns + decal + cash 47,250 → 283,500 VX (plus the level VX) | Nova's Tuner coupe (League S) |
-| S | 7,670 VX | 52,160 VX | +5 Crowns + decal + cash 191,750 → 1,150,500 VX (plus the level VX) | Apex's Hypercar (League S) |
+| D | 100 VX | 680 VX | +5 Crowns + decal + cash 1,000 → 6,000 VX (plus the level VX) | Rook's Performance hatch (League C) |
+| C | 250 VX | 1,700 VX | +5 Crowns + decal + cash 2,500 → 15,000 VX (plus the level VX) | Brass's Muscle coupe (League B) |
+| B | 600 VX | 4,080 VX | +5 Crowns + decal + cash 6,000 → 36,000 VX (plus the level VX) | Viper's Rally sedan (League A) |
+| A | 1,890 VX | 12,850 VX | +5 Crowns + decal + cash 18,900 → 113,400 VX (plus the level VX) | Nova's Tuner coupe (League S) |
+| S | 7,670 VX | 52,160 VX | +5 Crowns + decal + cash 76,700 → 460,200 VX (plus the level VX) | Apex's Hypercar (League S) |
 
 Strip race wins pay like a Medium Street Race. 60 levels per league.

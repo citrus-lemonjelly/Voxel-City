@@ -332,4 +332,40 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 /* Garage ▸ per-car record */
 .gr-rec{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--dim);padding:6px 8px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge)}
 .gr-rec b{color:var(--text);font:700 12px system-ui;font-variant-numeric:tabular-nums}.gr-rec em{font-style:normal;font-size:10px}
+/* V0.9.0 Economy Update: Daily tab, garage slots + boss tab, sell */
+.g-tab{position:relative}
+.g-dot{position:absolute;top:7px;right:9px;width:8px;height:8px;background:var(--accent);box-shadow:0 0 0 2px #b8901c}
+.gr-tabs{display:flex;margin:2px 4px 8px}.gr-tabs button{flex:1;padding:7px 8px;font:900 12px 'Courier New',monospace;letter-spacing:.06em;text-transform:uppercase}
+.gr-head{gap:6px}.gr-head .hd{margin-right:auto}
+.gr-slot{border:0;cursor:pointer;font:800 11px system-ui;padding:5px 8px;background:var(--panel2);color:#e8c46a;box-shadow:0 0 0 2px var(--edge);display:inline-flex;align-items:center}
+.gr-slot:hover:not(:disabled){box-shadow:0 0 0 2px var(--accent)}.gr-slot:disabled{opacity:.45;cursor:not-allowed}
+.g-subtab.sell.arm{background:var(--bad);color:#fff;box-shadow:0 0 0 2px #8e2a28}
+.g-panel.g-daily{width:480px}
+.dl-list{display:flex;flex-direction:column;gap:8px}
+.dl-task{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center;padding:10px 12px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge)}
+.dl-task.done{box-shadow:0 0 0 2px var(--accent)}.dl-task.got{opacity:.55}
+.dl-txt{font:800 13px system-ui}
+.dl-rw{font:900 12px 'Courier New',monospace;color:var(--accent);display:inline-flex;gap:8px;align-items:center;justify-self:end}
+.dl-cr{color:#e8c46a;display:inline-flex;align-items:center}
+.dl-bar{display:block;height:8px;background:#14161c;box-shadow:0 0 0 2px var(--edge)}.dl-bar u{display:block;height:100%;background:var(--accent)}
+.dl-st{font:900 12px 'Courier New',monospace;font-style:normal;color:var(--dim);justify-self:end;text-transform:uppercase}
+.dl-btn{font-size:13px;padding:5px 14px;justify-self:end}
+.dl-h{margin:6px 0 0;font-size:16px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:7px}
+.cal-day{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge);font:700 11px 'Courier New',monospace;color:var(--dim)}
+.cal-day b{color:var(--text);font-size:12px}
+.cal-day.big{box-shadow:0 0 0 2px #e8c46a}
+.cal-day.today{box-shadow:0 0 0 2px var(--accent);color:var(--accent);background:#2f3442}
+.cal-day.got{opacity:.45}.cal-day em{position:absolute;top:1px;right:3px;font-style:normal;color:var(--good)}
+.cal-sw{display:block;width:16px;height:12px;box-shadow:0 0 0 2px #0b0c10}
+.cal-cr{color:#e8c46a;display:inline-flex;align-items:center}
+.cal-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.cal-foot .btn{font-size:14px;padding:8px 14px}
+/* V0.9.1 mini HUD: Spin · Daily / Calendar · spare, one tab-sized square beside Profile */
+.g-mini{display:grid;grid-template-columns:35px 35px;grid-template-rows:35px 35px;gap:4px;margin-right:8px}
+.g-mb{position:relative;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--panel2);color:#cfd3dc;box-shadow:0 0 0 2px var(--edge);padding:0}
+.g-mb:hover:not(:disabled){color:#fff;box-shadow:0 0 0 2px #5a5f6d}
+.g-mb.sel{background:#2f3442;color:#fff;box-shadow:0 0 0 2px var(--accent)}
+.g-mb.off{color:#7d8290}
+.g-mb.empty{cursor:default;background:#1a1d25}
+.g-mb .g-dot{top:3px;right:3px;width:6px;height:6px}
 `;

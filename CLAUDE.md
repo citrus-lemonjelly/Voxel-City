@@ -29,7 +29,7 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - `npm run shot -- OUT.png "Title" "click:SEL; wait:MS; cap:TEXT"` — screenshot sheet for review (1–2 per feature)
 - `npm run economy` — pacing tables from `economy.ts`: VX/min per mode, hours per league vs the owner's targets
   (D 2–3 h · C 3–4 h · B/A/S 3–6 h), cosmetics in minutes, Crowns. Run it after any price/payout change.
-- `npm run ship` (owner: double-click `Ship It.cmd`) — git check → release → smoke → commit "V0.x.y" → push to GitHub;
+- `npm run ship` (owner: double-click `Ship It.cmd`) — git check → release → commit "V0.x.y" → push to GitHub (no smoke — it runs while building);
   Pages publishes `build` about a minute later. `--no-push` keeps the commit local. Push only when the owner says ship.
 - Don't run `npm run build` by itself just to look — a rebuild changes the build stamp and triggers the website's Update notice.
 - This folder is a git clone of `citrus-lemonjelly/Voxel-City`; a push to `main` updates the website (`.github/workflows/static.yml`).

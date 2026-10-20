@@ -26,6 +26,31 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.1', date: '2026-10-19', title: 'Mini buttons beside Profile and a quicker Garage',
+    added: [
+      'A small 2×2 button block beside Profile: Spin, Daily, Calendar and a spare slot for later. A yellow dot means something is ready to claim.',
+      'The login calendar has its own button and panel.',
+    ],
+    changed: [
+      'Opening the Garage shows Drive / Body Shop / Upgrade / Sell straight away for the car you are driving. Click another car to switch.',
+      'Spin moved from its own big button into the new button block.',
+    ],
+  },
+  {
+    version: '0.9.0', date: '2026-10-19', title: 'Daily tasks, a login calendar, selling cars and garage slots', header: 'Economy Update',
+    added: [
+      'Daily tasks: three a day (new ones at midnight). Each pays Voxels and 2 Crowns, plus 3 Crowns for finishing all three.',
+      'Login calendar: claim one day each day; missed days don\'t reset. Crowns on days 7, 14 and 21, and a calendar-only paint (Champion teal) on day 28.',
+      'Sell cars in the Garage for half their price plus half of the upgrades you bought for them (click Sell, then Confirm).',
+      'Garage slots: 6 free, then 50 Crowns each. Boss cars don\'t take a slot and have their own Boss cars tab.',
+    ],
+    changed: [
+      'Visual parts now cost more in higher leagues and are bought once per league (for every car in that league). Parts you already own still fit every car.',
+      'Typing Races pay more in higher leagues, so they earn about the same per minute as Street Races.',
+      'Strip boss cash lowered (1,000 VX × boss number × league, was 2,500) so leagues last longer.',
+    ],
+  },
+  {
     version: '0.8.2', date: '2026-10-19', title: 'Faster publishing and an economy checker (behind the scenes)',
     added: [
       'Behind the scenes: one-click "Ship It" that checks the game, runs the smoke test and publishes it to the website.',

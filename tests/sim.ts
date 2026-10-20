@@ -253,6 +253,40 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   const unpriced = VISUAL_PARTS.filter(p => !isFactory(p) && !p.won && !COSMETIC_PRICES[p.id]).map(p => p.id);
   check(unpriced.length === 0, `body shop: every part has a price${unpriced.length ? ' — missing ' + unpriced.join(', ') : ''}`);
   check(cleanPlate('ab#c 12345') === 'ABC 123' && cleanPlate('vx-1') === 'VX-1' && PLATE_TEXT.crowns > 0, `plate text: upper case, A–Z 0–9 space -, max 7 ("${cleanPlate('ab#c 12345')}"), ${PLATE_TEXT.crowns} Crowns a change`);
-  check(repaintPrice('S' as any) > repaintPrice('D' as any) && PAINT.premium.every(p => p.crowns > 0 && /^#[0-9a-f]{6}$/.test(p.color)), `paint: repaint ${repaintPrice('D' as any)} VX (League D) → ${repaintPrice('S' as any)} VX (League S); ${PAINT.premium.length} premium paints`);
+  check(repaintPrice('S' as any) > repaintPrice('D' as any) && PAINT.premium.every(p => (p.crowns > 0 || !!p.calendar) && /^#[0-9a-f]{6}$/.test(p.color)), `paint: repaint ${repaintPrice('D' as any)} VX (League D) → ${repaintPrice('S' as any)} VX (League S); ${PAINT.premium.length} premium paints`);
+}
+// Economy Update (owner 2026-10-19, V0.9.0): league-priced visual parts owned per league, selling, garage slots,
+// dailies + login calendar, typing pay parity
+{
+  const E = await import('../src/data/economy');
+  const S = await import('../src/save/save');
+  const Dy = await import('../src/game/daily');
+  const gtD = E.cosmeticPrice('spoiler.gt', 'D').price, gtS = E.cosmeticPrice('spoiler.gt', 'S').price, crown = E.cosmeticPrice('hood.carbon', 'S');
+  const own = ownsPart('spoiler.gt', ['C:spoiler.gt'], [], 'C') && !ownsPart('spoiler.gt', ['C:spoiler.gt'], [], 'D') && ownsPart('spoiler.gt', ['spoiler.gt'], [], 'S');
+  check(gtD === 14_000 && gtS > gtD * 70 && crown.currency === 'crowns' && crown.price === 30 && own,
+    `visual parts per league: GT wing ${gtD.toLocaleString()} VX (D) → ${gtS.toLocaleString()} VX (S); Crowns parts one price; owned per league (parts bought before V0.9.0 fit every car)`);
+  const sv = S.freshSave(); S.addCar(sv, 'city'); sv.cars.city.owned.engine = [1, 2];
+  const val = E.sellValue('D', CARS.city.price, sv.cars.city.owned);
+  const blocks = [S.sellBlock(sv, 'panda_civix'), S.sellBlock(sv, 'city')];
+  S.switchCar(sv, 'city'); const inUse = S.sellBlock(sv, 'city'); S.switchCar(sv, 'panda_civix');
+  S.addCar(sv, 'boss_d'); S.addCar(sv, 'perfhatch');
+  check(val === Math.round((CARS.city.price / 2 + E.partPrice('engine', 2, 'D') / 2) / 50) * 50 && !!blocks[0] && blocks[1] === null && !!inUse && !!S.sellBlock(sv, 'boss_d') && !!S.sellBlock(sv, 'perfhatch'),
+    `selling: City car + T2 engine sells for ${val.toLocaleString()} VX (half of each); starter, boss, Crowns cars and the car in use can't be sold`);
+  check(S.slotsUsed(sv) === 3 && S.slotsTotal(sv) === E.GARAGE.freeSlots && (sv.slotsBought = 2, S.slotsTotal(sv) === E.GARAGE.freeSlots + 2),
+    `garage slots: ${E.GARAGE.freeSlots} free, ${E.GARAGE.slotCrowns} Crowns each; boss cars don't take one`);
+  const d1 = Dy.dailyFor(sv), ids = [...d1.ids];
+  const kinds = ids.map(id => Dy.TASK_BY_ID[id].kind);
+  for (const id of ids) { const t = Dy.TASK_BY_ID[id]; Dy.dailyEvent(sv, t.event, t.target); }
+  const vx0 = sv.voxels, cr0 = sv.crowns, got = [0, 1, 2].map(i => Dy.claimDaily(sv, i, 'D')), bonus = Dy.claimDaily(sv, -1, 'D'), again = Dy.claimDaily(sv, 0, 'D');
+  Dy.shiftDay(1); const d2 = Dy.dailyFor(sv);
+  check(new Set(ids).size === 3 && kinds.includes('drag') && kinds.includes('typing') && got.every(Boolean) && !!bonus && again === null
+    && sv.crowns - cr0 === 3 * E.DAILY.crownsEach + E.DAILY.crownsAll && sv.voxels - vx0 === 3 * E.dailyVx('D', E.DAILY.vxShare) && d2.day !== d1.day && d2.claimed.every(c => !c),
+    `dailies: 3 tasks a day (a Street Race one + a Typing Race one), claim each once (+${E.dailyVx('D', E.DAILY.vxShare)} VX, +${E.DAILY.crownsEach} Crowns), +${E.DAILY.crownsAll} Crowns for all three, new tasks the next day (today: ${ids.join(', ')})`);
+  const cs = S.freshSave(); let crowns = 0, paint = false, twice = true;
+  for (let day = 1; day <= 29; day++) { const r = Dy.claimCalendar(cs, 'D'); if (Dy.claimCalendar(cs, 'D')) twice = false; crowns += r?.crowns ?? 0; if (r?.paint) paint = true; Dy.shiftDay(1); }
+  check(twice && paint && crowns === 30 && cs.cal!.month === 2 && cs.cal!.n === 1 && (cs.paintsOwned ?? []).includes(E.CALENDAR.finalPaint),
+    `login calendar: one day per day, Crowns on days 7/14/21 (${crowns}), day 28 = ${Dy.paintName(E.CALENDAR.finalPaint)} paint, then month 2 starts`);
+  const ratios = LEAGUES.map(l => E.typingPerMin(l as any) / E.dragPerMin(l as any));
+  check(ratios.every(r => r > 0.88 && r < 1.12), `typing pay parity at ${E.PACING.wpm} wpm: Typing ÷ Street per minute ${ratios.map(r => r.toFixed(2)).join(' · ')} (D → S)`);
 }
 process.exit(fail ? 1 : 0);
