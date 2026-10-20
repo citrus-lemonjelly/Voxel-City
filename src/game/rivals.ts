@@ -14,9 +14,9 @@ export interface Rival extends OpponentDef { seed: number; /** the rival's finis
 /** How close races are (seconds the rival finishes behind YOUR perfect run). Tune here. */
 export const MATCH = { minGap: 0.04, maxGap: 0.21, candidates: 64, /** your reference reaction off the green (s) — a sharp human */ reaction: 0.25 };
 
-const NAMES = ['Rico', 'Marisol', 'Kenji', 'Vee', 'Halden', 'Juno', 'Dax', 'Priya', 'Mateo', 'Sable', 'Oren', 'Lux', 'Tamsin', 'Bodie', 'Nia', 'Kaito',
+export const NAMES = ['Rico', 'Marisol', 'Kenji', 'Vee', 'Halden', 'Juno', 'Dax', 'Priya', 'Mateo', 'Sable', 'Oren', 'Lux', 'Tamsin', 'Bodie', 'Nia', 'Kaito',
   'Rhea', 'Cruz', 'Ines', 'Wren', 'Zeke', 'Amara', 'Fitz', 'Noor', 'Ozzie', 'Lena', 'Rafe', 'Suki', 'Teo', 'Yara'];
-const PAINTS = ['#d23a2a', '#f2a43a', '#f2c230', '#2f9a5a', '#1f8a8a', '#3b6fa8', '#1f4fa8', '#6a3ad2', '#b83a7a', '#eeeae0', '#8e9bb3', '#5a5e66', '#1a1a1e'];
+export const PAINTS = ['#d23a2a', '#f2a43a', '#f2c230', '#2f9a5a', '#1f8a8a', '#3b6fa8', '#1f4fa8', '#6a3ad2', '#b83a7a', '#eeeae0', '#8e9bb3', '#5a5e66', '#1a1a1e'];
 const TIERS: Tier[] = [1, 2, 3, 4, 5];
 
 /** Finish time of one racer over the stage (same fixed step as the game). */

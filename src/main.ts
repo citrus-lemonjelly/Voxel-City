@@ -20,7 +20,11 @@ import { Race, Racer, Controller } from './game/race';
 import { AIController, makeRng } from './game/ai';
 import { carStats } from './game/stats';
 import { DEV, devOppSkill, initDevConsole } from './ui/devConsole';
-import { freshSave } from './save/save';
+import { freshSave, typingStats } from './save/save';
+import { TypingRun, TypingRival, makeTypingRace, averageWpm, typedBy, placeOf, wpmOf } from './game/typing';
+import { TypingHud, renderTypingResults } from './ui/typingHud';
+import { TYPE_TRACK, laneZ } from './render/typingView';
+import { typingPay, TYPING } from './data/economy';
 
 const params = new URLSearchParams(location.search);
 const AUTOPLAY = params.has('autoplay');          // test hook: the player car drives itself
@@ -76,10 +80,12 @@ const DOWN_KEYS = ['ShiftLeft', 'ShiftRight', 'ArrowDown'];
 function downPress() { if (playerRacer?.launched) input.downQueued = true; hud?.setDownPressed(true); }
 function downRelease() { hud?.setDownPressed(false); }
 window.addEventListener('keydown', e => {
+  if (screen === 'typing') return typingKey(e);                       // the Typing Race takes every key
   if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) press(); }
   else if (DOWN_KEYS.includes(e.code) && screen === 'race') { e.preventDefault(); if (!e.repeat) downPress(); }
 });
 window.addEventListener('keyup', e => {
+  if (screen === 'typing') return;
   if (e.code === 'Space') { e.preventDefault(); release(); }
   else if (DOWN_KEYS.includes(e.code)) downRelease();
 });
@@ -90,7 +96,7 @@ class PlayerController implements Controller {
 }
 
 // ---------------- screens ----------------
-type Screen = 'garage' | 'race' | 'results';
+type Screen = 'garage' | 'race' | 'results' | 'typing';
 let screen: Screen = 'garage';
 let race: Race | null = null, hud: Hud | null = null, oppRacer: Racer | null = null, finishedAt = 0;
 
@@ -99,7 +105,7 @@ function showGarage(toast?: string) {
   renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onRace: () => startRace(), onStrip: startStrip, stripNext, onClaim: claimLevel, onSetting: setSetting,
     onPreview: look => world.setGarageCar(look ?? playerLook()), onView: v => world.setGarageView(v),
     onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, onBuyPart: buyPart, onFitPart: (id: string) => fitPart(id), onDistance: setDistance, onDifficulty: setDifficulty, thumb: (look, view) => world.thumbnail(look, undefined, undefined, view), playerLook,
-    onNotesSeen: () => { save.seenVersion = VERSION; writeSave(save); } }, toast);
+    onNotesSeen: () => { save.seenVersion = VERSION; writeSave(save); }, onTyping: () => startTyping() }, toast);
 }
 
 /** Catalog (Q79): buy a car (it comes with the paint/options picked and goes straight into use). */
@@ -254,6 +260,7 @@ function frame(now: number) {
     world.setTree(Math.min(3, Math.floor(race.t)), race.green);
     if (race.done && !paused) { finishedAt ||= now; if (now - finishedAt > 1200) finishRace(); }
   }
+  if (screen === 'typing') typingFrame(dt, now);
   if (!(NO_RENDER && screen === 'race')) world.render(dt);
   dev.tick();
   requestAnimationFrame(frame);
@@ -265,7 +272,7 @@ function pose(playerM: number, oppM: number, speedMs = 30, t = 10) {
   race!.t = t; playerRacer!.x = playerRacer!.px = playerM; oppRacer!.x = oppRacer!.px = oppM; playerRacer!.v = oppRacer!.v = speedMs;
   playerRacer!.launched = oppRacer!.launched = t > 3;
 }
-(window as any).__vc = { get screen() { return screen; }, get opp() { return opp; }, cars: CARS, levelReward, partPrice, cosmeticPrice, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
+(window as any).__vc = { get screen() { return screen; }, get typing() { return ty; }, startTyping, get opp() { return opp; }, cars: CARS, levelReward, partPrice, cosmeticPrice, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
   /** preview hook: rebuild the race HUD with another paddle shape/skin (review renders) */
   hudPreview: (shape: string, skin: string, pedalStyle?: string) => { if (race && playerRacer && oppRacer) { hud = new Hud(ui, race, playerRacer, oppRacer, { oppName: opp.name, paddle: skin, paint: playerLook().paint, showKeyHint: true, paddleShape: shape as any, pedal: (pedalStyle || params.get('pedal') || 'alloy') as any }); hud.update(); } }, startRace, showGarage, buyOrEquip, pose, setCam: (m: string) => (world.camMode = m as any), setSetting, world, setNoRender: (b: boolean) => (NO_RENDER = b), setPaused: (b: boolean) => (paused = b) };
 // test console (owner Q58): ?dev once turns it on for this browser; ` opens it
@@ -275,6 +282,84 @@ const dev = initDevConsole({
   resetSave: () => { save = freshSave(); writeSave(save); },
   race: () => race, screen: () => screen,
 }, params.has('dev'));
+// ---------------- Typing Race (owner 2026-10-19, Q122–Q129) ----------------
+// Five lanes seen from above, the camera follows your car. 3 s of start lamps, then type: each correct key moves you on,
+// a wrong key turns the letter red until you type the right one. Rivals are seeded typists matched to your average.
+const COUNT = 3, TYPE_LANE = 2;                                      // you race in the middle lane
+let ty: { run: TypingRun; rivals: TypingRival[]; hud: TypingHud; start: number; vis: number[]; doneAt: number; diff: Difficulty; seed: number } | null = null;
+const typingClock = (now = performance.now()) => ty ? (now - ty.start) / 1000 - COUNT : 0;   // seconds since GO
+function startTyping() {
+  screen = 'typing'; document.getElementById('vc-update')?.remove();
+  const seed = params.get('tseed') ? +params.get('tseed')! : ((Date.now() & 0x7fffffff) || 1);
+  const stats = typingStats(save), diff = save.raceDiff, league = CARS[save.carId].league;
+  const { text, rivals } = makeTypingRace(seed, averageWpm(stats.recent), diff, league);
+  // lanes: you in the middle, the four rivals around you
+  const lanes: (TypingRival | null)[] = [rivals[0], rivals[1], null, rivals[2], rivals[3]];
+  const looks = lanes.map(r => r ? { ...STOCK_LOOK, body: carBody(r.carId).profile ?? 'civix', paint: r.paint, parts: randomParts(makeRng(r.seed ^ 0x5eed)) } : playerLook());
+  world.setupTyping(looks);
+  const hudEl = ui; const names = lanes.map(r => r ? r.name : 'YOU');
+  ty = { run: new TypingRun(text), rivals, start: performance.now(), vis: [0, 0, 0, 0, 0], doneAt: 0, diff, seed,
+    hud: new TypingHud(hudEl, { text, names, you: TYPE_LANE, caption: `Typing Race · ${stage.name} · League ${league} · ${DIFFICULTY[diff].label}` }) };
+  (ty as any).lanes = lanes;
+}
+function typingKey(e: KeyboardEvent) {
+  if (!ty) return;
+  if (e.key === 'Escape') { e.preventDefault(); ty = null; return showGarage('Left the Typing Race'); }
+  if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
+  e.preventDefault();                                                // no page scroll on space, no quick-find on ' or /
+  const t = typingClock();
+  if (t < 0 || ty.run.done) return;                                  // keys before GO don't count
+  ty.run.key(e.key, t);
+  ty.hud.setText(ty.run.pos, ty.run.typo);
+  if (ty.run.done && !ty.doneAt) ty.doneAt = performance.now();
+}
+function typingFrame(dt: number, now: number) {
+  if (!ty) return;
+  const t = typingClock(now), run = ty.run, lanes = (ty as any).lanes as (TypingRival | null)[], len = run.text.length;
+  const span = TYPE_TRACK.length + 26;
+  if (t < 0) ty.hud.setCountdown(Math.min(3, Math.floor(t + COUNT) + 1), false); else ty.hud.setCountdown(3, true, t > 1.2);
+  // where each car should be; cars ease towards it (yours glides to a stop while a letter is red)
+  const target = lanes.map(r => (r ? Math.min(len, typedBy(r, Math.max(0, t))) : run.pos) / len * span);
+  const k = 1 - Math.exp(-7 * Math.min(dt, 0.1));
+  ty.vis = ty.vis.map((v, i) => v + (target[i] - v) * k);
+  world.typing?.update(ty.vis, TYPE_LANE);
+  // tags just behind each car, live WPM, progress bar
+  const W = ui.clientWidth || innerWidth, H = ui.clientHeight || innerHeight;
+  const tags = lanes.map((_, i) => { const c = world.typing!.cars[i]; return world.typing!.toScreen(c.group.position.x + c.L + 4, laneZ(i), W, H); });
+  const wpms = lanes.map(r => t <= 0.5 ? null : r ? wpmOf(Math.min(len, typedBy(r, t)), Math.min(t, r.finish)) : run.wpm(t));
+  ty.hud.place(tags, wpms, target.map(d => d / span));
+  const ahead = ty.rivals.filter(r => (typedBy(r, t) > run.pos) || (run.done && r.finish < run.finish!)).length;
+  ty.hud.setStats(t > 0.5 ? run.wpm(t) : null, run.keys ? run.accuracy : null, t > 0 ? ahead + 1 : null, run.finish ?? Math.max(0, t));
+  if (AUTOPLAY && t > 0 && !run.done && t * 6 > run.pos) { run.key(run.text[run.pos], t); ty.hud.setText(run.pos, run.typo); if (run.done) ty.doneAt = now; }   // test hook: ~72 wpm
+  if (ty.doneAt && now - ty.doneAt > 1600) finishTyping();
+}
+function finishTyping() {
+  if (!ty) return;
+  const { run, rivals, diff } = ty, lanes = (ty as any).lanes as (TypingRival | null)[];
+  screen = 'results';
+  const stats = typingStats(save), league = CARS[save.carId].league;
+  const place = placeOf(run.finish, rivals), wpm = run.wpm(run.finish ?? typingClock()), acc = run.accuracy;
+  const newBest = wpm > stats.best;
+  const pay = typingPay(league, diff, place, newBest, acc);
+  const earnings: [string, number][] = [[place === 1 ? 'Typing Race win' : `${['1st', '2nd', '3rd', '4th', '5th'][place - 1]} place`, pay.result]];
+  if (pay.newBest) earnings.push(['New best WPM', pay.newBest]);
+  if (pay.accuracy) earnings.push([`Accuracy ${Math.round(TYPING.accuracyAt * 100)}%+`, pay.accuracy]);
+  const total = earnings.reduce((a, [, v]) => a + v, 0);
+  save.voxels += total; stats.races++; if (place === 1) stats.wins++; if (newBest) stats.best = wpm;
+  stats.recent = [...stats.recent, wpm].slice(-TYPING.recentRaces); stats.keys += run.keys; stats.errors += run.errors;
+  writeSave(save);
+  const rows = [
+    { place, name: 'YOU', car: carName(save.carId), wpm, acc, you: true, fin: run.finish! },
+    ...rivals.map(r => ({ place: 0, name: r.name, car: carName(r.carId), wpm: r.wpm, fin: r.finish })),
+  ].sort((a, b) => a.fin - b.fin).map((r, i) => ({ ...r, place: i + 1 }));
+  void lanes;
+  const data = { rows, place, wpm, acc, earnings, total, newBest, caption: `Typing Race · ${stage.name} · ${DIFFICULTY[diff].label}`, best: stats.best, avg: averageWpm(stats.recent) };
+  (window as any).__vc.lastTyping = data;
+  ty = null;
+  setTimeout(showUpdate, 0);
+  renderTypingResults(ui, data, { again: () => startTyping(), garage: () => showGarage() });
+}
+
 // ---------------- update notice (owner V0.2.1) ----------------
 // A newer build on the site → a notice in the garage / results (never mid-race). "Refresh now" saves and reloads into the
 // new build, which is a new session; the progress is kept in the save.

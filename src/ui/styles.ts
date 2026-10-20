@@ -216,4 +216,36 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .dev-b{border:0;cursor:pointer;background:var(--panel2);color:var(--text);box-shadow:0 0 0 2px var(--edge);padding:4px 8px;font:700 12px system-ui}
 .dev-b.on{background:#6a3ad2;color:#fff;box-shadow:0 0 0 2px #9a74f0}
 .dev-readout{position:fixed;right:16px;top:110px;z-index:40;white-space:pre;background:#14161ce0;color:#c9ffd9;font:12px ui-monospace,monospace;padding:6px 9px;pointer-events:none}
+
+/* ---- Typing Race (owner 2026-10-19) ---- */
+#typing{position:absolute;inset:0;pointer-events:none}
+#typing .blk,#typing button{pointer-events:auto}
+.ty-prog{position:absolute;left:28px;right:28px;top:12px;height:16px}
+.ty-prog i{position:absolute;left:0;right:0;top:7px;height:3px;background:#3a3f4dcc}
+.ty-prog u{position:absolute;top:2px;width:12px;height:12px;background:#8e9bb3;box-shadow:0 0 0 2px #0b0c10}
+.ty-prog u.me{background:var(--accent);z-index:1}
+.ty-flag{position:absolute;right:-6px;top:0;width:8px;height:16px;background:repeating-linear-gradient(#eee 0 4px,#111 4px 8px)}
+.ty-tag{position:absolute;left:0;top:0;font:800 11px system-ui;letter-spacing:.04em;padding:2px 6px;background:#14161cd8;color:#e9ecf2;box-shadow:0 0 0 2px var(--edge);white-space:nowrap;will-change:transform}
+.ty-tag.me{background:var(--accent);color:#14161c;box-shadow:0 0 0 2px #b8901c}
+.ty-lights{position:absolute;left:50%;top:120px;transform:translateX(-50%);display:flex;gap:14px;padding:14px 18px}
+.ty-lights i{width:50px;height:50px;background:#2a2d36;box-shadow:inset 0 0 0 4px #1a1c22}
+.ty-lights i.on{background:#e0261c;box-shadow:inset 0 0 0 4px #8a1a14}
+.ty-lights i.go{background:#3ac25a;box-shadow:inset 0 0 0 4px #1f7a36}
+.ty-go{position:absolute;left:50%;top:200px;transform:translateX(-50%);font-size:60px;color:var(--accent);text-shadow:4px 4px 0 #0b0c10}
+.ty-cap{position:absolute;left:28px;top:calc(65% - 26px);font:800 12px system-ui;color:#e9ecf2;letter-spacing:.06em;text-transform:uppercase;text-shadow:0 1px 2px #000}
+.ty-panel{position:absolute;left:28px;right:28px;top:65%;bottom:22px;padding:16px 22px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.ty-text{font:600 24px/1.55 "Courier New",monospace;color:#e9ecf2}
+.ty-text .tw{white-space:nowrap}
+.ty-text .done{color:#6f7a8c}.ty-text .cur{background:var(--accent);color:#14161c;box-shadow:0 3px 0 #b8901c}.ty-text .bad{background:var(--bad);color:#fff}
+.ty-stats{display:flex;gap:10px;margin-top:auto}
+.ty-stats .stat{flex:1;display:flex;flex-direction:column}
+.ty-stats .stat b{font:900 22px "Courier New",monospace}.ty-stats .stat span{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-weight:800}
+.ty-stats .ty-hint{flex:1.8}.ty-hint b{color:var(--amber)}
+#typing-res{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:660px;padding:22px 26px;display:flex;flex-direction:column;gap:10px}
+.ty-rcap{font-size:13px;color:var(--dim)}.ty-rhead{margin:0;font-size:30px;color:var(--text)}.ty-rhead.win{color:var(--accent)}
+.ty-rows{display:flex;flex-direction:column;gap:6px}
+.ty-row{display:grid;grid-template-columns:52px 1fr 90px 60px;align-items:center;gap:8px;padding:7px 12px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge);font-size:14px}
+.ty-row.me{box-shadow:0 0 0 2px var(--accent)}.ty-row .pl{font-size:19px;color:var(--accent)}.ty-row .dim{color:var(--dim)}
+.ty-earn{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--dim)}.ty-earn b{color:var(--good)}.ty-earn .tot{margin-left:auto;color:var(--text)}
+.ty-btns{display:flex;gap:12px;justify-content:flex-end}
 `;

@@ -24,6 +24,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.3.0', date: '2026-10-19', title: 'Typing Race',
+    added: [
+      'Typing Race (Race ▸ Typing Race): a Nitro Type-style race seen from straight above. Five cars in five lanes on a voxel street; the camera follows your car.',
+      'Type the passage to drive: every correct key moves you forward. A wrong key turns that letter red and holds you until you type the right one; your car rolls to a stop meanwhile.',
+      'Start lamps light one by one, then GO (steady lamps, no blinking). Live WPM, accuracy, place and time while you type; each car has a name tag with its live WPM; a progress bar shows the whole race.',
+      'Rivals type at speeds matched to your average WPM (your last 10 Typing Races), using the Easy / Medium / Hard picker: typing at your average just wins on Medium.',
+      'Pay by place (League D Medium win 1,000 VX, scaled by your car\'s league and the difficulty), plus bonuses for a new best WPM and 98%+ accuracy.',
+      '44 original passages about the city, its cars and its people.',
+      'Profile shows your best WPM, average WPM and Typing Race wins.',
+      'Esc leaves a Typing Race.',
+    ],
+    changed: [
+      'Typing speed is all that matters in a Typing Race. The car you drive is for looks (your paint, decals and parts show from above).',
+    ],
+  },
+  {
     version: '0.2.1', date: '2026-10-19', title: 'Update notice',
     added: [
       'Update notice: when a newer version is published on the website, the garage (or results screen) shows "Update ready" with Refresh now / Later. Refresh saves and reloads into the new version as a new session; your progress is kept. It never pops up during a race.',

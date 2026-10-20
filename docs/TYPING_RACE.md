@@ -1,6 +1,6 @@
-# Typing Race — design proposal (for owner review)
+# Typing Race — design (built in V0.3.0)
 
-Status: **proposal, not built yet.** Mockup: `docs/reference/typing/Q122_typing_race_mockups.png`. Questions Q122–Q129 at the end.
+Status: **built in V0.3.0** (owner answers Q122–Q129 all as suggested; nitro later as a spacebar mechanic). Decision S57. Mockup: `docs/reference/typing/Q122_typing_race_mockups.png`. Questions Q122–Q129 at the end.
 
 Owner brief (2026-10-19): a second game mode that turns the camera, game design and feel into **Nitro Type-style visuals, just voxel**. In this mode you only see your car **from the top down**, as Nitro Type does.
 
@@ -8,7 +8,7 @@ Owner brief (2026-10-19): a second game mode that turns the camera, game design 
 
 | Step | What happens |
 |---|---|
-| 1. Pick | Race menu → **Typing Race** card (now "Coming soon"). Later it moves to its own district on the city map. |
+| 1. Pick | Race menu → **Typing Race** card (difficulty from the same Easy / Medium / Hard picker). Later it moves to its own district on the city map. |
 | 2. Grid | Five cars line up in five lanes, seen from straight above: **you + 4 rivals**. The passage is shown below. |
 | 3. Countdown | Three static start lamps light one by one, then GO (no blinking, A22–A23). |
 | 4. Type | Every correct letter moves your car forward. The car's position = how much of the passage you have typed. |

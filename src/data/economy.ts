@@ -92,6 +92,26 @@ export const STRIP_REWARDS = {
   boss: { crowns: 5, cashPerBoss: 2_500 /* × boss number (1–6) × LEAGUE_SCALE */, decal: true, carOnFinal: true },
 };
 
+// ---------------- Typing Race (owner 2026-10-19, Q122–Q129) ----------------
+/** Typing only — the car you drive is looks (Q124); pay scales with its league like Street Races. */
+export const TYPING = {
+  /** win pay in League D at Medium; × LEAGUE_SCALE × DIFFICULTY.pay */
+  winPayout: 1_000,
+  /** share of the win pay for 1st … 5th */
+  place: [1, 0.6, 0.4, 0.3, 0.25],
+  /** bonuses as a share of the win pay */
+  newBestBonus: 0.25, accuracyBonus: 0.25, accuracyAt: 0.98,
+  /** typing speed assumed before your first race, and how many recent races make your average */
+  defaultWpm: 35, recentRaces: 10,
+  /** the 4 rivals' speeds as × your average WPM (Q125): typing at your average just wins on Medium */
+  rivals: { easy: [0.62, 0.70, 0.76, 0.82], medium: [0.80, 0.88, 0.94, 0.99], hard: [0.92, 0.99, 1.04, 1.09] } as Record<Difficulty, number[]>,
+};
+/** VX for a Typing Race result (place 1–5). */
+export function typingPay(league: EcoLeague, diff: Difficulty, place: number, newBest: boolean, accuracy: number) {
+  const win = TYPING.winPayout * LEAGUE_SCALE[league] * DIFFICULTY[diff].pay;
+  return { result: round(win * (TYPING.place[place - 1] ?? 0)), newBest: newBest ? round(win * TYPING.newBestBonus) : 0, accuracy: accuracy >= TYPING.accuracyAt ? round(win * TYPING.accuracyBonus) : 0 };
+}
+
 // ---------------- Rivals ----------------
 // Rival shape. Rivals are rolled at random per race (src/game/rivals.ts, owner Q87): name, a car from your league, paint,
 // upgrade tiers and skill (how close its launch/shift timing lands to Perfect), matched to your car + upgrades.

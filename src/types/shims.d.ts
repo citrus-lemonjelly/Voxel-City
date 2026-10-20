@@ -26,7 +26,7 @@ declare module 'three' {
   export const ShaderMaterial: any; export type ShaderMaterial = any;
   export const Camera: any; export type Camera = any;
   export const CanvasTexture: any; export type CanvasTexture = any;
-  export const AdditiveBlending: any; export const BackSide: any; export const NearestFilter: any;
+  export const AdditiveBlending: any; export const BackSide: any; export const NearestFilter: any; export const RepeatWrapping: any;
   export const BufferGeometry: any; export type BufferGeometry = any;
   export const Float32BufferAttribute: any; export type Float32BufferAttribute = any;
   export const Uint16BufferAttribute: any; export type Uint16BufferAttribute = any;

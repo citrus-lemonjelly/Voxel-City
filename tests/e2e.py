@@ -115,7 +115,7 @@ with sync_playwright() as p:
     pg.click('button.tier[data-kind="engine"][data-tier="5"]'); time.sleep(1)
     s6 = pg.evaluate("window.__vc.save")
     ok('test console: +10,000 VX and free purchases', v1 == v0 + 10000 and 5 in s6['owned']['engine'] and s6['voxels'] == v1, f'{v0} -> {v1} -> {s6["voxels"]}, engine {s6["owned"]["engine"]}')
-    # 7. Catalog (owner Q76): pick a car, change paint, toggle pop-up lamps — no errors, Typing Race shows Coming soon
+    # 7. Catalog (owner Q76): pick a car, change paint, toggle pop-up lamps — no errors; the race menu offers the Typing Race
     pg.click('[data-panel="catalog"]'); time.sleep(0.5); pg.click('[data-car="tuner"]'); time.sleep(0.5)
     pg.click('[data-paint="#2f9a5a"]'); time.sleep(0.3); pg.click('[data-opt="popups"][data-val="up"]'); time.sleep(0.5)
     cat_ok = pg.evaluate("!!document.querySelector('.cat-card.on[data-car=\"tuner\"]') && !!document.querySelector('[data-opt=\"popups\"][data-val=\"up\"].on')")
@@ -123,9 +123,9 @@ with sync_playwright() as p:
     thumbs = pg.evaluate("[...document.querySelectorAll('.cat-card img.cat-thumb')].filter(i => i.src.startsWith('data:image/png') && i.naturalWidth > 100).length")
     cards = pg.evaluate("document.querySelectorAll('.cat-card').length")
     # V0.1.2 (owner): Race closes whatever panel is open, then shows the race menu
-    pg.click('#raceBtn'); time.sleep(0.3); soon = pg.evaluate("(document.querySelector('.g-soon')||{}).textContent")
+    pg.click('#raceBtn'); time.sleep(0.3); soon = pg.evaluate("(document.querySelector('#typingRace .hd')||{}).textContent")
     closed = pg.evaluate("!document.querySelector('.cat-list') && !!document.querySelector('.g-racemenu')")
-    ok('catalog: select car, paint, pop-ups; Race closes the Catalog; typing race = coming soon', cat_ok and closed and soon == 'Coming soon', f'{cat_ok} {closed} {soon}')
+    ok('catalog: select car, paint, pop-ups; Race closes the Catalog; Typing Race in the race menu', cat_ok and closed and soon == 'Typing Race', f'{cat_ok} {closed} {soon}')
     pg.click('#raceBtn'); time.sleep(0.3)                             # close the race menu again
     pg.click('[data-panel="catalog"]'); time.sleep(0.5); pg.click('[data-car="tuner"]'); time.sleep(0.5)   # back to the tuner with the same picks
     pg.click('[data-paint="#2f9a5a"]'); time.sleep(0.3); pg.click('[data-opt="popups"][data-val="up"]'); time.sleep(0.5)
@@ -192,6 +192,21 @@ with sync_playwright() as p:
     rv = pg.evaluate("[window.__vc.opp.name, window.__vc.opp.carId, window.__vc.race.racers[1].stats.car.league, window.__vc.opp.expect - window.__vc.opp.yours]")
     ok('random rival from your league, close to your perfect run', rv[2] == 'A' and 0 < rv[3] < 0.4, json.dumps(rv))
     ok('race in the bought car (survives reload)', title == 'Tuner coupe' and rl == 8000, f'title {title!r}, redline {rl}')
+    # Typing Race (owner 2026-10-19, Q122–Q129): typed with the real keyboard — a typo turns red and must be fixed; then
+    # the whole passage; results pay and record WPM / accuracy
+    pg.evaluate("window.__vc.showGarage()"); time.sleep(1)
+    pg.click('#raceBtn'); time.sleep(0.3); vt0 = pg.evaluate("window.__vc.save.voxels")
+    pg.click('#typingRace'); pg.wait_for_function("window.__vc.screen === 'typing'", timeout=600000)
+    pg.wait_for_function("window.__vc.typing && (performance.now() - window.__vc.typing.start) > 3300", timeout=600000)
+    text = pg.evaluate("window.__vc.typing.run.text")
+    pg.keyboard.type('#'); time.sleep(0.3)
+    ty = pg.evaluate("[window.__vc.typing.run.pos, window.__vc.typing.run.typo, !!document.querySelector('.ty-text .bad'), document.querySelectorAll('.ty-tag').length]")
+    pg.keyboard.type(text, delay=15)
+    pg.wait_for_function("window.__vc.screen === 'results' && window.__vc.lastTyping", timeout=600000); time.sleep(1)
+    pg.screenshot(path=f'{out}/16-typing-results.png')
+    tr = pg.evaluate("[window.__vc.lastTyping.place, window.__vc.lastTyping.wpm, window.__vc.lastTyping.acc, window.__vc.lastTyping.total, window.__vc.save.voxels, window.__vc.save.typing.races, document.querySelectorAll('.ty-row').length]")
+    ok('Typing Race: a wrong key turns the letter red and holds you; 5 racers with tags', ty[0] == 0 and ty[1] and ty[2] and ty[3] == 5, json.dumps(ty))
+    ok('Typing Race: typing the passage finishes the race; results pay and save your WPM', 1 <= tr[0] <= 5 and tr[1] > 0 and abs(tr[2] - len(text) / (len(text) + 1)) < 1e-6 and tr[4] == vt0 + tr[3] and tr[5] == 1 and tr[6] == 5, json.dumps(tr))
     ok('no page errors', not errs, json.dumps(errs[:5]))
     b.close()
 print(json.dumps(results))

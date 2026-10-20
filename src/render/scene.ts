@@ -7,6 +7,7 @@ import { Stage, LANE_Z, METERS_PER_BLOCK, TimeOfDay, NearStyle, poolTexture } fr
 import { Sky, SKY } from './sky';
 import { SpeedBlur, BLUR_LEVELS, BlurLevel, CAR_LAYER } from './speedBlur';
 import { StageDef } from '../data/stages';
+import { TypingView } from './typingView';
 
 /** Where a thumbnail camera points: the whole car, or close-ups for the Parts screen. */
 export type ThumbView = 'front' | 'rear' | 'tail' | 'hood' | 'wheel' | 'side' | 'nose' | 'low' | 'sill' | 'top';
@@ -24,7 +25,9 @@ export class World {
   stage?: Stage;
   player?: CarModel;
   opponent?: CarModel;
-  mode: 'garage' | 'race' = 'garage';
+  mode: 'garage' | 'race' | 'typing' = 'garage';
+  /** Typing Race view (top-down), built on first use */
+  typing?: TypingView;
   /** Race camera: 'side' = CSR-style side-on, 'angle' = fixed slight angle (reference), 'dynamic' = angle swings with who's leading, 'chase' = old rear-chase. */
   camMode: 'side' | 'angle' | 'dynamic' | 'chase' = 'dynamic';
   private camX = 0;
@@ -69,6 +72,7 @@ export class World {
     this.renderer.setSize(w, h);
     this.blur?.setSize(w, h);
     for (const c of [this.garageCam, this.raceCam]) { c.aspect = w / h; c.updateProjectionMatrix(); }
+    this.typing?.resize(w, h);
   }
 
   // ---------- garage (static showroom; the Terminal UI sits on the right) ----------
@@ -263,11 +267,20 @@ export class World {
 
   setTree(lit: number, green: boolean) { this.stage?.setTree(lit, green); }
 
+  /** Typing Race (owner 2026-10-19): the top-down road with these five cars (index = lane). */
+  setupTyping(looks: CarLook[]) {
+    if (!this.typing) { this.typing = new TypingView(this.mats); this.typing.scene.environment = this.garageScene.environment; this.typing.scene.environmentIntensity = 0.12; }
+    this.typing.setCars(looks);
+    const sz = this.renderer.getSize(new THREE.Vector2()); this.typing.resize(sz.x, sz.y);
+    this.renderer.toneMappingExposure = 1;
+    this.mode = 'typing';
+  }
+
   render(dt: number) {
     if (this.mode === 'garage') {
       this.turntable.rotation.y += dt * 0.25;
       this.renderer.render(this.garageScene, this.garageCam);
-    } else if (this.blur.strength > 0) this.blur.render(this.raceScene, this.raceCam, dt);
+    } else if (this.mode === 'typing' && this.typing) this.renderer.render(this.typing.scene, this.typing.cam); else if (this.blur.strength > 0) this.blur.render(this.raceScene, this.raceCam, dt);
     else this.renderer.render(this.raceScene, this.raceCam);
   }
 }

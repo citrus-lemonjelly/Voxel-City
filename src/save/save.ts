@@ -28,6 +28,8 @@ export interface SaveV1 {
   decals: string[];
   /** Newest patch notes version the player has opened (the notes button shows NEW until then). */
   seenVersion?: string;
+  /** Typing Race stats (owner 2026-10-19). */
+  typing?: TypingStats;
   /** Game version this save last ran on (announces "Updated to …" once after an update). */
   lastVersion?: string;
   /** Street Race length picked in the race menu. */
@@ -114,4 +116,10 @@ export function switchCar(s: SaveV1, id: string) {
 export function writeSave(s: SaveV1) {
   syncActive(s);
   try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* private mode etc. — game still works, just doesn't persist */ }
+}
+
+/** Typing Race stats: races, wins, best WPM, the last few WPMs (rival matching uses their average), keys and errors. */
+export interface TypingStats { races: number; wins: number; best: number; recent: number[]; keys: number; errors: number }
+export function typingStats(s: SaveV1): TypingStats {
+  return (s.typing ??= { races: 0, wins: 0, best: 0, recent: [], keys: 0, errors: 0 });
 }

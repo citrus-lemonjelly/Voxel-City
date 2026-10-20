@@ -2,7 +2,7 @@
 // a bottom bar of four icon buttons (Profile · Upgrades · Catalog · Settings) and a RACE button bottom-right that opens
 // Street Race / Typing Race (Coming soon, Q69). Panels open on the right; the Catalog (Q76) is a scrolling car list on the
 // left with the turntable on the right, paint swatches and the car's optional features under it.
-import { SaveV1, RACE_DISTS, RaceDist } from '../save/save';
+import { SaveV1, RACE_DISTS, RaceDist, typingStats } from '../save/save';
 import { ENGINE, TRANSMISSION, TIERS, Tier } from '../data/parts';
 import { CARS, CATALOG_ORDER, LEAGUES, carBody, carBrand, carName, carPaint } from '../data/cars';
 import { DEV } from './devConsole';
@@ -12,7 +12,8 @@ import { carStats, displayStats } from '../game/stats';
 import { BODY_OPTIONS, stockParts } from '../render/bodies';
 import { infoRows } from '../game/carInfo';
 import { STRIP, levelInfo, decalName } from '../game/strip';
-import { DIFFICULTY, Difficulty, racePay, cosmeticPrice } from '../data/economy';
+import { DIFFICULTY, Difficulty, racePay, cosmeticPrice, typingPay } from '../data/economy';
+import { averageWpm } from '../game/typing';
 import { PART_SLOTS, SOON_SLOTS, partsFor, PART_BY_ID, STOCK_PART, SLOT_VIEW, PartSlot, lookParts, VISUAL_PARTS, ownsPart, isFactory, VisualPart } from '../data/visualParts';
 import { CarLook, STOCK_LOOK } from '../render/carBuilder';
 import { CHANGELOG, VERSION } from '../data/changelog';
@@ -47,6 +48,8 @@ export interface GarageHandlers {
   onFitPart(id: string): void;
   /** the car in use as it looks now (Parts preview starts from it) */
   playerLook(): CarLook;
+  /** Typing Race (owner 2026-10-19). */
+  onTyping(): void;
   /** Patch notes opened: remember the version so the NEW tag goes away. */
   onNotesSeen(): void;
 }
@@ -115,7 +118,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
       <div class="g-pick"><div class="g-dist seg" role="group" aria-label="Difficulty">${(Object.keys(DIFFICULTY) as Difficulty[]).map(d => `<button class="${save.raceDiff === d ? 'on' : ''}" data-diff="${d}">${DIFFICULTY[d].label}</button>`).join('')}</div>
         <div class="g-dist seg" role="group" aria-label="Race length">${RACE_DISTS.map(d => `<button class="${save.raceDist === d ? 'on' : ''}" data-dist="${d}">${d} m</button>`).join('')}</div></div>
       ${stripCard(save)}
-      <div class="g-mode blk off"><span class="hd">Typing Race</span><span class="g-mode-sub">Race by typing — words per minute drive your car</span><span class="g-soon">Coming soon</span></div>
+      <button class="g-mode blk" id="typingRace"><span class="hd">Typing Race</span><span class="g-mode-sub">${stage.name} · ${DIFFICULTY[save.raceDiff].label} · 5 racers · your average ${Math.round(averageWpm(typingStats(save).recent))} wpm<br>Type to drive · win +${typingPay(car.league, save.raceDiff, 1, false, 0).result.toLocaleString()} VX</span><span class="g-go">Go ▸</span></button>
     </div>` : ''}
     ${ui.panel === 'strip' ? stripHtml(save, on) : ui.panel === 'parts' ? partsHtml(save, on) : panelHtml(save, on)}
   </div>`);
@@ -168,6 +171,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
     stripFocus = false;
     track.addEventListener('scroll', () => (stripScroll = track.scrollLeft));
   }
+  el.querySelector('#typingRace')?.addEventListener('click', () => { on.onView('home'); resetGarageUI(); on.onTyping(); });
   el.querySelector('#streetRace')?.addEventListener('click', () => { if (ui.panel === 'catalog' || ui.panel === 'parts') on.onPreview(null); on.onView('home'); resetGarageUI(); on.onRace(); });
   el.querySelectorAll<HTMLButtonElement>('.g-close').forEach(b => b.addEventListener('click', () => { if (ui.panel === 'catalog' || ui.panel === 'parts') on.onPreview(null); on.onView('home'); ui.panel = null; renderGarage(root, save, opp, stage, on); }));
   el.querySelectorAll<HTMLButtonElement>('.tier').forEach(b => b.addEventListener('click', () => on.onBuyOrEquip(b.dataset.kind as any, +b.dataset.tier! as Tier)));
@@ -295,7 +299,7 @@ function panelHtml(save: SaveV1, on: GarageHandlers): string {
     return `<div class="g-panel blk">${close}<h2 class="hd">Profile</h2>
       <div class="g-avatar"><div class="g-avatar-box">${icon('profile', 7)}</div><div><b class="hd">Driver</b><span>League ${CARS[save.carId].league}</span><span class="g-note">Avatar comes with the avatar system.</span></div></div>
       <div class="g-grid"><div><b>${save.races}</b><span>races</span></div><div><b>${save.wins}</b><span>wins</span></div><div><b>${rate}</b><span>win rate</span></div>
-        ${RACE_DISTS.map(d => `<div><b>${save.best[d] ? fmtTime(save.best[d]!) : '—'}</b><span>best ${d} m</span></div>`).join('')}<div><b>${save.perfectShifts}</b><span>perfect shifts</span></div><div><b>${DEV.unlimited ? '∞' : save.voxels.toLocaleString()}</b><span>voxels</span></div></div></div>`;
+        ${RACE_DISTS.map(d => `<div><b>${save.best[d] ? fmtTime(save.best[d]!) : '—'}</b><span>best ${d} m</span></div>`).join('')}<div><b>${save.perfectShifts}</b><span>perfect shifts</span></div><div><b>${typingStats(save).best ? Math.round(typingStats(save).best) : '—'}</b><span>best wpm</span></div><div><b>${typingStats(save).races ? Math.round(averageWpm(typingStats(save).recent)) : '—'}</b><span>avg wpm (10)</span></div><div><b>${typingStats(save).wins}/${typingStats(save).races}</b><span>typing wins</span></div><div><b>${DEV.unlimited ? '∞' : save.voxels.toLocaleString()}</b><span>voxels</span></div></div></div>`;
   }
   if (ui.panel === 'catalog') {
     const id = ui.cat.id, spec = CARS[id], paint = ui.cat.paint || save.cars[id]?.paint || carPaint(id), opts = BODY_OPTIONS[profileOf(id)] || [];

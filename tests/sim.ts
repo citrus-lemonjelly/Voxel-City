@@ -9,6 +9,9 @@ import { CARS, CATALOG_ORDER, LEAGUES } from '../src/data/cars';
 import { makeRival, simTime, MATCH } from '../src/game/rivals';
 import { CHANGELOG, VERSION } from '../src/data/changelog';
 import { isNewer } from '../src/game/updates';
+import { TypingRun, typistSchedule, makeTypingRace, placeOf, averageWpm, wpmOf, typedBy } from '../src/game/typing';
+import { PASSAGES } from '../src/data/passages';
+import { typingPay, TYPING } from '../src/data/economy';
 import { VISUAL_PARTS, isFactory, randomParts, ownsPart, PART_SLOTS } from '../src/data/visualParts';
 import { COSMETIC_PRICES } from '../src/data/economy';
 // @ts-ignore — node built-in (no @types/node in this repo)
@@ -186,5 +189,30 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   const mine = { version: '0.2.1', built: '2026-10-19T23:30:00.000Z' };
   check(isNewer({ version: '0.2.2', built: '2026-10-20T01:00:00.000Z' }, mine) && !isNewer({ version: '0.2.1', built: mine.built }, mine) && !isNewer({ version: '0.2.0', built: '2026-10-19T20:00:00.000Z' }, mine) && !isNewer(null, mine),
     'update notice: only a newer build on the site counts as an update');
+}
+// Typing Race (owner 2026-10-19, Q122–Q129)
+{
+  const okText = PASSAGES.every(p => p.length >= 150 && p.length <= 250 && /^[A-Za-z0-9 .,'?!:;-]+$/.test(p) && !/  /.test(p));
+  check(okText && PASSAGES.length >= 40, `typing: ${PASSAGES.length} original passages, ${Math.min(...PASSAGES.map(p => p.length))}–${Math.max(...PASSAGES.map(p => p.length))} characters, plain keyboard characters only`);
+  const run = new TypingRun('ab c');
+  const a = [run.key('a', 1), run.key('x', 2), run.key('x', 2.1), run.pos, run.typo, run.key('b', 3), run.key(' ', 3.5), run.key('c', 4), run.done, run.finish, run.errors, run.keys];
+  check(JSON.stringify(a) === JSON.stringify(['ok', 'typo', 'typo', 1, true, 'ok', 'ok', 'ok', true, 4, 2, 6]) && Math.abs(run.accuracy - 4 / 6) < 1e-9,
+    `typing: a wrong key holds you on that letter until the right one; accuracy counts every key (${JSON.stringify(a)})`);
+  const sch = typistSchedule(PASSAGES[3], 60, 9), fin = sch[sch.length - 1];
+  check(Math.abs(wpmOf(PASSAGES[3].length, fin) - 60) < 1e-6 && sch.every((t, i) => i === 0 || t > sch[i - 1]), `typing: a 60 wpm rival finishes at exactly 60 wpm (${fin.toFixed(2)} s), typing in a human rhythm`);
+  // matching (Q125): typing at your average beats every Medium rival; Easy is easier, Hard needs more than your average
+  const avg = 60, field = (d: any) => [1, 2, 3, 4, 5, 6, 7, 8].map(seed => makeTypingRace(seed, avg, d, 'D'));
+  const yourTime = (text: string, w: number) => (text.length / 5) / w * 60;
+  const medWin = field('medium').every(r => placeOf(yourTime(r.text, avg), r.rivals) === 1);
+  const hardLose = field('hard').every(r => placeOf(yourTime(r.text, avg), r.rivals) > 1);
+  const easyWin = field('easy').every(r => placeOf(yourTime(r.text, avg * 0.85), r.rivals) === 1);
+  const medClose = field('medium').every(r => Math.max(...r.rivals.map(x => x.wpm)) > avg * 0.95);
+  check(medWin && hardLose && easyWin && medClose && averageWpm([]) === TYPING.defaultWpm && averageWpm([50, 70]) === 60,
+    'typing rivals: at your average you just win Medium, Easy forgives a slow race, Hard needs better than your average');
+  const p = [1, 2, 3, 4, 5].map(pl => typingPay('D', 'medium', pl, false, 0.9).result);
+  check(p.every((v, i) => i === 0 || v < p[i - 1]) && typingPay('B', 'hard', 1, true, 0.99).result > typingPay('D', 'hard', 1, true, 0.99).result && typingPay('D', 'medium', 1, true, 0.99).newBest > 0 && typingPay('D', 'medium', 1, false, 0.97).accuracy === 0,
+    `typing pay: places ${p.join(' / ')} VX (League D Medium), scales with league, best-WPM and 98%+ accuracy bonuses`);
+  const r0 = makeTypingRace(5, 60, 'medium', 'D').rivals[0];
+  check(typedBy(r0, 0) === 0 && typedBy(r0, r0.finish) === r0.schedule.length && JSON.stringify(makeTypingRace(5, 60, 'medium', 'D')) === JSON.stringify(makeTypingRace(5, 60, 'medium', 'D')), 'typing: rivals are seeded — the same race replays exactly');
 }
 process.exit(fail ? 1 : 0);
