@@ -59,10 +59,11 @@ function rollRival(force = false) {
 }
 rollRival();
 /** The car in use, as the player has painted and optioned it (Q79). */
-const playerLook = (): CarLook => {
-  const c = save.cars[save.carId];
-  return { ...STOCK_LOOK, body: carBody(save.carId).profile ?? 'civix', paint: c?.paint || carPaint(save.carId), opts: { ...(c?.opts || {}) }, parts: lookParts(c?.parts) };
+const lookFor = (id: string): CarLook => {
+  const c = save.cars[id];
+  return { ...STOCK_LOOK, body: carBody(id).profile ?? 'civix', paint: c?.paint || carPaint(id), opts: { ...(c?.opts || {}) }, parts: lookParts(c?.parts) };
 };
+const playerLook = (): CarLook => lookFor(save.carId);
 // rivals wear random visual parts (owner Q118), rolled from their seed so a rival looks the same all race
 const oppLook = (): CarLook => ({ ...STOCK_LOOK, body: carBody(opp.carId).profile ?? 'civix', paint: opp.paint, parts: randomParts(makeRng((opp as any).seed ^ 0x5eed)) });
 
@@ -104,7 +105,8 @@ function showGarage(toast?: string) {
   screen = 'garage'; world.mode = 'garage'; setTimeout(showUpdate, 0); rollRival(); if (!garageInCatalog()) world.setGarageCar(playerLook());
   renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onRace: () => startRace(), onStrip: startStrip, stripNext, onClaim: claimLevel, onSetting: setSetting,
     onPreview: look => world.setGarageCar(look ?? playerLook()), onView: v => world.setGarageView(v),
-    onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, onBuyPart: buyPart, onFitPart: (id: string) => fitPart(id), onDistance: setDistance, onDifficulty: setDifficulty, thumb: (look, view) => world.thumbnail(look, undefined, undefined, view), playerLook,
+    onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, onBuyPart: buyPart, onFitPart: (id: string, carId: string) => fitPart(id, undefined, carId),
+    onFav: (id: string) => { const f = save.favs ??= []; const i = f.indexOf(id); if (i >= 0) f.splice(i, 1); else f.push(id); writeSave(save); showGarage(); }, onDistance: setDistance, onDifficulty: setDifficulty, thumb: (look, view) => world.thumbnail(look, undefined, undefined, view), playerLook,
     onNotesSeen: () => { save.seenVersion = VERSION; writeSave(save); }, onTyping: () => startTyping() }, toast);
 }
 
@@ -123,7 +125,7 @@ function useCar(id: string) {
   showGarage(`Now driving the ${carName(id)}`);
 }
 /** Visual parts (owner 2026-10-19): buy once for every car; fit to the car in use. Factory parts are free. */
-function buyPart(id: string) {
+function buyPart(id: string, carId = save.carId) {
   const p = PART_BY_ID[id]; if (!p) return;
   if (p.won && !ownsPart(id, save.partsOwned, save.decals)) return showGarage(`${p.name} is won on the Strip, not sold`);
   if (!ownsPart(id, save.partsOwned, save.decals)) {
@@ -132,12 +134,12 @@ function buyPart(id: string) {
     if (!DEV.unlimited) { if (crowns) save.crowns -= c.price; else save.voxels -= c.price; }
     save.partsOwned.push(id);
   }
-  fitPart(id, `Bought ${p.name} — fitted`);
+  fitPart(id, `Bought ${p.name} — fitted`, carId);
 }
-function fitPart(id: string, msg?: string) {
-  const p = PART_BY_ID[id], c = save.cars[save.carId]; if (!p || !c) return;
-  if (isFactory(p) || factoryTwin(save.carId, p.slot)?.id === id) delete c.parts[p.slot]; else if (ownsPart(id, save.partsOwned, save.decals)) c.parts[p.slot] = id; else return;
-  writeSave(save); world.setGarageCar(playerLook()); showGarage(msg ?? `Fitted ${p.name}`);
+function fitPart(id: string, msg?: string, carId = save.carId) {
+  const p = PART_BY_ID[id], c = save.cars[carId]; if (!p || !c) return;
+  if (isFactory(p) || factoryTwin(carId, p.slot)?.id === id) delete c.parts[p.slot]; else if (ownsPart(id, save.partsOwned, save.decals)) c.parts[p.slot] = id; else return;
+  writeSave(save); world.setGarageCar(lookFor(carId)); showGarage(msg ?? `Fitted ${p.name}${carId !== save.carId ? ` to ${carName(carId)}` : ''}`);
 }
 /** Paint / body options on an owned car save straight away (visual only). */
 function carStyle(id: string, paint: string, opts: Record<string, string>) {
@@ -157,17 +159,20 @@ function setSetting(key: string, value: string) {
   showGarage();
 }
 
-function buyOrEquip(kind: 'engine' | 'trans', tier: Tier) {
-  if (CARS[save.carId].unique) return showGarage('Boss cars come as they are — they can\'t be upgraded');
-  const lg = CARS[save.carId].league, def = (kind === 'engine' ? ENGINE[lg] : TRANSMISSION[lg])[tier - 1];
+/** Buy / fit an engine or gearbox tier on a car (the one in use, or any owned car from the Garage). */
+function buyOrEquip(kind: 'engine' | 'trans', tier: Tier, carId = save.carId) {
+  if (!save.cars[carId]) return;
+  if (CARS[carId].unique) return showGarage('Boss cars come as they are — they can\'t be upgraded');
+  const lg = CARS[carId].league, def = (kind === 'engine' ? ENGINE[lg] : TRANSMISSION[lg])[tier - 1];
+  const T = carId === save.carId ? save : save.cars[carId];        // the car in use keeps its tiers at the top of the save
   let msg: string | undefined;
-  if (!save.owned[kind].includes(tier)) {
+  if (!T.owned[kind].includes(tier)) {
     if (!DEV.unlimited && save.voxels < def.price) return showGarage(`Need ${(def.price - save.voxels).toLocaleString()} more VX for ${def.label}`);
     if (!DEV.unlimited) save.voxels -= def.price;                 // test console: unlimited = free purchases
-    save.owned[kind] = [...save.owned[kind], tier].sort() as Tier[];
+    T.owned[kind] = [...T.owned[kind], tier].sort() as Tier[];
     msg = `Bought ${def.label}`;
   }
-  save.equipped[kind] = tier; writeSave(save);
+  T.equipped[kind] = tier; writeSave(save);
   showGarage(msg ?? `Equipped ${def.label}`);
 }
 

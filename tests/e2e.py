@@ -173,7 +173,8 @@ with sync_playwright() as p:
     pg.click('.strip-wrap .g-close'); time.sleep(0.3)
     # Parts screen (owner 2026-10-19): side tabs, 3D close-up cards, buy once → fitted; owned for every car.
     # Q114: the tuner comes with a GT wing, so the GT wing card is folded into "Factory · GT wing".
-    pg.click('[data-panel="parts"]'); time.sleep(1)
+    # V0.5.0 (owner): Parts lives in the Garage — pick the car, then Parts on the dial
+    pg.click('[data-panel="garage"]'); time.sleep(1); pg.click('[data-gcar="tuner"]'); time.sleep(0.5); pg.click('#gParts'); time.sleep(1)
     pt = pg.evaluate("[!!document.querySelector('[data-part=\\'spoiler.gt\\']'), document.querySelector('[data-part=\\'spoiler.stock\\'] b').textContent]")
     ok('Parts: a part the car already has from the factory is not sold twice', (not pt[0]) and 'GT wing' in pt[1], json.dumps(pt))
     pg.click('[data-part="spoiler.ducktail"]'); time.sleep(0.5)

@@ -24,6 +24,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.5.0', date: '2026-10-19', title: 'Garage',
+    added: [
+      'Garage tab: all your cars in a list on the left, the picked car on the turntable, and a stats box beside it.',
+      'Pick a car and three buttons pop out beside its card: Drive (race in it), Parts (its looks) and Upgrade (engine and gearbox). Parts and Upgrade work on that car even if you are driving another one.',
+      'Stat bars show the car\'s stock value in grey, what your upgrades add in green, and any trade-off in red (e.g. shorter gears cost a little top speed).',
+      'Favourites: tap ★ on a car to pin it to the top; "Favourites only" shows just those.',
+    ],
+    changed: [
+      'The Parts tab moved into the Garage (per car). The bottom bar is now Profile · Garage · Upgrades · Catalog · Settings.',
+      'Upgrades on the bottom bar still work on the car you are driving.',
+    ],
+  },
+  {
     version: '0.4.0', date: '2026-10-19', title: 'Nitro + passages by difficulty',
     added: [
       'Nitro in the Typing Race: two nitro bars per race. Press Space in the middle of a word to use one: the rest of the word finishes at once and your car surges ahead with a steady blue-and-orange flame. It also clears a red letter. Nitro letters don\'t count against your accuracy.',

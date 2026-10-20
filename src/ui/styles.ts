@@ -250,4 +250,36 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .ty-row.me{box-shadow:0 0 0 2px var(--accent)}.ty-row .pl{font-size:19px;color:var(--accent)}.ty-row .dim{color:var(--dim)}
 .ty-earn{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--dim)}.ty-earn b{color:var(--good)}.ty-earn .tot{margin-left:auto;color:var(--text)}
 .ty-btns{display:flex;gap:12px;justify-content:flex-end}
+
+/* ---- Garage: my cars (owner 2026-10-19) ---- */
+.gr-head{display:flex;justify-content:space-between;align-items:center;padding:2px 4px 4px;color:var(--accent)}.gr-head b{font-size:14px}
+.gr-favonly{border:0;cursor:pointer;font:800 11px system-ui;padding:5px 8px;background:var(--panel2);color:var(--dim);box-shadow:0 0 0 2px var(--edge)}
+.gr-favonly.on{background:var(--accent);color:#14161c;box-shadow:0 0 0 2px #b8901c}
+.gr-card{position:relative}.gr-sub{font-size:11px;color:var(--dim);padding:0 4px}
+.gr-star{position:absolute;right:8px;top:8px;font-style:normal;font-size:18px;line-height:1;color:#5a5f6d;cursor:pointer;text-shadow:0 1px 0 #0b0c10;padding:2px 4px;background:#14161cb0}
+.gr-star:hover{color:#cfd3dc}.gr-star.on{color:var(--accent)}
+.gr-empty{padding:10px 6px}
+.gr-info{position:absolute;right:28px;top:128px;width:300px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.gr-info .g-close{right:8px;top:8px}
+.gr-name{display:flex;flex-direction:column;gap:2px;padding-right:30px}.gr-name b{font-size:20px}.gr-name span{font-size:11.5px;color:var(--dim)}
+.gr-stats{display:flex;flex-direction:column;gap:7px}
+.gr-stat{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:11px;color:var(--dim)}
+.gr-stat span{text-transform:uppercase;letter-spacing:.06em}.gr-stat b{font:700 12px system-ui;color:var(--text);font-variant-numeric:tabular-nums}
+.gr-stat i{grid-column:1/3;position:relative;display:block;height:6px;background:#2a2e38}
+.gr-stat u{position:absolute;left:0;top:0;bottom:0;background:#9aa3b5}.gr-stat s{position:absolute;top:0;bottom:0;background:var(--good);text-decoration:none}.gr-stat s.worse{background:var(--bad)}
+.gr-key{display:flex;gap:14px;font-size:11px;color:var(--dim)}.gr-key span{display:flex;align-items:center;gap:5px}
+.gr-key u,.gr-key s,.gr-key em{display:inline-block;width:14px;height:6px;background:#9aa3b5}.gr-key s{background:var(--good)}.gr-key em{background:var(--bad)}
+.gr-dial{position:absolute;left:0;top:0;display:flex;align-items:center;z-index:5;pointer-events:none}
+/* blocky connector in the panel style: grey edge blocks with the dark drop shadow, card → rail → each button */
+.gr-fan{position:relative;flex:none;width:28px;height:150px}
+.gr-fan i{position:absolute;left:12px;width:16px;height:6px;background:var(--edge);box-shadow:3px 3px 0 #0b0c10}
+.gr-fan i.in{left:0;top:72px;width:14px}
+.gr-fan i.rail{left:10px;top:18px;width:6px;height:114px}
+.gr-dbtns{display:flex;flex-direction:column;gap:12px;pointer-events:auto}
+.gr-dbtn{border:0;cursor:pointer;width:132px;height:42px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;background:var(--panel);color:var(--text);box-shadow:0 0 0 3px var(--edge),4px 4px 0 3px #0b0c10}
+.gr-dbtn b{font:900 14px "Courier New",monospace;letter-spacing:.08em;text-transform:uppercase}.gr-dbtn span{font-size:10px;color:var(--dim)}
+.gr-dbtn:hover:not(:disabled){box-shadow:0 0 0 3px var(--accent),4px 4px 0 3px #0b0c10}
+.gr-dbtn.drive{background:var(--accent);color:#14161c;box-shadow:0 0 0 3px #b8901c,4px 4px 0 3px #0b0c10}.gr-dbtn.drive span{color:#3a3010}
+.gr-dbtn:disabled{cursor:default;opacity:.6}
+.gr-pick{position:absolute;left:380px;top:140px;width:200px}
 `;

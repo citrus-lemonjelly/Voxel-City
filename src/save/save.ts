@@ -28,6 +28,8 @@ export interface SaveV1 {
   decals: string[];
   /** Newest patch notes version the player has opened (the notes button shows NEW until then). */
   seenVersion?: string;
+  /** Favourite cars (owner 2026-10-19: ★ in the Garage, filter by favourites). */
+  favs?: string[];
   /** Typing Race stats (owner 2026-10-19). */
   typing?: TypingStats;
   /** Game version this save last ran on (announces "Updated to …" once after an update). */
@@ -122,4 +124,9 @@ export function writeSave(s: SaveV1) {
 export interface TypingStats { races: number; wins: number; best: number; recent: number[]; keys: number; errors: number; /** recent WPMs per difficulty */ recentBy?: Partial<Record<'easy' | 'medium' | 'hard', number[]>> }
 export function typingStats(s: SaveV1): TypingStats {
   return (s.typing ??= { races: 0, wins: 0, best: 0, recent: [], keys: 0, errors: 0 });
+}
+
+/** A car's upgrade tiers: the car in use keeps them at the top level of the save, the others in their own entry. */
+export function carTiers(s: SaveV1, id: string): { owned: CarState['owned']; equipped: CarState['equipped'] } {
+  return id === s.carId ? { owned: s.owned, equipped: s.equipped } : { owned: s.cars[id].owned, equipped: s.cars[id].equipped };
 }
