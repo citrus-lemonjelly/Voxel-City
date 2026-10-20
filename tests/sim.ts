@@ -9,8 +9,8 @@ import { CARS, CATALOG_ORDER, LEAGUES } from '../src/data/cars';
 import { makeRival, simTime, MATCH } from '../src/game/rivals';
 import { CHANGELOG, VERSION } from '../src/data/changelog';
 import { isNewer } from '../src/game/updates';
-import { TypingRun, typistSchedule, makeTypingRace, placeOf, averageWpm, wpmOf, typedBy } from '../src/game/typing';
-import { PASSAGES } from '../src/data/passages';
+import { TypingRun, typistSchedule, makeTypingRace, placeOf, averageWpm, averageFor, wpmOf, typedBy, glide } from '../src/game/typing';
+import { PASSAGES, PASSAGES_BY_DIFFICULTY } from '../src/data/passages';
 import { typingPay, TYPING } from '../src/data/economy';
 import { VISUAL_PARTS, isFactory, randomParts, ownsPart, PART_SLOTS } from '../src/data/visualParts';
 import { COSMETIC_PRICES } from '../src/data/economy';
@@ -192,8 +192,24 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
 }
 // Typing Race (owner 2026-10-19, Q122–Q129)
 {
-  const okText = PASSAGES.every(p => p.length >= 150 && p.length <= 250 && /^[A-Za-z0-9 .,'?!:;-]+$/.test(p) && !/  /.test(p));
-  check(okText && PASSAGES.length >= 40, `typing: ${PASSAGES.length} original passages, ${Math.min(...PASSAGES.map(p => p.length))}–${Math.max(...PASSAGES.map(p => p.length))} characters, plain keyboard characters only`);
+  const T = PASSAGES_BY_DIFFICULTY, kb = (p: string) => /^[A-Za-z0-9 .,'"?!:;()&#/-]+$/.test(p) && !/  /.test(p) && !/^ | $/.test(p);
+  const len = (a: string[]) => [Math.min(...a.map(p => p.length)), Math.max(...a.map(p => p.length))];
+  const avgWord = (a: string[]) => a.join(' ').split(' ').reduce((x, w) => x + w.length, 0) / a.join(' ').split(' ').length;
+  const hardMarks = T.hard.every(p => /[0-9]/.test(p) || /["():;]/.test(p));
+  check(PASSAGES.every(kb) && T.easy.length >= 20 && T.medium.length >= 40 && T.hard.length >= 20 && len(T.easy)[1] <= 160 && len(T.medium)[0] >= 150 && len(T.hard)[0] >= 170
+    && avgWord(T.easy) < avgWord(T.medium) && hardMarks && new Set(PASSAGES).size === PASSAGES.length,
+    `typing passages by difficulty: Easy ${T.easy.length} (${len(T.easy).join('–')} chars, words ${avgWord(T.easy).toFixed(1)}), Medium ${T.medium.length} (${len(T.medium).join('–')}, ${avgWord(T.medium).toFixed(1)}), Hard ${T.hard.length} (${len(T.hard).join('–')}, numbers / quotes / colons)`);
+  const tierOk = (['easy', 'medium', 'hard'] as const).every(d => [1, 2, 3, 4, 5].every(seed => T[d].includes(makeTypingRace(seed, 50, d, 'D').text)));
+  check(tierOk, 'typing: each difficulty races its own passages');
+  // nitro (owner 2026-10-19): two uses; Space mid-word finishes the word (and its space); clears a typo; no accuracy cost
+  const nr = new TypingRun('one two three four');
+  const n1 = [nr.key('o', 1), nr.key(' ', 1.2), nr.pos, nr.nitros, nr.key('t', 2), nr.key('x', 2.1), nr.typo, nr.key(' ', 2.2), nr.pos, nr.typo, nr.nitros, nr.key(' ', 3), nr.errors, nr.pos];
+  check(JSON.stringify(n1) === JSON.stringify(['ok', 'nitro', 4, 1, 'ok', 'typo', true, 'nitro', 8, false, 0, 'typo', 2, 8]) && nr.keys === 4 + 0,
+    `typing nitro: Space mid-word finishes the word, two per race, clears a red letter, then a mid-word Space is a typo (${JSON.stringify(n1)})`);
+  const last = new TypingRun('go now'); last.key('g', 1); last.key('o', 1.1); last.key(' ', 1.2); last.key('n', 1.3); last.key(' ', 1.4);
+  check(last.done && last.finish === 1.4, 'typing nitro: on the last word it finishes the race');
+  check(Math.abs(averageFor({ recent: [60] }, 'hard') - 60 * TYPING.textSpeed.hard) < 1e-9 && averageFor({ recent: [60], recentBy: { hard: [40, 42, 44] } }, 'hard') === 42,
+    'typing: rivals match your average for that difficulty (starting from your overall average, adjusted for the text)');
   const run = new TypingRun('ab c');
   const a = [run.key('a', 1), run.key('x', 2), run.key('x', 2.1), run.pos, run.typo, run.key('b', 3), run.key(' ', 3.5), run.key('c', 4), run.done, run.finish, run.errors, run.keys];
   check(JSON.stringify(a) === JSON.stringify(['ok', 'typo', 'typo', 1, true, 'ok', 'ok', 'ok', true, 4, 2, 6]) && Math.abs(run.accuracy - 4 / 6) < 1e-9,
@@ -214,5 +230,14 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
     `typing pay: places ${p.join(' / ')} VX (League D Medium), scales with league, best-WPM and 98%+ accuracy bonuses`);
   const r0 = makeTypingRace(5, 60, 'medium', 'D').rivals[0];
   check(typedBy(r0, 0) === 0 && typedBy(r0, r0.finish) === r0.schedule.length && JSON.stringify(makeTypingRace(5, 60, 'medium', 'D')) === JSON.stringify(makeTypingRace(5, 60, 'medium', 'D')), 'typing: rivals are seeded — the same race replays exactly');
+}
+// car glide (owner Q131): typing at 60 wpm then stopping → the car keeps rolling, slows smoothly, never passes your letters
+{
+  const perChar = 2226 / 160, dt = 1 / 60; let x = 0, v = 0, target = 0, t = 0; const after: number[] = [];
+  for (; t < 5; t += dt) { target = Math.floor(t * 5) * perChar; [x, v] = glide(x, v, target, dt); }   // 5 chars/s = 60 wpm
+  const stopAt = x, vStop = v; let moving = 0, smooth = true, never = true, prev = v;
+  for (let i = 0; i < 180; i++) { [x, v] = glide(x, v, target, dt); after.push(x); if (v > 1) moving += dt; if (v > prev + 1e-6) smooth = false; if (x > target + 1e-9) never = false; prev = v; }
+  check(vStop > 30 && moving > 0.6 && smooth && never && target - after[after.length - 1] < 1,
+    `typing glide: stop typing at ${(vStop).toFixed(0)} blocks/s → the car rolls on ${(target - stopAt).toFixed(0)} blocks over ~${moving.toFixed(1)} s, slowing smoothly, never past your letters`);
 }
 process.exit(fail ? 1 : 0);

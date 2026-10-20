@@ -40,9 +40,13 @@ Rolled at random like Street Races: names, cars from your league with random vis
 | Bonuses | New best WPM +25%; accuracy ≥ 98% +25% |
 | Stats | Best WPM, average WPM (last 10), races, wins, accuracy → Profile |
 
+## Nitro (V0.4.0)
+
+Two bars per race. Space while the next letter is in the middle of a word uses one: the rest of the word (and its space) completes at once, a red letter is cleared, and a steady flame shows behind your car. Nitro letters don't count as key presses, so accuracy is untouched. With no bars left, a mid-word Space is a typo.
+
 ## Text
 
-All passages are **original** (written for Voxel City: the city, cars, racing, everyday scenes). No book, song or article text. Starts with ~40 passages; later tiers add capitals, numbers and punctuation.
+Easy, Medium and Hard each have their own passages (Easy 20 short / simple, Medium 44 everyday, Hard 20 with names, numbers, times and quotes). All passages are **original** (written for Voxel City: the city, cars, racing, everyday scenes). No book, song or article text. Starts with ~40 passages; later tiers add capitals, numbers and punctuation.
 
 ## Build plan (after approval)
 

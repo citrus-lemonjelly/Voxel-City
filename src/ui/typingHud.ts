@@ -5,7 +5,7 @@ const h = (html: string) => { const t = document.createElement('template'); t.in
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const ORD = ['1st', '2nd', '3rd', '4th', '5th'];
 
-export interface TypingHudOpts { text: string; names: string[]; you: number; caption: string }
+export interface TypingHudOpts { text: string; names: string[]; you: number; caption: string; nitros: number }
 
 export class TypingHud {
   el: HTMLElement;
@@ -29,6 +29,7 @@ export class TypingHud {
       <div class="ty-panel blk"><div class="ty-text">${passage}</div>
         <div class="ty-stats"><div class="stat"><b data-s="wpm">—</b><span>WPM</span></div><div class="stat"><b data-s="acc">—</b><span>Accuracy</span></div>
           <div class="stat"><b data-s="place">—</b><span>Place</span></div><div class="stat"><b data-s="time">0:00</b><span>Time</span></div>
+          <div class="stat ty-nitro"><b>${'<i class="on"></i>'.repeat(o.nitros)}</b><span>Nitro · Space mid-word</span></div>
           <div class="stat ty-hint"><b data-s="hint">Get ready…</b><span>Wrong key = red letter · type the right one to go on · Esc leaves</span></div></div></div>
     </div>`);
     root.appendChild(this.el);
@@ -55,6 +56,11 @@ export class TypingHud {
     this.lastPos = pos; this.lastTypo = typo;
     this.stat.hint.textContent = typo ? 'Fix the red letter' : pos ? 'Keep going' : this.stat.hint.textContent;
   }
+  /** One-off hint text (e.g. NITRO!). */
+  flash(msg: string) { this.stat.hint.textContent = msg;
+  }
+  /** Nitro bars: `left` still lit; the used ones go dark (no blinking). */
+  setNitro(left: number) { this.el.querySelectorAll('.ty-nitro i').forEach((b, i) => b.classList.toggle('on', i < left)); }
   setStats(wpm: number | null, acc: number | null, place: number | null, t: number) {
     this.stat.wpm.textContent = wpm === null ? '—' : String(Math.round(wpm));
     this.stat.acc.textContent = acc === null ? '—' : `${Math.floor(acc * 100)}%`;
@@ -83,7 +89,7 @@ export function renderTypingResults(root: HTMLElement, d: TypingResult, on: { ag
     <h2 class="hd ty-rhead ${d.place === 1 ? 'win' : ''}">${d.place === 1 ? '1st place!' : `${ORD[d.place - 1] ?? '5th'} place`}</h2>
     <div class="ty-rows">${d.rows.map(r => `<div class="ty-row ${r.you ? 'me' : ''}"><span class="pl hd">${ORD[r.place - 1]}</span><span><b>${esc(r.name)}</b> · <span class="dim">${esc(r.car)}</span></span><span><b>${Math.round(r.wpm)}</b> wpm</span><span>${r.acc === undefined ? '' : `${Math.floor(r.acc * 100)}%`}</span></div>`).join('')}</div>
     <div class="ty-earn">${d.earnings.map(([k, v]) => `<span>${esc(k)} <b>+${v.toLocaleString()} VX</b></span>`).join('')}<span class="tot">Total <b>+${d.total.toLocaleString()} VX</b></span></div>
-    <div class="g-note">${d.newBest ? `New best: ${Math.round(d.wpm)} wpm! · ` : `Best ${Math.round(d.best)} wpm · `}your average (last 10 races) ${Math.round(d.avg)} wpm</div>
+    <div class="g-note">${d.newBest ? `New best: ${Math.round(d.wpm)} wpm! · ` : `Best ${Math.round(d.best)} wpm · `}your average at this difficulty ${Math.round(d.avg)} wpm</div>
     <div class="ty-btns"><button class="btn ghost" id="tyGarage">Garage</button><button class="btn race" id="tyAgain">Race again ▸</button></div>
   </div>`);
   root.appendChild(el);

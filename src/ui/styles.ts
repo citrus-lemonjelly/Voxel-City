@@ -240,7 +240,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .ty-stats{display:flex;gap:10px;margin-top:auto}
 .ty-stats .stat{flex:1;display:flex;flex-direction:column}
 .ty-stats .stat b{font:900 22px "Courier New",monospace}.ty-stats .stat span{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;font-weight:800}
-.ty-stats .ty-hint{flex:1.8}.ty-hint b{color:var(--amber)}
+.ty-stats .ty-hint{flex:1.8}
+.ty-nitro b{display:flex;gap:6px;align-items:center;height:28px}.ty-nitro i{width:30px;height:14px;background:#2a2d36;box-shadow:inset 0 0 0 2px #1a1c22}
+.ty-nitro i.on{background:#3aa0ff;box-shadow:inset 0 0 0 2px #1c5ea8,0 0 0 2px #0b0c10}.ty-hint b{color:var(--amber)}
 #typing-res{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:660px;padding:22px 26px;display:flex;flex-direction:column;gap:10px}
 .ty-rcap{font-size:13px;color:var(--dim)}.ty-rhead{margin:0;font-size:30px;color:var(--text)}.ty-rhead.win{color:var(--accent)}
 .ty-rows{display:flex;flex-direction:column;gap:6px}

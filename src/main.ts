@@ -21,7 +21,7 @@ import { AIController, makeRng } from './game/ai';
 import { carStats } from './game/stats';
 import { DEV, devOppSkill, initDevConsole } from './ui/devConsole';
 import { freshSave, typingStats } from './save/save';
-import { TypingRun, TypingRival, makeTypingRace, averageWpm, typedBy, placeOf, wpmOf } from './game/typing';
+import { TypingRun, TypingRival, makeTypingRace, averageFor, typedBy, placeOf, wpmOf, glide } from './game/typing';
 import { TypingHud, renderTypingResults } from './ui/typingHud';
 import { TYPE_TRACK, laneZ } from './render/typingView';
 import { typingPay, TYPING } from './data/economy';
@@ -286,20 +286,20 @@ const dev = initDevConsole({
 // Five lanes seen from above, the camera follows your car. 3 s of start lamps, then type: each correct key moves you on,
 // a wrong key turns the letter red until you type the right one. Rivals are seeded typists matched to your average.
 const COUNT = 3, TYPE_LANE = 2;                                      // you race in the middle lane
-let ty: { run: TypingRun; rivals: TypingRival[]; hud: TypingHud; start: number; vis: number[]; doneAt: number; diff: Difficulty; seed: number } | null = null;
+let ty: { run: TypingRun; rivals: TypingRival[]; hud: TypingHud; start: number; vis: number[]; vel: number[]; doneAt: number; diff: Difficulty; seed: number } | null = null;
 const typingClock = (now = performance.now()) => ty ? (now - ty.start) / 1000 - COUNT : 0;   // seconds since GO
 function startTyping() {
   screen = 'typing'; document.getElementById('vc-update')?.remove();
   const seed = params.get('tseed') ? +params.get('tseed')! : ((Date.now() & 0x7fffffff) || 1);
   const stats = typingStats(save), diff = save.raceDiff, league = CARS[save.carId].league;
-  const { text, rivals } = makeTypingRace(seed, averageWpm(stats.recent), diff, league);
+  const { text, rivals } = makeTypingRace(seed, averageFor(stats, diff), diff, league);
   // lanes: you in the middle, the four rivals around you
   const lanes: (TypingRival | null)[] = [rivals[0], rivals[1], null, rivals[2], rivals[3]];
   const looks = lanes.map(r => r ? { ...STOCK_LOOK, body: carBody(r.carId).profile ?? 'civix', paint: r.paint, parts: randomParts(makeRng(r.seed ^ 0x5eed)) } : playerLook());
   world.setupTyping(looks);
   const hudEl = ui; const names = lanes.map(r => r ? r.name : 'YOU');
-  ty = { run: new TypingRun(text), rivals, start: performance.now(), vis: [0, 0, 0, 0, 0], doneAt: 0, diff, seed,
-    hud: new TypingHud(hudEl, { text, names, you: TYPE_LANE, caption: `Typing Race · ${stage.name} · League ${league} · ${DIFFICULTY[diff].label}` }) };
+  ty = { run: new TypingRun(text), rivals, start: performance.now(), vis: [0, 0, 0, 0, 0], vel: [0, 0, 0, 0, 0], doneAt: 0, diff, seed,
+    hud: new TypingHud(hudEl, { text, names, you: TYPE_LANE, caption: `Typing Race · ${stage.name} · League ${league} · ${DIFFICULTY[diff].label}`, nitros: TYPING.nitros }) };
   (ty as any).lanes = lanes;
 }
 function typingKey(e: KeyboardEvent) {
@@ -309,8 +309,9 @@ function typingKey(e: KeyboardEvent) {
   e.preventDefault();                                                // no page scroll on space, no quick-find on ' or /
   const t = typingClock();
   if (t < 0 || ty.run.done) return;                                  // keys before GO don't count
-  ty.run.key(e.key, t);
+  const r = ty.run.key(e.key, t);
   ty.hud.setText(ty.run.pos, ty.run.typo);
+  if (r === 'nitro') { ty.hud.setNitro(ty.run.nitros); ty.hud.flash('NITRO!'); }
   if (ty.run.done && !ty.doneAt) ty.doneAt = performance.now();
 }
 function typingFrame(dt: number, now: number) {
@@ -320,18 +321,20 @@ function typingFrame(dt: number, now: number) {
   if (t < 0) ty.hud.setCountdown(Math.min(3, Math.floor(t + COUNT) + 1), false); else ty.hud.setCountdown(3, true, t > 1.2);
   // where each car should be; cars ease towards it (yours glides to a stop while a letter is red)
   const target = lanes.map(r => (r ? Math.min(len, typedBy(r, Math.max(0, t))) : run.pos) / len * span);
-  const k = 1 - Math.exp(-7 * Math.min(dt, 0.1));
-  ty.vis = ty.vis.map((v, i) => v + (target[i] - v) * k);
+  // every car glides: it trails its typed distance a little and eases to a stop when typing stops (owner Q131)
+  ty.vis.forEach((x, i) => { [ty!.vis[i], ty!.vel[i]] = glide(x, ty!.vel[i], target[i], Math.min(dt, 0.25)); });
   world.typing?.update(ty.vis, TYPE_LANE);
+  world.typing?.setBoost(TYPE_LANE, t - run.nitroAt < 0.9);          // nitro flame behind your car (steady, no flicker)
   // tags just behind each car, live WPM, progress bar
   const W = ui.clientWidth || innerWidth, H = ui.clientHeight || innerHeight;
-  const tags = lanes.map((_, i) => { const c = world.typing!.cars[i]; return world.typing!.toScreen(c.group.position.x + c.L + 4, laneZ(i), W, H); });
+  const boost = t - run.nitroAt < 0.9;
+  const tags = lanes.map((_, i) => { const c = world.typing!.cars[i]; return world.typing!.toScreen(c.group.position.x + c.L + (i === TYPE_LANE && boost ? 36 : 4), laneZ(i), W, H); });   // tag slides back to show the flame
   const wpms = lanes.map(r => t <= 0.5 ? null : r ? wpmOf(Math.min(len, typedBy(r, t)), Math.min(t, r.finish)) : run.wpm(t));
   ty.hud.place(tags, wpms, target.map(d => d / span));
   const ahead = ty.rivals.filter(r => (typedBy(r, t) > run.pos) || (run.done && r.finish < run.finish!)).length;
   ty.hud.setStats(t > 0.5 ? run.wpm(t) : null, run.keys ? run.accuracy : null, t > 0 ? ahead + 1 : null, run.finish ?? Math.max(0, t));
   if (AUTOPLAY && t > 0 && !run.done && t * 6 > run.pos) { run.key(run.text[run.pos], t); ty.hud.setText(run.pos, run.typo); if (run.done) ty.doneAt = now; }   // test hook: ~72 wpm
-  if (ty.doneAt && now - ty.doneAt > 1600) finishTyping();
+  if (ty.doneAt && now - ty.doneAt > 2000) finishTyping();          // time for your car to glide over the line
 }
 function finishTyping() {
   if (!ty) return;
@@ -347,13 +350,14 @@ function finishTyping() {
   const total = earnings.reduce((a, [, v]) => a + v, 0);
   save.voxels += total; stats.races++; if (place === 1) stats.wins++; if (newBest) stats.best = wpm;
   stats.recent = [...stats.recent, wpm].slice(-TYPING.recentRaces); stats.keys += run.keys; stats.errors += run.errors;
+  stats.recentBy = { ...(stats.recentBy || {}), [diff]: [...(stats.recentBy?.[diff] ?? []), wpm].slice(-TYPING.recentRaces) };
   writeSave(save);
   const rows = [
     { place, name: 'YOU', car: carName(save.carId), wpm, acc, you: true, fin: run.finish! },
     ...rivals.map(r => ({ place: 0, name: r.name, car: carName(r.carId), wpm: r.wpm, fin: r.finish })),
   ].sort((a, b) => a.fin - b.fin).map((r, i) => ({ ...r, place: i + 1 }));
   void lanes;
-  const data = { rows, place, wpm, acc, earnings, total, newBest, caption: `Typing Race · ${stage.name} · ${DIFFICULTY[diff].label}`, best: stats.best, avg: averageWpm(stats.recent) };
+  const data = { rows, place, wpm, acc, earnings, total, newBest, caption: `Typing Race · ${stage.name} · ${DIFFICULTY[diff].label}`, best: stats.best, avg: averageFor(stats, diff) };
   (window as any).__vc.lastTyping = data;
   ty = null;
   setTimeout(showUpdate, 0);

@@ -1,7 +1,33 @@
 // Typing Race passages (owner Q127): all ORIGINAL text written for Voxel City — the city, its streets, cars and people.
-// No book, song, film or article text. 150–250 characters each, plain sentences (capitals, numbers and harder punctuation
-// come in later tiers). Straight quotes and apostrophes only, so every character is on a normal keyboard.
-export const PASSAGES: string[] = [
+// No book, song, film or article text. Each difficulty has its own set (owner 2026-10-19):
+// Easy = short, simple words; Medium = everyday sentences; Hard = longer, with names, numbers, times and harder
+// punctuation. Straight quotes and apostrophes only, so every character is on a normal keyboard.
+/** Easy: short sentences, simple words, 100–160 characters. */
+export const EASY_PASSAGES: string[] = [
+  "The sun is up and the road is dry. Five cars roll to the line. The lights go on, one by one, and then it is time to go.",
+  "My car is small and red. It is not the fastest car in town, but it starts every day and it takes me where I need to go.",
+  "The shop at the end of the street sells tyres, oil and cold drinks. The man who runs it knows the name of every car.",
+  "We wash the car on a hot day. The water is cold, the soap is thick, and by the end the car shines and so do we.",
+  "A cat sat on the hood of the blue van all day. When the van left, the cat went to find a new warm spot in the sun.",
+  "The bus stops at the park at nine. Kids get off with their bags, wave to the driver, and run to the swings and slides.",
+  "Rain fell all night. In the morning the streets were clean and wet, and the cars made a soft hiss as they drove past.",
+  "Turn the key, check the mirror, and pull out slow. The road is long and there is no need to rush on a quiet day.",
+  "The race was short. The two cars left the line side by side, and the red one won by less than the length of a door.",
+  "I like the sound of a car at night. It starts low and far away, gets loud as it goes past, and then fades out again.",
+  "The new garage has big doors and bright lights. There is room for six cars, a work bench, and a small fridge too.",
+  "Fill the tank, check the tyres, and clean the glass. A few small jobs each week keep a car happy for a long time.",
+  "The city is calm at dawn. Shops are shut, the roads are clear, and the only sound is a train on the far side of town.",
+  "She drove to the coast with the windows down. The air was warm and salty, and the road ran right along the sand.",
+  "A good driver looks far down the road. That way there is time to slow down, change lanes, or stop if there is a need.",
+  "The kid next door has a toy car that he drives around the yard. One day, he says, he will race a real one in town.",
+  "At the end of the race they all shook hands. No one was mad. They had fun, and they would race again next week.",
+  "There is a small cafe by the track. It sells hot tea, warm buns and soup, and it is always full on a race day.",
+  "The old truck is slow up hills, but it never breaks down. It has done more miles than any car on our whole street.",
+  "Green means go. Red means stop. Keep your hands on the wheel, your eyes on the road, and you will be fine out there.",
+];
+
+/** Medium: everyday sentences, 150–232 characters (the original set). */
+export const MEDIUM_PASSAGES: string[] = [
   "The city wakes up slowly. Street lights fade, the first buses pull out of the depot, and somewhere a mechanic is already tuning an engine that will race tonight.",
   "Rain left the road dark and shiny. The tyres hissed as the cars rolled to the line, and every driver waited for the lights with one eye on the big clock.",
   "A good launch is half the race. Hold the revs steady, wait for green, and let the clutch bite smoothly so the wheels grip instead of spinning in place.",
@@ -47,3 +73,31 @@ export const PASSAGES: string[] = [
   "Tuning is a quiet art. Change one thing, test it, and write down what happened. A little more fuel, a little less weight, a slightly different gear. After a hundred small changes the car feels like a completely different machine.",
   "Every district of the city has its own style. The harbour crews love loud old muscle cars, the uptown drivers polish their hatchbacks until they shine, and the kids from the tunnels build wild machines out of whatever they can find.",
 ];
+
+/** Hard: longer, with capitals, numbers, times, quotes and harder punctuation, 170–260 characters. */
+export const HARD_PASSAGES: string[] = [
+  "At 6:45 on Saturday morning, Marisol rolled her 1998 hatchback onto the scales: 1,042 kg, exactly. \"Two kilos lighter than last week,\" she grinned, \"and that's without the spare wheel!\"",
+  "Race control's notice read: \"Heats start at 19:30; finals at 21:15. Drivers must sign in by 18:45, wear an approved helmet, and keep their speed under 20 km/h in the pits.\"",
+  "Kenji's notebook was full of numbers: 3.21 final drive, 4,800 rpm launch, 29 psi in the fronts, 31 in the rears. Every page ended the same way - \"Try again tomorrow, and write it all down.\"",
+  "The Harbour Bridge opened in 1931, closed for repairs in 1987, and reopened two years later with six lanes instead of four. Locals still argue about which version looked better.",
+  "Why do some drivers shift early? Nerves, mostly. The best advice I ever heard was simple: breathe out, count to two, and trust the lights; the car will do the rest for you.",
+  "Priya's shop, Voxel & Sons Tyres, has been on Quay Street since 1974. Her grandfather opened it with a single jack, three spanners and a loan of 400 pounds from his brother.",
+  "Weather update: light rain until 14:00, then clearing; winds from the north-west at 15-25 km/h. Track temperature should reach 28 degrees by the evening heats, perfect for grip.",
+  "The final was close - absurdly close. Dax crossed the line at 12.418 seconds; Halden at 12.421. Three thousandths! Neither of them believed it until they saw the replay twice.",
+  "\"Don't chase the redline,\" the old mechanic said, tapping the dial. \"Find the torque, shift on the beat, and let the engine breathe.\" Then he went back to his coffee and crossword.",
+  "Route 9 runs 14 km from the depot to the airport, with 27 stops, 11 traffic lights and one level crossing that, according to every driver, is always closed when you're running late.",
+  "The rules are strict: no nitrous on the street, no racing after midnight, and absolutely no burnouts outside the bakery on Elm Road. Mrs. Okafor has complained 17 times this year.",
+  "Tuning tip #42: change one thing at a time. If you alter the gearing, tyre pressure and ride height in one go, you'll never know which change helped - or which one cost you 0.3 s.",
+  "On the night of the 2019 city final, the power failed at 21:07. Two hundred people held up their phones; the racers lined up anyway, lit only by headlights and a sea of tiny screens.",
+  "Sable's checklist, taped to the dash: fuel (half), tyres (warm), belts (tight), mirrors (set), mind (clear). She has used the same list for 9 years and lost only 3 races in that time.",
+  "The Downtown Grid isn't a real grid at all; it's a tangle of one-way streets, two roundabouts and a tunnel. Newcomers get lost; locals take the shortcut behind the old cinema.",
+  "Can a 120 hp hatchback beat a 400 hp coupe? Over 400 m, rarely. Over a twisty kilometre in the rain? Often! Power matters, but grip, weight and nerve matter just as much, if not more.",
+  "Halden's first car cost 650 pounds, needed a new clutch, two tyres and a door, and leaked oil onto every driveway it visited. He still calls it \"the best car I'll ever own.\"",
+  "By 23:30 the car park had emptied: a few last engines ticking as they cooled, a lone food truck closing its shutters, and Tamsin, still under her car, chasing one stubborn rattle.",
+  "Lap records at the old airfield: 58.2 s (1996), 55.9 s (2004), 54.1 s (2015). Nobody has gone under 54 since; some say the bumpy third corner simply won't allow it, however brave you are.",
+  "The museum's newest exhibit is a battered rally sedan, still caked in mud from its last event. A small sign reads: \"Please don't clean it - the dirt is part of the story.\"",
+];
+
+export const PASSAGES_BY_DIFFICULTY = { easy: EASY_PASSAGES, medium: MEDIUM_PASSAGES, hard: HARD_PASSAGES };
+/** Every passage (all difficulties). */
+export const PASSAGES: string[] = [...EASY_PASSAGES, ...MEDIUM_PASSAGES, ...HARD_PASSAGES];

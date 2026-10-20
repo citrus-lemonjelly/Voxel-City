@@ -13,7 +13,7 @@ import { BODY_OPTIONS, stockParts } from '../render/bodies';
 import { infoRows } from '../game/carInfo';
 import { STRIP, levelInfo, decalName } from '../game/strip';
 import { DIFFICULTY, Difficulty, racePay, cosmeticPrice, typingPay } from '../data/economy';
-import { averageWpm } from '../game/typing';
+import { averageWpm, averageFor } from '../game/typing';
 import { PART_SLOTS, SOON_SLOTS, partsFor, PART_BY_ID, STOCK_PART, SLOT_VIEW, PartSlot, lookParts, VISUAL_PARTS, ownsPart, isFactory, VisualPart } from '../data/visualParts';
 import { CarLook, STOCK_LOOK } from '../render/carBuilder';
 import { CHANGELOG, VERSION } from '../data/changelog';
@@ -118,7 +118,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
       <div class="g-pick"><div class="g-dist seg" role="group" aria-label="Difficulty">${(Object.keys(DIFFICULTY) as Difficulty[]).map(d => `<button class="${save.raceDiff === d ? 'on' : ''}" data-diff="${d}">${DIFFICULTY[d].label}</button>`).join('')}</div>
         <div class="g-dist seg" role="group" aria-label="Race length">${RACE_DISTS.map(d => `<button class="${save.raceDist === d ? 'on' : ''}" data-dist="${d}">${d} m</button>`).join('')}</div></div>
       ${stripCard(save)}
-      <button class="g-mode blk" id="typingRace"><span class="hd">Typing Race</span><span class="g-mode-sub">${stage.name} · ${DIFFICULTY[save.raceDiff].label} · 5 racers · your average ${Math.round(averageWpm(typingStats(save).recent))} wpm<br>Type to drive · win +${typingPay(car.league, save.raceDiff, 1, false, 0).result.toLocaleString()} VX</span><span class="g-go">Go ▸</span></button>
+      <button class="g-mode blk" id="typingRace"><span class="hd">Typing Race</span><span class="g-mode-sub">${stage.name} · ${DIFFICULTY[save.raceDiff].label} · 5 racers · your ${DIFFICULTY[save.raceDiff].label} average ${Math.round(averageFor(typingStats(save), save.raceDiff))} wpm<br>Type to drive · win +${typingPay(car.league, save.raceDiff, 1, false, 0).result.toLocaleString()} VX</span><span class="g-go">Go ▸</span></button>
     </div>` : ''}
     ${ui.panel === 'strip' ? stripHtml(save, on) : ui.panel === 'parts' ? partsHtml(save, on) : panelHtml(save, on)}
   </div>`);

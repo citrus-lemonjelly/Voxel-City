@@ -24,6 +24,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.4.0', date: '2026-10-19', title: 'Nitro + passages by difficulty',
+    added: [
+      'Nitro in the Typing Race: two nitro bars per race. Press Space in the middle of a word to use one: the rest of the word finishes at once and your car surges ahead with a steady blue-and-orange flame. It also clears a red letter. Nitro letters don\'t count against your accuracy.',
+      'With no nitro left, Space in the middle of a word is a normal typo. Space between words still just types the space.',
+      'Easy, Medium and Hard now have their own passages: Easy = 20 short passages with simple words; Medium = the 44 everyday passages; Hard = 20 longer passages with names, numbers, times, quotes and harder punctuation.',
+    ],
+    changed: [
+      'Rivals are matched to your average for that difficulty (Hard text is slower for everyone). Until you have 3 races at a difficulty, it starts from your overall average, adjusted for the text.',
+      'The race menu and results show your average for the difficulty you picked.',
+    ],
+  },
+  {
+    version: '0.3.1', date: '2026-10-19', title: 'Typing Race: cars glide',
+    changed: [
+      'Typing Race cars now have momentum: when you stop typing (or hit a typo) your car glides on and eases to a stop instead of stopping dead. Rivals move the same way. A car never drives past the letters typed.',
+      'After the last letter, the results wait a moment longer so your car can roll over the finish line.',
+    ],
+  },
+  {
     version: '0.3.0', date: '2026-10-19', title: 'Typing Race',
     added: [
       'Typing Race (Race ▸ Typing Race): a Nitro Type-style race seen from straight above. Five cars in five lanes on a voxel street; the camera follows your car.',

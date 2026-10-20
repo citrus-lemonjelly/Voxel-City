@@ -98,6 +98,7 @@ export class TypingView {
 
   /** Put the five cars on the grid (index = lane). */
   setCars(looks: CarLook[]) {
+    this.flames.clear();
     for (const c of this.cars) { this.scene.remove(c.group); c.group.traverse((o: any) => o.isMesh && o.geometry?.dispose()); }
     this.cars = looks.map((look, i) => {
       const car = new CarModel(look, this.mats);
@@ -108,6 +109,23 @@ export class TypingView {
   }
 
   resize(w: number, h: number) { this.aspect = w / h; this.frame(); }
+
+  /** Nitro flame: a steady blue-and-orange plume from each tail pipe area while the boost lasts (no flicker). */
+  private flames = new Map<number, THREE.Group>();
+  setBoost(i: number, on: boolean) {
+    const car = this.cars[i]; if (!car) return;
+    let f = this.flames.get(i);
+    if (!f) {
+      if (!on) return;
+      f = new THREE.Group(); f.name = 'nitro';
+      for (const z of [car.W * 0.3, car.W * 0.7]) for (const [len, w, c, x] of [[30, 6, '#f2742a', car.L + 16], [18, 3, '#9fd8ff', car.L + 10], [8, 1.5, '#ffffff', car.L + 5]] as [number, number, string, number][]) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(len, 2, w), new THREE.MeshBasicMaterial({ color: c, toneMapped: false }));
+        m.position.set(x, 3, z); f.add(m);
+      }
+      car.group.add(f); this.flames.set(i, f);
+    }
+    f.visible = on;
+  }
 
   /** Car noses at these distances along the track (blocks from the start line); `follow` = your car's index. */
   update(dist: number[], follow: number) {

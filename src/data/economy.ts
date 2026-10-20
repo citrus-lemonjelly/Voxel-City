@@ -103,6 +103,10 @@ export const TYPING = {
   newBestBonus: 0.25, accuracyBonus: 0.25, accuracyAt: 0.98,
   /** typing speed assumed before your first race, and how many recent races make your average */
   defaultWpm: 35, recentRaces: 10,
+  /** how fast each difficulty's text types compared with Medium (starting point for its average) */
+  textSpeed: { easy: 1.08, medium: 1, hard: 0.85 } as Record<Difficulty, number>,
+  /** nitro bars per race (owner 2026-10-19): Space mid-word finishes the word */
+  nitros: 2,
   /** the 4 rivals' speeds as × your average WPM (Q125): typing at your average just wins on Medium */
   rivals: { easy: [0.62, 0.70, 0.76, 0.82], medium: [0.80, 0.88, 0.94, 0.99], hard: [0.92, 0.99, 1.04, 1.09] } as Record<Difficulty, number[]>,
 };

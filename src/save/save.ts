@@ -119,7 +119,7 @@ export function writeSave(s: SaveV1) {
 }
 
 /** Typing Race stats: races, wins, best WPM, the last few WPMs (rival matching uses their average), keys and errors. */
-export interface TypingStats { races: number; wins: number; best: number; recent: number[]; keys: number; errors: number }
+export interface TypingStats { races: number; wins: number; best: number; recent: number[]; keys: number; errors: number; /** recent WPMs per difficulty */ recentBy?: Partial<Record<'easy' | 'medium' | 'hard', number[]>> }
 export function typingStats(s: SaveV1): TypingStats {
   return (s.typing ??= { races: 0, wins: 0, best: 0, recent: [], keys: 0, errors: 0 });
 }
