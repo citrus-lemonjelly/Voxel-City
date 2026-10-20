@@ -15,6 +15,8 @@ export interface BodyDims {
   belt: (x: number) => number;
   /** where the hood ends (windscreen foot), x */
   hoodEnd: number;
+  /** roof panel x0..x1, its side inset, and the first empty row above it at x (Body Shop roof parts) */
+  roof: { x0: number; x1: number; inset: number; top: (x: number) => number };
 }
 type Parts = Partial<Record<string, string>>;
 const DARK = '#1a1a1e', DARKER = '#121214', GREY = '#5a5e66';
@@ -32,14 +34,32 @@ export function kitVoxels(d: BodyDims, parts: Parts): Vox[] {
   }
   if (bump === 'aero' || bump === 'track') {                                                                  // canards on the bumper corners
     const rows = bump === 'track' ? [yb + 2, yb + 4] : [yb + 3];
-    for (const y of rows) for (const z of [-1, W]) for (let x = 2; x <= 4; x++) out.push(v(x, y, z, bump === 'track' ? carbon(x, y) : DARK));
+    const cx1 = Math.min(4, Math.floor(d.wheels[0] - d.archR - 3)), cx0 = Math.max(0, cx1 - 2);   // ahead of the front arch / flares
+    for (const y of rows) for (const z of [-1, W]) for (let x = cx0; x <= cx1; x++) out.push(v(x, y, z, bump === 'track' ? carbon(x, y) : DARK));
   }
+  // side exhaust (owner 2026-10-19): two pipes each side just ahead of the rear arch (clear of flares); skirts stop short of them
+  const sideX = Math.floor(d.wheels[1] - d.archR - 2.6), side = parts.exhaust === 'side';
+  if (side) for (const z of [-1, W]) for (const x of [sideX, sideX - 2]) { out.push(v(x, yb, z, '#c9ccd2')); out.push(v(x, yb + 1, z, '#3d4046')); }
   if (skirt && skirt !== 'stock') {
-    const x0 = Math.ceil(d.wheels[0] + d.archR + 0.5), x1 = Math.floor(d.wheels[1] - d.archR - 0.5);
+    const x0 = Math.ceil(d.wheels[0] + d.archR + 0.5), x1 = side ? sideX - 4 : Math.floor(d.wheels[1] - d.archR - 0.5);
     for (let x = x0; x <= x1; x++) for (const z of [-1, W]) for (const y of [yb, yb + 1]) {
       if (y === yb + 1 && (x === x0 || x === x1)) continue;                                                   // tapered ends
       out.push(skirt === 'painted' ? v(x, y, z, null, 'paint', y === yb ? 'dark' : 'mid') : v(x, y, z, skirt === 'carbon' ? carbon(x, y) : '#1d1e22'));
     }
+  }
+  // roof parts (owner 2026-10-19): a scoop / twin scoops at the front of the roof, or a rack along it
+  const R = d.roof, mid = Math.floor(W / 2), roofPart = parts.roof;
+  if (roofPart === 'scoop' || roofPart === 'twin') {
+    const spans = roofPart === 'scoop' ? [[mid - 2, mid + 2]] : [[R.inset + 2, R.inset + 5], [W - R.inset - 5, W - R.inset - 2]];
+    for (const [z0, z1] of spans) for (let x = R.x0 + 1; x <= R.x0 + 5; x++) {
+      const y = R.top(x), h = x <= R.x0 + 3 ? 2 : 1;
+      for (let k = 0; k < h; k++) for (let z = z0; z < z1; z++) out.push(x === R.x0 + 1 && k === h - 1 ? v(x, y + k, z, DARKER) : v(x, y + k, z, null, 'paint', 'light'));
+    }
+  }
+  if (roofPart === 'rack') {
+    const za = R.inset + 1, zb = W - R.inset - 2, xa = R.x0 + 2, xb = R.x1 - 1;
+    for (let x = xa; x <= xb; x++) for (const z of [za, zb]) { if (x === xa || x === xb) out.push(v(x, R.top(x), z, DARK)); out.push(v(x, R.top(x) + 1, z, '#2a2c31')); }
+    for (const x of [xa + 2, xb - 2]) for (let z = za + 1; z < zb; z++) out.push(v(x, R.top(x) + 1, z, GREY));
   }
   // diffusers sit on the bottom row (the tail pipes are one row up)
   if (diff === 'fins') for (let z = 3; z < W - 3; z++) out.push(v(L, yb, z, z % 3 === 0 ? GREY : DARKER));

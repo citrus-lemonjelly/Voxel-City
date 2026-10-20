@@ -56,6 +56,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .g-tab{border:0;cursor:pointer;width:104px;height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:var(--panel2);color:#cfd3dc;box-shadow:0 0 0 2px var(--edge);font:800 12px system-ui;letter-spacing:.05em;text-transform:uppercase}
 .g-tab:hover{color:#fff;box-shadow:0 0 0 2px #5a5f6d}
 .g-tab.on{background:#2f3442;color:#fff;box-shadow:0 0 0 2px var(--accent)}
+.g-tab.g-spin{width:74px;margin-right:8px}
+.g-tab.g-spin:not(.on){color:#7d8290}
+canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .g-racebtn{position:absolute;right:28px;bottom:22px;font-size:30px!important;padding:20px 34px!important}
 /* update notice (owner V0.2.1): static, top centre, above everything */
 .upd{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;padding:12px 16px;max-width:820px;width:max-content}
@@ -123,8 +126,15 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .g-dist{display:flex;justify-content:flex-end}.g-dist button{min-width:64px}
 .g-sub{font:600 12px system-ui;color:var(--dim);letter-spacing:0;text-transform:none;margin-left:8px}
 /* Parts screen: side banner tabs + part cards (reuses the Catalog layout) */
-.pt-tabs{position:absolute;left:28px;top:128px;bottom:128px;width:150px;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
-.pt-tab{border:0;cursor:pointer;text-align:left;padding:9px 10px;background:var(--panel2);color:var(--text);box-shadow:0 0 0 2px var(--edge);font:800 13px system-ui;letter-spacing:.02em}
+.pt-tabs{position:absolute;left:28px;top:128px;bottom:128px;width:150px;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:5px;scrollbar-width:thin}
+.pt-tab{border:0;cursor:pointer;text-align:left;padding:6px 10px;flex:none;background:var(--panel2);color:var(--text);box-shadow:0 0 0 2px var(--edge);font:800 13px system-ui;letter-spacing:.02em}
+.pt-sw{display:block;width:100%;aspect-ratio:296/64;box-shadow:inset 0 -14px 0 #0000002e,inset 0 0 0 3px #0b0c1055}
+.pt-sw.prem{background-image:linear-gradient(115deg,#ffffff00 40%,#ffffff40 50%,#ffffff00 60%)!important;background-blend-mode:screen}
+.pt-plate{grid-column:1/-1;display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
+.pt-plate label{font:800 12px system-ui;text-transform:uppercase;letter-spacing:.05em;color:#cfd3dc;display:flex;align-items:center;gap:8px}
+.pt-plate input{width:120px;padding:6px 8px;border:0;background:#0f1116;color:#fff;box-shadow:0 0 0 2px var(--edge);font:800 16px 'Courier New',monospace;text-transform:uppercase;letter-spacing:.12em}
+.pt-plate input:focus{outline:none;box-shadow:0 0 0 2px var(--accent)}
+.cat-repaint{margin:6px 0}
 .pt-tab.on{background:var(--accent);color:#14161c;box-shadow:0 0 0 2px #b8901c}.pt-tab.soon{cursor:default;opacity:.4;font-weight:600;font-size:12px}
 .catalog-mode .pt-list{left:196px;width:300px}.catalog-mode .pt-list ~ .cat-under{left:528px}
 .pt-rar{font:800 10px system-ui;letter-spacing:.06em;text-transform:uppercase;padding:0 4px;color:var(--dim)}.pt-rar.rare{color:var(--blue)}.pt-rar.epic{color:#c9b8ff}

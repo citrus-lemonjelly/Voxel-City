@@ -26,7 +26,9 @@ import { TypingHud, renderTypingResults } from './ui/typingHud';
 import { openCarLab } from './ui/carLab';
 import { keysOf, keyMatches, keyName, DEFAULT_KEYS } from './game/keys';
 import { TYPE_TRACK, laneZ } from './render/typingView';
-import { typingPay, TYPING } from './data/economy';
+import { typingPay, TYPING, PAINT, PLATE_TEXT, repaintPrice } from './data/economy';
+import { cleanPlate, DEFAULT_PLATE } from './render/plate';
+import { partFits } from './render/bodies';
 
 const params = new URLSearchParams(location.search);
 const AUTOPLAY = params.has('autoplay');          // test hook: the player car drives itself
@@ -40,6 +42,7 @@ document.body.innerHTML = '<div id="stage"></div><div id="ui" class="overlay"></
 const stageEl = document.getElementById('stage')!, ui = document.getElementById('ui')!;
 const world = new World(stageEl);
 let save: SaveV1 = loadSave();
+world.autoSpin = save.settings.spin !== 'off';
 // URL overrides for previews/tests (?camset=close&time=night&near=barrier)
 if (params.get('camset')) save.settings.camera = params.get('camset') as any;
 if (params.get('time')) save.settings.time = params.get('time') as any;
@@ -64,11 +67,13 @@ rollRival();
 /** The car in use, as the player has painted and optioned it (Q79). */
 const lookFor = (id: string): CarLook => {
   const c = save.cars[id];
-  return { ...STOCK_LOOK, body: carBody(id).profile ?? 'civix', paint: c?.paint || carPaint(id), opts: { ...(c?.opts || {}) }, parts: lookParts(c?.parts) };
+  return { ...STOCK_LOOK, body: carBody(id).profile ?? 'civix', paint: c?.paint || carPaint(id), opts: { ...(c?.opts || {}) }, parts: lookParts(c?.parts), plateText: c?.plateText };
 };
 const playerLook = (): CarLook => lookFor(save.carId);
 // rivals wear random visual parts (owner Q118), rolled from their seed so a rival looks the same all race
-const oppLook = (): CarLook => ({ ...STOCK_LOOK, body: carBody(opp.carId).profile ?? 'civix', paint: opp.paint, parts: randomParts(makeRng((opp as any).seed ^ 0x5eed)) });
+const oppLook = (): CarLook => ({ ...STOCK_LOOK, body: carBody(opp.carId).profile ?? 'civix', paint: opp.paint, parts: rivalParts(opp.carId, (opp as any).seed) });
+/** Rival cars wear random parts that fit their body. */
+function rivalParts(carId: string, seed: number) { const body = carBody(carId).profile ?? 'civix'; return randomParts(makeRng(seed ^ 0x5eed), 0.45, (s, v) => partFits(body, s, v)); }
 
 // ---------------- input: SPACE or the on-screen Shift button ----------------
 const input = { held: false, shiftQueued: false, downQueued: false };
@@ -108,7 +113,7 @@ let race: Race | null = null, hud: Hud | null = null, oppRacer: Racer | null = n
 
 function showGarage(toast?: string) {
   screen = 'garage'; world.mode = 'garage'; setTimeout(showUpdate, 0); rollRival(); if (!garageInCatalog()) world.setGarageCar(playerLook());
-  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onRace: () => startRace(), onStrip: startStrip, stripNext, onClaim: claimLevel, onSetting: setSetting,
+  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onRace: () => startRace(), onStrip: startStrip, stripNext, onClaim: claimLevel, onSetting: setSetting, onRepaint: repaint, onPlateText: setPlateText,
     onPreview: look => world.setGarageCar(look ?? playerLook()), onView: v => world.setGarageView(v),
     onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, onBuyPart: buyPart, onFitPart: (id: string, carId: string) => fitPart(id, undefined, carId),
     onFav: (id: string) => { const f = save.favs ??= []; const i = f.indexOf(id); if (i >= 0) f.splice(i, 1); else f.push(id); writeSave(save); showGarage(); }, onDistance: setDistance, onDifficulty: setDifficulty, thumb: (look, view) => world.thumbnail(look, undefined, undefined, view), playerLook,
@@ -148,6 +153,34 @@ function buyPart(id: string, carId = save.carId) {
   }
   fitPart(id, `Bought ${p.name} — fitted`, carId);
 }
+/** Body Shop paint (owner 2026-10-19): standard repaint = VX (league-scaled); premium = Crowns once, then free on every car. */
+function repaint(carId: string, paint: string, premium?: string) {
+  const c = save.cars[carId]; if (!c || (c.paint || carPaint(carId)) === paint) return;
+  const pr = premium ? PAINT.premium.find(p => p.id === premium) : undefined, owned = save.paintsOwned ?? (save.paintsOwned = []);
+  let msg = '';
+  if (pr) {
+    if (!owned.includes(pr.id)) {
+      if (!DEV.unlimited && save.crowns < pr.crowns) return showGarage(`Need ${pr.crowns - save.crowns} more Crowns for ${pr.name}`);
+      if (!DEV.unlimited) save.crowns -= pr.crowns;
+      owned.push(pr.id); msg = `Bought ${pr.name} — yours on every car`;
+    } else msg = `Painted ${pr.name}`;
+  } else {
+    const cost = repaintPrice(CARS[carId].league as any);
+    if (!DEV.unlimited && save.voxels < cost) return showGarage(`Need ${(cost - save.voxels).toLocaleString()} more VX to repaint`);
+    if (!DEV.unlimited) save.voxels -= cost;
+    msg = `Repainted ${carName(carId)}`;
+  }
+  c.paint = paint; writeSave(save); world.setGarageCar(lookFor(carId)); showGarage(msg);
+}
+/** Your own plate text: Crowns for every change (owner 2026-10-19). */
+function setPlateText(carId: string, text: string) {
+  const c = save.cars[carId], t = cleanPlate(text, PLATE_TEXT.maxLength).trim(); if (!c) return;
+  if (!t) return showGarage('Type some letters or numbers first');
+  if ((c.plateText || DEFAULT_PLATE) === t) return showGarage('That is already on the plate');
+  if (!DEV.unlimited && save.crowns < PLATE_TEXT.crowns) return showGarage(`Need ${PLATE_TEXT.crowns - save.crowns} more Crowns`);
+  if (!DEV.unlimited) save.crowns -= PLATE_TEXT.crowns;
+  c.plateText = t; writeSave(save); world.setGarageCar(lookFor(carId)); showGarage(`Plate now reads ${t}`);
+}
 function fitPart(id: string, msg?: string, carId = save.carId) {
   const p = PART_BY_ID[id], c = save.cars[carId]; if (!p || !c) return;
   if (isFactory(p) || factoryTwin(carId, p.slot)?.id === id) delete c.parts[p.slot]; else if (ownsPart(id, save.partsOwned, save.decals)) c.parts[p.slot] = id; else return;
@@ -168,6 +201,7 @@ function setSetting(key: string, value: string) {
   (save.settings as any)[key] = value; writeSave(save);
   if (key === 'camera') world.setCameraPreset(value as any);
   if (key === 'blur') world.setBlur(value as any);
+  if (key === 'spin') world.autoSpin = value !== 'off';
   showGarage();
 }
 
@@ -316,7 +350,7 @@ function startTyping() {
   const { text, rivals } = makeTypingRace(seed, averageFor(stats, diff), diff, league);
   // lanes: you in the middle, the four rivals around you
   const lanes: (TypingRival | null)[] = [rivals[0], rivals[1], null, rivals[2], rivals[3]];
-  const looks = lanes.map(r => r ? { ...STOCK_LOOK, body: carBody(r.carId).profile ?? 'civix', paint: r.paint, parts: randomParts(makeRng(r.seed ^ 0x5eed)) } : playerLook());
+  const looks = lanes.map(r => r ? { ...STOCK_LOOK, body: carBody(r.carId).profile ?? 'civix', paint: r.paint, parts: rivalParts(r.carId, r.seed) } : playerLook());
   world.setupTyping(looks);
   const hudEl = ui; const names = lanes.map(r => r ? r.name : 'YOU');
   ty = { run: new TypingRun(text), rivals, start: performance.now(), vis: [0, 0, 0, 0, 0], vel: [0, 0, 0, 0, 0], doneAt: 0, diff, seed,

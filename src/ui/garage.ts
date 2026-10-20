@@ -9,10 +9,11 @@ import { DEV } from './devConsole';
 import { OpponentDef } from '../data/economy';
 import { StageDef } from '../data/stages';
 import { carStats, displayStats } from '../game/stats';
-import { BODY_OPTIONS, stockParts } from '../render/bodies';
+import { BODY_OPTIONS, stockParts, partFits } from '../render/bodies';
+import { cleanPlate, DEFAULT_PLATE } from '../render/plate';
 import { infoRows, garageRows } from '../game/carInfo';
 import { STRIP, levelInfo, decalName } from '../game/strip';
-import { DIFFICULTY, Difficulty, racePay, cosmeticPrice, typingPay } from '../data/economy';
+import { DIFFICULTY, Difficulty, racePay, cosmeticPrice, typingPay, PAINT, PLATE_TEXT, repaintPrice } from '../data/economy';
 import { averageWpm, averageFor } from '../game/typing';
 import { PART_SLOTS, SOON_SLOTS, partsFor, PART_BY_ID, STOCK_PART, SLOT_VIEW, PartSlot, lookParts, VISUAL_PARTS, ownsPart, isFactory, VisualPart } from '../data/visualParts';
 import { CarLook, STOCK_LOOK } from '../render/carBuilder';
@@ -48,6 +49,10 @@ export interface GarageHandlers {
   thumb(look: CarLook, view?: import('../data/visualParts').ThumbView): string;
   /** Visual parts: buy (then fit) / fit an owned part on the car in use. */
   onBuyPart(id: string, carId: string): void;
+  /** Body Shop paint (owner 2026-10-19): repaint for VX, or buy / use a premium paint */
+  onRepaint(carId: string, paint: string, premium?: string): void;
+  /** your own plate text: Crowns per change */
+  onPlateText(carId: string, text: string): void;
   onFitPart(id: string, carId: string): void;
   /** the car in use as it looks now (Parts preview starts from it) */
   playerLook(): CarLook;
@@ -61,7 +66,7 @@ export interface GarageHandlers {
 type Panel = 'profile' | 'garage' | 'upgrades' | 'parts' | 'catalog' | 'settings' | 'strip' | 'notes' | null;
 /** UI state that survives re-renders (buying a part re-draws the screen). */
 // work = the car Parts / Upgrades act on (the one in use, or the one picked in the Garage); back = panel to return to
-const ui = { kmode: 'drag' as 'drag' | 'typing', capture: '' as string, kmsg: '', panel: null as Panel, back: null as Panel, work: '', gsel: '', dial: false, favOnly: false, raceMenu: false, part: { slot: 'spoiler' as PartSlot, sel: '' }, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
+const ui = { kmode: 'drag' as 'drag' | 'typing', capture: '' as string, kmsg: '', panel: null as Panel, back: null as Panel, work: '', gsel: '', dial: false, favOnly: false, raceMenu: false, part: { slot: 'paint' as PartSlot | 'paint', sel: '' }, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
 export function resetGarageUI() { ui.panel = null; ui.back = null; ui.dial = false; ui.raceMenu = false; }
 export const garageInCatalog = () => ui.panel === 'catalog' || ui.panel === 'parts' || ui.panel === 'garage' || !!ui.back;
 /** Open the Strip screen on the next garage render (results → "The Strip"). */
@@ -76,6 +81,7 @@ const SETTING_ROWS: [string, string, [string, string][]][] = [
 
 // ---- block icons (12 × 12; 1 = light, 2 = accent) ----
 const ICONS: Record<string, string[]> = {
+  spin: ['000111110000', '001100011000', '011000001100', '110000000110', '110000000110', '110000002222', '110000000220', '011000000000', '001100011000', '000111110000', '000000000000', '000000000000'],   // turntable arrow
   profile: ['000111111000', '001111111100', '011111111110', '011111111110', '112222222211', '112222222211', '111111111111', '111111111111', '011111111110', '001111111100', '001100001100', '011100001110'],   // racing helmet
   upgrades: ['000000001100', '000000011110', '000000110110', '000001100110', '000011111100', '000111111000', '001111100000', '011111000000', '111110000000', '111100000000', '011000000000', '000000000000'],  // wrench
   catalog: ['000000000000', '000000000000', '000011111000', '000111111100', '001122122110', '011111111111', '111111111111', '111111111111', '011101111011', '001000000100', '000000000000', '000000000000'],   // car
@@ -95,7 +101,7 @@ const profileOf = (id: string) => carBody(id).profile ?? 'civix';
 /** The car as the Catalog shows it: an owned car in its saved paint/options, otherwise factory. */
 const lookOf = (save: SaveV1, id: string, paint?: string, opts?: Record<string, string>): CarLook => {
   const c = save.cars[id];
-  return { ...STOCK_LOOK, body: profileOf(id), paint: paint || c?.paint || carPaint(id), opts: { ...(opts ?? c?.opts ?? {}) }, parts: lookParts(c?.parts) };
+  return { ...STOCK_LOOK, body: profileOf(id), paint: paint || c?.paint || carPaint(id), opts: { ...(opts ?? c?.opts ?? {}) }, parts: lookParts(c?.parts), plateText: c?.plateText };
 };
 const catLook = (save: SaveV1) => lookOf(save, ui.cat.id, ui.cat.paint, ui.cat.opts);
 /** Select a car in the Catalog (owned cars start from their saved paint/options). */
@@ -116,11 +122,11 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   root.innerHTML = '';
   const inCat = ui.panel === 'catalog' || ui.panel === 'parts' || ui.panel === 'garage';
   const el = h(`<div id="garage" class="${inCat ? 'catalog-mode' : ui.panel === 'strip' ? 'strip-mode' : ''}">
-    <div class="g-title">${inCat ? `<div class="hd screen-title">Garage${ui.panel === 'parts' ? ` · ${carName(ui.work)}` : ''}</div><h1 class="hd">${ui.panel === 'parts' ? 'Parts' : ui.panel === 'garage' ? 'My cars' : 'Catalog'}</h1>`
+    <div class="g-title">${inCat ? `<div class="hd screen-title">Garage${ui.panel === 'parts' ? ` · ${carName(ui.work)}` : ''}</div><h1 class="hd">${ui.panel === 'parts' ? 'Body Shop' : ui.panel === 'garage' ? 'My cars' : 'Catalog'}</h1>`
       : `<div class="hd screen-title">${carBrand(save.carId)} · League ${car.league}</div><h1 class="hd">${carName(save.carId)}</h1>
       <div class="g-stats"><span><b>${st.hp}</b> hp</span><span><b>${st.shifts}</b> shifts</span><span><b>${st.shiftTime.toFixed(2)}s</b> shift</span><span><b>${(st.redline / 1000).toFixed(1)}k</b> redline</span></div>`}</div>
     <div class="g-wallet"><span class="voxels">${vx} VX</span><span class="crowns">${crownIcon()}${DEV.unlimited ? '∞' : save.crowns.toLocaleString()}</span><span class="g-rec">Best ${save.raceDist} m ${save.best[save.raceDist] ? fmtTime(save.best[save.raceDist]!) : '—'} · ${save.wins}–${save.races - save.wins}</span></div>
-    <div class="g-bar">${(['profile', 'garage', 'upgrades', 'catalog', 'settings'] as const).map(k => `<button class="g-tab ${ui.panel === k ? 'on' : ''}" data-panel="${k}">${icon(k)}<span>${k[0].toUpperCase() + k.slice(1)}</span></button>`).join('')}</div>
+    <div class="g-bar"><button class="g-tab g-spin ${save.settings.spin === 'off' ? '' : 'on'}" id="spinBtn" title="Turn the car's slow spin on or off (drag the car to turn it yourself)">${icon('spin', 2)}<span>Spin ${save.settings.spin === 'off' ? 'off' : 'on'}</span></button>${(['profile', 'garage', 'upgrades', 'catalog', 'settings'] as const).map(k => `<button class="g-tab ${ui.panel === k ? 'on' : ''}" data-panel="${k}">${icon(k)}<span>${k[0].toUpperCase() + k.slice(1)}</span></button>`).join('')}</div>
     <button class="g-notesbtn ${ui.panel === 'notes' ? 'on' : ''}" id="notesBtn" title="Patch notes" aria-label="Patch notes">${icon('notes', 2)}<span>V${VERSION}</span>${save.seenVersion !== VERSION ? '<em class="g-new">New</em>' : ''}</button>
     <button class="btn race g-racebtn" id="raceBtn">Race ▸</button>
     ${ui.raceMenu ? `<div class="g-racemenu">
@@ -143,7 +149,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
     if (ui.panel === 'garage') { ui.gsel = save.carId; on.onPreview(lookOf(save, ui.gsel)); }
     if (back && !ui.panel) on.onPreview(null);
     if (ui.panel === 'catalog' && was !== 'catalog') { pickCar(save, save.carId); on.onPreview(catLook(save)); }
-    if (ui.panel === 'parts' && was !== 'parts') { ui.part.sel = save.cars[ui.work]?.parts[ui.part.slot] ?? STOCK_PART[ui.part.slot]; on.onPreview(partLook(save, ui.part.sel)); }
+    if (ui.panel === 'parts' && was !== 'parts') { ui.part.sel = curSel(save); on.onPreview(partLook(save, ui.part.sel)); }
     if ((was === 'catalog' || was === 'parts' || was === 'garage' || back) && ui.panel !== was && ui.panel !== 'garage') on.onPreview(null);
     on.onView(ui.panel === 'catalog' || ui.panel === 'parts' ? 'catalog' : ui.panel === 'garage' ? 'mycars' : ui.panel ? 'panel' : 'home');   // Garage: whole car centred, pulled back
     renderGarage(root, save, opp, stage, on);
@@ -209,13 +215,14 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   el.querySelector('#gDrive')?.addEventListener('click', () => { ui.dial = false; on.onUseCar(ui.gsel); });
   el.querySelector('#gParts')?.addEventListener('click', () => {
     ui.work = ui.gsel; ui.back = 'garage'; ui.panel = 'parts'; ui.dial = false; partScroll = 0;
-    ui.part.sel = save.cars[ui.work]?.parts[ui.part.slot] ?? STOCK_PART[ui.part.slot]; on.onPreview(partLook(save, ui.part.sel)); renderGarage(root, save, opp, stage, on);
+    ui.part.sel = curSel(save); on.onPreview(partLook(save, ui.part.sel)); renderGarage(root, save, opp, stage, on);
   });
   el.querySelector('#gUpg')?.addEventListener('click', () => { ui.work = ui.gsel; ui.back = 'garage'; ui.panel = 'upgrades'; ui.dial = false; on.onView('panel'); renderGarage(root, save, opp, stage, on); });
   el.querySelectorAll<HTMLButtonElement>('[data-set]').forEach(b => b.addEventListener('click', () => on.onSetting(b.dataset.set!, b.dataset.val!)));
   // Settings ▸ Controls: pick Drag Race / Typing Race, click a key, press the new key
   el.querySelectorAll<HTMLButtonElement>('[data-kmode]').forEach(b => b.addEventListener('click', () => { ui.kmode = b.dataset.kmode as any; ui.capture = ''; ui.kmsg = ''; renderGarage(root, save, opp, stage, on); }));
   el.querySelectorAll<HTMLButtonElement>('[data-bind]').forEach(b => b.addEventListener('click', () => { ui.capture = ui.capture === b.dataset.bind ? '' : b.dataset.bind!; ui.kmsg = ''; renderGarage(root, save, opp, stage, on); }));
+  el.querySelector('#spinBtn')?.addEventListener('click', () => on.onSetting('spin', save.settings.spin === 'off' ? 'on' : 'off'));
   el.querySelector('#kReset')?.addEventListener('click', () => { ui.capture = ''; ui.kmsg = ''; on.onKeyBind(ui.kmode, '', null); });
   onCapture = ui.capture ? (e: KeyboardEvent) => {
     const [mode, action] = ui.capture.split('.') as ['drag' | 'typing', string];
@@ -230,9 +237,14 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   el.querySelector('#buyCar')?.addEventListener('click', () => on.onBuyCar(ui.cat.id, ui.cat.paint, { ...ui.cat.opts }));
   el.querySelector('#useCar')?.addEventListener('click', () => on.onUseCar(ui.cat.id));
   // parts
-  el.querySelectorAll<HTMLButtonElement>('[data-slot]').forEach(b => b.addEventListener('click', () => { ui.part.slot = b.dataset.slot as PartSlot; ui.part.sel = save.cars[ui.work]?.parts[ui.part.slot] ?? STOCK_PART[ui.part.slot]; partScroll = 0; on.onPreview(partLook(save, ui.part.sel)); renderGarage(root, save, opp, stage, on); }));
+  el.querySelectorAll<HTMLButtonElement>('[data-slot]').forEach(b => b.addEventListener('click', () => { ui.part.slot = b.dataset.slot as PartSlot | 'paint'; ui.part.sel = curSel(save); partScroll = 0; on.onPreview(partLook(save, ui.part.sel)); renderGarage(root, save, opp, stage, on); }));
   el.querySelectorAll<HTMLButtonElement>('[data-part]').forEach(b => b.addEventListener('click', () => { ui.part.sel = b.dataset.part!; on.onPreview(partLook(save, ui.part.sel)); renderGarage(root, save, opp, stage, on); }));
   el.querySelector('#buyPart')?.addEventListener('click', () => on.onBuyPart(ui.part.sel, ui.work));
+  el.querySelector('#repaint')?.addEventListener('click', () => { const p = paintOf(ui.part.sel); on.onRepaint(ui.work, p.hex, p.premium?.id); });
+  const plateIn = el.querySelector<HTMLInputElement>('#plateText');
+  plateIn?.addEventListener('input', () => { const v = cleanPlate(plateIn.value, PLATE_TEXT.maxLength); if (v !== plateIn.value) plateIn.value = v; });
+  plateIn?.addEventListener('keydown', e => e.stopPropagation());
+  el.querySelector('#setPlate')?.addEventListener('click', () => plateIn && on.onPlateText(ui.work, plateIn.value));
   el.querySelector('#fitPart')?.addEventListener('click', () => on.onFitPart(ui.part.sel, ui.work));
   const plist = el.querySelector<HTMLElement>('.pt-list'); if (plist) { plist.scrollTop = partScroll; plist.addEventListener('scroll', () => (partScroll = plist.scrollTop)); }
   const list = el.querySelector('.cat-list'); if (list) list.scrollTop = catScroll; list?.addEventListener('scroll', () => (catScroll = (list as HTMLElement).scrollTop));
@@ -252,7 +264,9 @@ function controlsHtml(save: SaveV1): string {
 
 /** The car being worked on wearing one part (Parts preview and card stills). */
 function partLook(save: SaveV1, id: string): CarLook {
-  const base = lookOf(save, ui.work || save.carId), p = PART_BY_ID[id]; if (!p) return base;
+  const base = lookOf(save, ui.work || save.carId);
+  if (id.startsWith('paint:')) return { ...base, paint: paintOf(id).hex };
+  const p = PART_BY_ID[id]; if (!p) return base;
   const parts = { ...(base.parts || {}) };
   if (isFactory(p)) delete parts[p.slot]; else parts[p.slot] = p.value;
   return { ...base, parts };
@@ -264,8 +278,40 @@ export function factoryTwin(carId: string, slot: PartSlot): VisualPart | undefin
   const v = (stockParts(profileOf(carId)) as Record<string, string>)[slot];
   return v ? partsFor(slot).find(p => !isFactory(p) && p.value === v) : undefined;
 }
+/** What is on the car now for the open Body Shop tab (paint: 'paint:<colour or premium id>'). */
+function curSel(save: SaveV1): string {
+  const W = ui.work || save.carId;
+  if (ui.part.slot === 'paint') { const hex = save.cars[W]?.paint || carPaint(W), pr = PAINT.premium.find(p => p.color === hex); return 'paint:' + (pr ? pr.id : hex); }
+  return save.cars[W]?.parts[ui.part.slot] ?? STOCK_PART[ui.part.slot];
+}
+const paintOf = (sel: string) => { const v = sel.slice(6), premium = PAINT.premium.find(p => p.id === v); return { hex: premium ? premium.color : v, premium }; };
+/** Body Shop · Paint (owner 2026-10-19): picked free when you buy the car; a repaint costs VX; premium paints are bought once
+ *  with Crowns and are then free on every car. */
+function paintHtml(save: SaveV1, tabs: string): string {
+  const W = ui.work || save.carId, cur = curSel(save);
+  if (!ui.part.sel.startsWith('paint:')) ui.part.sel = cur;
+  const sel = paintOf(ui.part.sel), owned = save.paintsOwned ?? [], vx = repaintPrice(CARS[W].league as any);
+  const cards = [...PAINTS.map(([c, n]) => ({ key: 'paint:' + c, hex: c, name: n, pr: undefined as undefined | typeof PAINT.premium[0] })),
+    ...PAINT.premium.map(p => ({ key: 'paint:' + p.id, hex: p.color, name: p.name, pr: p }))].map(o => {
+    const tag = o.key === cur ? '<em class="cat-tag use">On car</em>' : o.pr ? (owned.includes(o.pr.id) ? '<em class="cat-tag own">Owned</em>' : `<em class="cat-tag cr ${DEV.unlimited || save.crowns >= o.pr.crowns ? '' : 'short'}">${crownIcon()}${o.pr.crowns} Crowns</em>`) : `<em class="cat-tag ${DEV.unlimited || save.voxels >= vx ? '' : 'short'}">${vx.toLocaleString()} VX</em>`;
+    return `<button class="cat-card pt-card pt-paint ${o.key === ui.part.sel ? 'on' : ''}" data-part="${o.key}"><span class="pt-sw ${o.pr ? 'prem' : ''}" style="background:${o.hex}"></span>
+      <span class="cat-row"><b>${o.name}</b>${tag}</span><span class="pt-rar ${o.pr ? 'epic' : 'common'}">${o.pr ? 'Premium' : 'Standard'}</span></button>`;
+  }).join('');
+  const name = sel.premium?.name ?? PAINTS.find(p => p[0] === sel.hex)?.[1] ?? 'Factory paint';
+  const action = ui.part.sel === cur ? `<button class="btn cat-act" disabled>On the car</button>`
+    : sel.premium ? (owned.includes(sel.premium.id) ? `<button class="btn race cat-act" id="repaint">Paint it · free</button>` : `<button class="btn race cat-act" id="repaint" ${DEV.unlimited || save.crowns >= sel.premium.crowns ? '' : 'disabled'}>Buy · ${crownIcon()}${sel.premium.crowns} Crowns</button>`)
+    : `<button class="btn race cat-act" id="repaint" ${DEV.unlimited || save.voxels >= vx ? '' : 'disabled'}>Repaint · ${vx.toLocaleString()} VX</button>`;
+  return `<div class="pt-tabs blk">${tabs}</div><div class="cat-list pt-list blk">${cards}</div>
+    <div class="cat-under"><button class="g-close" aria-label="Close">✕</button>
+      <div class="cat-name"><b class="hd">${name}</b><span>Paint · ${sel.premium ? 'Premium — buy once with Crowns, then free on every car' : `Standard — a repaint costs ${vx.toLocaleString()} VX`}</span></div>
+      <div class="cat-buy">${action}<span class="g-note">Your first paint is picked free when you buy a car · looks only</span></div>
+    </div>`;
+}
 function partsHtml(save: SaveV1, on: GarageHandlers): string {
-  const W = ui.work || save.carId, slot = ui.part.slot, twin = factoryTwin(W, slot);
+  const tabs = [`<button class="pt-tab ${ui.part.slot === 'paint' ? 'on' : ''}" data-slot="paint">Paint</button>`, ...PART_SLOTS.map(t => `<button class="pt-tab ${t.id === ui.part.slot ? 'on' : ''}" data-slot="${t.id}">${t.label}</button>`)].join('')
+    + SOON_SLOTS.map(t => `<span class="pt-tab soon" title="Coming soon">${t}</span>`).join('');
+  if (ui.part.slot === 'paint') return paintHtml(save, tabs);
+  const W = ui.work || save.carId, slot = ui.part.slot as PartSlot, twin = factoryTwin(W, slot), body = profileOf(W);
   let fitted = save.cars[W]?.parts[slot] ?? STOCK_PART[slot];
   if (twin && fitted === twin.id) fitted = STOCK_PART[slot];                       // fitting the factory twin = factory
   const sel = PART_BY_ID[ui.part.sel === twin?.id ? STOCK_PART[slot] : ui.part.sel] ?? PART_BY_ID[fitted];
@@ -273,10 +319,8 @@ function partsHtml(save: SaveV1, on: GarageHandlers): string {
   const owns = (id: string) => ownsPart(id, save.partsOwned, save.decals);
   const priceTag = (id: string) => { const c = cosmeticPrice(id); return c.currency === 'crowns' ? `${crownIcon()}${c.price} Crowns` : `${c.price.toLocaleString()} VX`; };
   const can = (id: string) => { const c = cosmeticPrice(id); return DEV.unlimited || (c.currency === 'crowns' ? save.crowns : save.voxels) >= c.price; };
-  const tabs = PART_SLOTS.map(t => `<button class="pt-tab ${t.id === slot ? 'on' : ''}" data-slot="${t.id}">${t.label}</button>`).join('')
-    + SOON_SLOTS.map(t => `<span class="pt-tab soon" title="Coming soon">${t}</span>`).join('');
   const nameOf = (p: VisualPart) => isFactory(p) && twin ? (twin.value === 'none' ? `${p.name} · none` : `${p.name} · ${twin.name}`) : p.name;
-  const shown = partsFor(slot).filter(p => p !== twin && (!p.won || owns(p.id)));    // boss decals appear once won
+  const shown = partsFor(slot).filter(p => p !== twin && (!p.won || owns(p.id)) && partFits(body, slot, p.value));    // boss decals appear once won; styles that don't fit this car are hidden
   const lockedWon = partsFor(slot).filter(p => p.won && !owns(p.id)).length;
   const cards = shown.map(p => {
     const tag = fitted === p.id ? '<em class="cat-tag use">Fitted</em>' : owns(p.id) ? `<em class="cat-tag own">${p.won ? 'Won' : 'Owned'}</em>` : `<em class="cat-tag ${can(p.id) ? '' : 'short'} ${cosmeticPrice(p.id).currency === 'crowns' ? 'cr' : ''}">${priceTag(p.id)}</em>`;
@@ -290,6 +334,8 @@ function partsHtml(save: SaveV1, on: GarageHandlers): string {
     <div class="cat-under"><button class="g-close" aria-label="Close">✕</button>
       <div class="cat-name"><b class="hd">${nameOf(sel)}</b><span>${PART_SLOTS.find(t => t.id === slot)!.label} · ${sel.won ? 'Strip boss decal' : RARITY[sel.rarity]} · ${isFactory(sel) && twin ? (twin.value === 'none' ? 'This car has none from the factory.' : `This car comes with the ${twin.name} from the factory.`) : sel.blurb}</span></div>
       <div class="cat-buy">${action}<span class="g-note">Bought once, fits every car · looks only — no effect on speed</span></div>
+      ${slot === 'plate' ? `<div class="pt-plate"><label>Plate text <input id="plateText" maxlength="${PLATE_TEXT.maxLength}" spellcheck="false" autocomplete="off" value="${save.cars[W]?.plateText || DEFAULT_PLATE}"></label>
+        <button class="btn ghost" id="setPlate" ${DEV.unlimited || save.crowns >= PLATE_TEXT.crowns ? '' : 'disabled'}>Set text · ${crownIcon()}${PLATE_TEXT.crowns} Crowns</button><span class="g-note">A–Z, 0–9, space and - · up to ${PLATE_TEXT.maxLength} · Crowns for every change</span></div>` : ''}
     </div>`;
 }
 
@@ -327,9 +373,9 @@ function garageHtml(save: SaveV1, on: GarageHandlers): string {
   // the dial pops out to the right of the picked card (owner drawing): Drive / Parts / Upgrade, fanned from the card
   const dial = ui.dial ? `<div class="gr-dial" style="visibility:hidden"><div class="gr-fan"><i class="in"></i><i class="rail"></i><i style="top:18px"></i><i style="top:72px"></i><i style="top:126px"></i></div>
       <div class="gr-dbtns"><button class="gr-dbtn drive" id="gDrive" ${use ? 'disabled' : ''}><b>${use ? 'Driving' : 'Drive'}</b><span>${use ? 'in use' : 'race in it'}</span></button>
-      <button class="gr-dbtn" id="gParts"><b>Parts</b><span>looks</span></button>
+      <button class="gr-dbtn" id="gParts"><b>Body Shop</b><span>looks</span></button>
       <button class="gr-dbtn" id="gUpg" ${spec.unique ? 'disabled' : ''}><b>Upgrade</b><span>${spec.unique ? 'boss car' : 'engine · gears'}</span></button></div></div>`
-    : `<div class="gr-pick g-note">Click a car to Drive · Parts · Upgrade</div>`;
+    : `<div class="gr-pick g-note">Click a car to Drive · Body Shop · Upgrade · drag a car to turn it</div>`;
   return `<div class="cat-list gr-list blk"><div class="gr-head"><b class="hd">${ids.length} car${ids.length === 1 ? '' : 's'}</b><button class="gr-favonly ${ui.favOnly ? 'on' : ''}" id="gFavOnly">★ Favourites only</button></div>${list}${more}</div>
     <div class="gr-info blk"><button class="g-close" aria-label="Close">✕</button>
       <div class="gr-name"><b class="hd">${carName(id)}</b><span>${spec.unique ? 'Boss car' : `${carBrand(id)} · ${TYPE_SUB[id] ?? ''}`} · League ${spec.league}</span></div>
@@ -424,9 +470,9 @@ function panelHtml(save: SaveV1, on: GarageHandlers): string {
       <div class="cat-under">${close}
         <div class="cat-name"><b class="hd">${carName(id)}</b><span>${spec.unique ? 'Boss car · won on the Strip · no upgrades' : `${carBrand(id)} · ${TYPE_SUB[id] ?? ''}`} · ${spec.hp} hp · ${spec.massKg.toLocaleString()} kg · ${spec.drive} · League ${spec.league} · ${CHARACTER[spec.character ?? 'balanced']}${spec.currency === 'crowns' ? ' · Crowns only' : ''}</span></div>
         <div class="cat-stats">${infoRows(id).map(r => `<div class="cs"><span>${r.label}</span><b>${r.value}</b><i><u style="width:${Math.round(r.bar * 100)}%"></u></i></div>`).join('')}</div>
-        <div class="cat-paints">${PAINTS.map(([c, n]) => `<button class="swatch ${c === paint ? 'on' : ''}" data-paint="${c}" title="${n}" style="background:${c}"></button>`).join('')}</div>
+        ${owned ? `<div class="g-note cat-repaint">Repaint this car in the Body Shop (Garage → pick the car → Body Shop → Paint).</div>` : `<div class="cat-paints">${PAINTS.map(([c, n]) => `<button class="swatch ${c === paint ? 'on' : ''}" data-paint="${c}" title="${n}" style="background:${c}"></button>`).join('')}</div>`}
         ${opts.length ? `<div class="cat-opts">${opts.map(o => `<div class="setrow"><span>${o.label}</span><div class="seg">${o.values.map(([v, t]) => `<button class="${(ui.cat.opts[o.id] ?? o.values[0][0]) === v ? 'on' : ''}" data-opt="${o.id}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>` : `<div class="g-note">No optional features on this body yet.</div>`}
-        <div class="cat-buy">${action}<span class="g-note">${owned ? 'Paint and options save to this car.' : 'Paint and options you pick here come with the car.'}</span></div>
+        <div class="cat-buy">${action}<span class="g-note">${owned ? 'Options save to this car.' : 'Pick your paint now — it comes free with the car. Repaints later cost VX in the Body Shop.'}</span></div>
       </div>`;
   }
   return '';

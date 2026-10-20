@@ -48,7 +48,9 @@ export interface BodyProfile {
   /** bright trim along the bottom of the side glass */
   windowTrim?: string;
   /** tail pipes: dual = two on the right (default), split = one each side, single, twinCentre, quad */
-  exhaust?: 'dual' | 'split' | 'single' | 'twinCentre' | 'quad';
+  exhaust?: 'dual' | 'split' | 'single' | 'twinCentre' | 'quad' | 'side';
+  /** smoked (dark tinted) tail lamps — Body Shop part */
+  tailSmoke?: boolean;
   /** big lower bumper air intake (dark mesh), y0..y1 */
   frontIntake?: [number, number];
   /** front fenders rise over the wheels (blocks above the arch) — keeps an arch over the wheel on low noses (owner Q65) */
@@ -84,13 +86,14 @@ const lerpPts = (pts: [number, number][], x: number) => {
 export function buildBodyVoxels(P: BodyProfile): { body: Vox[]; wheels: WheelVox[]; wheelY: number } {
   const { L, W, yBot } = P, body: Vox[] = [];
   const wheelY = P.wheelR, archR = P.wheelR + 0.9, archD = 6;          // arch hugs the tyre (owner Q65)
-  const put = (x: number, y: number, z: number, c: string | null, role: Role = 'trim', shade = 'mid') => body.push({ x, y: y + P.ride, z, c, role, s: 1, shade });
+  const occ = new Set<string>(), free = (x: number, y: number, z: number) => !occ.has(`${x},${y},${z}`);   // detail blocks drawn so far (collision check)
+  const put = (x: number, y: number, z: number, c: string | null, role: Role = 'trim', shade = 'mid') => { occ.add(`${x},${y},${z}`); body.push({ x, y: y + P.ride, z, c, role, s: 1, shade }); };
   const put2 = (x: number, y: number, z: number, c: string | null, role: Role = 'trim') => body.push({ x, y: y + 2 * P.ride, z, c, role, s: 0.5 });
   const lowerTop = (x: number) => lerpPts(P.lower, Math.max(0, Math.min(L - 1, x)));
   const gTop = (x: number) => lerpPts(P.green, x);
   const roofY = Math.max(...P.green.map(p => p[1]));
-  const key = (x: number, y: number, z: number) => x + ',' + y + ',' + z;
-  const shell = new Map<string, 'lower' | 'green'>();
+  const key = (x: number, y: number, z: number) => ((x + 16) * 128 + y + 16) * 128 + z + 16;   // numeric keys: ~5× faster than strings
+  const shell = new Map<number, 'lower' | 'green'>();
   for (let x = 0; x < L; x++) {
     const t = lowerTop(x), bot = (x < 2 || x > L - 3) ? yBot + 1 : yBot;
     for (let y = bot; y < t; y++) for (let z = 0; z < W; z++) {
@@ -128,8 +131,8 @@ export function buildBodyVoxels(P: BodyProfile): { body: Vox[]; wheels: WheelVox
   const has = (x: number, y: number, z: number) => shell.has(key(x, y, z));
   const glass = (a: number, b: number) => ((a + b) % 10 < 2) ? PAL.streak : PAL.glass;
   for (const [k, part] of shell) {
-    const [x, y, z] = k.split(',').map(Number);
-    const exposed = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].some(([a, b, c]) => !has(x + a, y + b, z + c));
+    const x = Math.floor(k / 16384) - 16, y = Math.floor(k / 128) % 128 - 16, z = k % 128 - 16;
+    const exposed = !has(x + 1, y, z) || !has(x - 1, y, z) || !has(x, y + 1, z) || !has(x, y - 1, z) || !has(x, y, z + 1) || !has(x, y, z - 1);
     if (!exposed) continue;
     const up = !has(x, y + 1, z), front = !has(x - 1, y, z), back = !has(x + 1, y, z);
     const side = !has(x, y, z + 1) || !has(x, y, z - 1);
@@ -238,43 +241,51 @@ export function buildBodyVoxels(P: BodyProfile): { body: Vox[]; wheels: WheelVox
       const half = Math.floor(W / 2), inner = Math.abs(z + .5 - half) < 1.2, edge = y === G.y0 || y === G.y1 - 1 || z === G.z || z === W - G.z - 1 || Math.abs(z + .5 - half) < 2.2;
       c = inner ? null : edge ? PAL.chrome : ((y + z) % 2 ? '#121214' : PAL.darkGrey);
     }
-    if (c) put(-1, y, z, c);
+    if (c && free(-1, y, z)) put(-1, y, z, c);
   }
-  if (H.style === 'bar') for (let z = LZ[1]; z < W - LZ[1]; z++) put(-1, H.y1 - 1, z, '#eaf6ff', 'light');   // the light bar runs across the nose
+  if (H.style === 'bar') for (let z = LZ[1]; z < W - LZ[1]; z++) if (free(-1, H.y1 - 1, z)) put(-1, H.y1 - 1, z, '#eaf6ff', 'light');   // the light bar runs across the nose
   if (P.grilleAccent) for (let z = LZ[0]; z < W - LZ[0]; z++) put(-1, Math.min(G.y0, H.y0) - 1, z, P.grilleAccent);
   if (P.fogs) for (const zc of [LZ[0] + 2.5, W - LZ[0] - 2.5]) for (let z = Math.floor(zc - 2); z < zc + 2; z++) for (let y = yBot + 1; y < yBot + 4; y++) { const d = Math.hypot(z + .5 - zc, y + .5 - (yBot + 2.5)); if (d < 1.7) put(-1, y, z, d < 0.9 ? PAL.head : PAL.darkGrey, d < 0.9 ? 'light' : 'trim'); }
   if (P.splitter) for (let z = 1; z < W - 1; z++) put(-2, yBot, z, typeof P.splitter === 'string' ? P.splitter : PAL.dark);
-  if (P.frontIntake) for (let z = 4; z < W - 4; z++) for (let y = P.frontIntake[0]; y < P.frontIntake[1]; y++) put(-1, y, z, (y + z) % 2 ? '#121214' : PAL.darkGrey);
+  // lower intake: leaves room for the fog lamps when there are any (collision check)
+  const iz0 = P.fogs ? LZ[0] + 5 : 4;
+  if (P.frontIntake) for (let z = iz0; z < W - iz0; z++) for (let y = P.frontIntake[0]; y < P.frontIntake[1]; y++) put(-1, y, z, (y + z) % 2 ? '#121214' : PAL.darkGrey);
   for (let z = Math.floor(W / 2) - 3; z < Math.floor(W / 2) + 3; z++) put(-2, yBot + 1, z, PAL.plate);
   // ---- rear: tail lights, plate, exhaust, diffuser ----
+  const TC = P.tailSmoke ? PAL.tailSmoke : PAL.tail, TC2 = P.tailSmoke ? '#8a2a22' : '#ff6a5a';
   const TZ = P.tailZ ?? [1, 8], T = P.tail, tl: [number, number][] = [[TZ[0], TZ[1]], [W - TZ[1], W - TZ[0]]];
   for (const [z0, z1] of tl) {
-    if (T.style === 'rect') for (let z = z0; z < z1; z++) for (let y = T.y0; y < T.y1; y++) put(L, y, z, (y === T.y0 && (z === z0 + 3 || z === z1 - 4)) ? PAL.reverse : PAL.tail, 'light');
+    if (T.style === 'rect') for (let z = z0; z < z1; z++) for (let y = T.y0; y < T.y1; y++) put(L, y, z, (y === T.y0 && (z === z0 + 3 || z === z1 - 4)) ? PAL.reverse : TC, 'light');
     if (T.style === 'quad') for (const zc of [z0 + 1.8, z0 + 5.2]) for (let z = Math.floor(zc - 2); z < zc + 2; z++) for (let y = T.y0; y < T.y1; y++) {
-      const d = Math.hypot(z + .5 - zc, y + .5 - (T.y0 + T.y1) / 2); if (d < 1.9) put(L, y, z, d < 1.0 ? '#ff6a5a' : PAL.tail, 'light');
+      const d = Math.hypot(z + .5 - zc, y + .5 - (T.y0 + T.y1) / 2); if (d < 1.9) put(L, y, z, d < 1.0 ? TC2 : TC, 'light');
     }
-    if (T.style === 'bar') for (let z = z0; z < z1; z++) for (let y = T.y0; y < T.y1; y++) put(L, y, z, PAL.tail, 'light');
-    if (T.style === 'tall') for (let z = z0; z < z1; z++) for (let y = T.y0; y < T.y1; y++) put(L, y, z, y === T.y0 + 1 ? PAL.reverse : (y + z) % 3 ? PAL.tail : '#ff6a5a', 'light');
+    if (T.style === 'bar') for (let z = z0; z < z1; z++) for (let y = T.y0; y < T.y1; y++) put(L, y, z, TC, 'light');
+    if (T.style === 'tall') for (let z = z0; z < z1; z++) for (let y = T.y0; y < T.y1; y++) put(L, y, z, y === T.y0 + 1 ? PAL.reverse : (y + z) % 3 ? TC : TC2, 'light');
   }
-  if (T.style === 'bar' || T.style === 'blade') for (let z = 1; z < W - 1; z++) put(L, T.style === 'blade' ? T.y1 - 1 : T.y1, z, PAL.tail, 'light');
+  if (T.style === 'bar' || T.style === 'blade') for (let z = 1; z < W - 1; z++) put(L, T.style === 'blade' ? T.y1 - 1 : T.y1, z, TC, 'light');
   for (let z = Math.floor(W / 2) - 3; z < Math.floor(W / 2) + 3; z++) { put(L, T.y0 - 2, z, PAL.plate); put(L, T.y0 - 3, z, PAL.plate); }
+  // tail pipes first; the diffuser leaves their holes (collision check)
   const ex = P.exhaust ?? (P.quadExhaust ? 'quad' : 'dual'), mid = Math.floor(W / 2);
-  const pipes = ex === 'quad' ? [3, 4, W - 5, W - 4] : ex === 'split' ? [4, W - 5] : ex === 'single' ? [W - 6] : ex === 'twinCentre' ? [mid - 3, mid - 2, mid + 1, mid + 2] : [W - 7, W - 6];
+  const pipes: number[] = ex === 'side' ? [] : ex === 'quad' ? [3, 4, W - 5, W - 4] : ex === 'split' ? [4, W - 5] : ex === 'single' ? [W - 6] : ex === 'twinCentre' ? [mid - 3, mid - 2, mid + 1, mid + 2] : [W - 7, W - 6];
   for (const z of pipes) { put(L, yBot + 1, z, PAL.chrome); put(L + 1, yBot + 1, z, PAL.midGrey); if (ex === 'twinCentre' || ex === 'single') { put(L, yBot + 2, z, PAL.chrome); put(L + 1, yBot + 2, z, PAL.midGrey); } }
   if (ex === 'single') { put(L, yBot + 1, W - 7, PAL.chrome); put(L, yBot + 2, W - 7, PAL.chrome); }
-  if (P.diffuser) for (let z = 3; z < W - 3; z++) for (let y = yBot; y < yBot + 2; y++) put(L, y, z, z % 3 === 0 ? PAL.midGrey : '#121214');
+  if (P.diffuser) for (let z = 3; z < W - 3; z++) for (let y = yBot; y < yBot + 2; y++) if (free(L, y, z)) put(L, y, z, z % 3 === 0 ? PAL.midGrey : '#121214');
   // ---- wing ----
-  const deck = lowerTop(L - 1);
-  if (P.wing === 'ducktail') for (let z = 2; z < W - 2; z++) { put(L - 1, deck, z, null, 'paint', 'light'); put(L, deck, z, null, 'paint', 'light'); put(L, deck + 1, z, null, 'paint', 'light'); }
+  // spoilers sit on whatever is highest at the tail (deck or hatch glass), so they never cut through the rear glass
+  const topAt = (x: number) => { let t = lowerTop(x); for (let y = t; y < 40; y++) if (has(x, y, Math.floor(W / 2))) t = y + 1; return t; };
+  const deck = Math.max(topAt(L - 1), topAt(L - 2)), wingDeck = Math.max(...[L - 5, L - 4, L - 3, L - 2, L - 1].map(topAt));
+  const rowFree = (y: number) => [...Array(W).keys()].every(z => free(L, y, z));
+  let dk = deck; while (dk < deck + 4 && !(rowFree(dk) && rowFree(dk + 1))) dk++;            // ducktail sits above a tail lamp bar
+  if (P.wing === 'ducktail') for (let z = 2; z < W - 2; z++) { put(L - 1, deck, z, null, 'paint', 'light'); if (dk > deck) put(L - 1, dk, z, null, 'paint', 'light'); put(L, dk, z, null, 'paint', 'light'); put(L, dk + 1, z, null, 'paint', 'light'); }
   if (P.wing === 'lip') for (let z = 2; z < W - 2; z++) put(L - 1, deck, z, PAL.dark);
   if (P.wing === 'gt') {
-    for (const zp of [6, W - 7]) for (let y = deck; y < deck + 4; y++) put(L - 3, y, zp, PAL.dark);
-    for (let x = L - 5; x <= L; x++) for (let z = 1; z < W - 1; z++) put(x, deck + 4, z, PAL.dark);
-    for (const ze of [0, W - 1]) for (let x = L - 5; x <= L; x++) for (let y = deck + 3; y <= deck + 5; y++) put(x, y, ze, PAL.dark);
+    for (const zp of [6, W - 7]) for (let y = topAt(L - 3); y < wingDeck + 4; y++) put(L - 3, y, zp, PAL.dark);
+    for (let x = L - 5; x <= L; x++) for (let z = 1; z < W - 1; z++) put(x, wingDeck + 4, z, PAL.dark);
+    for (const ze of [0, W - 1]) for (let x = L - 5; x <= L; x++) for (let y = wingDeck + 3; y <= wingDeck + 5; y++) put(x, y, ze, PAL.dark);
   }
   if (P.wing === 'roof') {                                                         // hot-hatch roof spoiler: carries the roof line back over the tailgate glass
     for (let x = P.roofEnd + 1; x <= P.roofEnd + 4; x++) for (let z = P.roofInset; z < W - P.roofInset; z++) if (!has(x, roofY - 1, z)) put(x, roofY - 1, z, null, 'paint', 'light');
-    for (let z = P.roofInset + 1; z < W - P.roofInset - 1; z++) put(P.roofEnd + 4, roofY - 2, z, PAL.dark);
+    for (let z = P.roofInset + 1; z < W - P.roofInset - 1; z++) if (!has(P.roofEnd + 4, roofY - 2, z)) put(P.roofEnd + 4, roofY - 2, z, PAL.dark);
   }
   void put2;
   return { body, wheels: buildWheels(P.rim, P.wheels, P.wheelR, W), wheelY };
@@ -428,6 +439,17 @@ export const BODY_OPTIONS: Record<string, BodyOption[]> = {
   supermini: [{ id: 'roof', label: 'Roof', values: [['body', 'Body colour'], ['black', 'Black'], ['white', 'White']] }],
 };
 const ROOF: Record<string, string | undefined> = { white: '#eeeae0', black: '#1a1a1e', body: undefined };
+export const MIRROR: Record<string, string | undefined> = { body: undefined, black: PAL.dark, chrome: PAL.chrome, carbon: '#2a2b30' };
+/** Does a Body Shop style fit this body? (owner 2026-10-19: pop-ups only where they make sense.) Every other part fits every car. */
+export function partFits(body: string | undefined, slot: string, value: string): boolean {
+  const civix = !body || body === 'civix', P = civix ? undefined : BODY_PROFILES[body!];
+  if (slot === 'headlights') {
+    if (civix) return ['stock', 'rect', 'slim', 'round', 'quad'].includes(value);
+    if (value === 'popup') { if (!P) return false; const nose = lerpPts(P.lower, 3); return P.head.style === 'popup' || P.head.style === 'popupUp' || (nose <= 11 && P.head.y1 >= nose - 2); }
+  }
+  if (slot === 'taillights' && civix) return ['stock', 'rect', 'smoked', 'quad', 'bar'].includes(value);
+  return true;
+}
 
 /** Build the profile a look asks for, with its selected options applied. */
 export function profileFor(look: CarLook): BodyProfile | null {
@@ -444,6 +466,11 @@ export function profileFor(look: CarLook): BodyProfile | null {
   if (on(parts.spoiler)) P = { ...P, wing: parts.spoiler as BodyProfile['wing'] };
   if (on(parts.exhaust)) P = { ...P, exhaust: parts.exhaust as BodyProfile['exhaust'], quadExhaust: false };
   if (on(parts.wheels)) P = { ...P, rim: parts.wheels! };
+  // lights + mirrors (Body Shop, owner 2026-10-19); a style that doesn't fit the body is ignored (partFits)
+  if (on(parts.headlights) && partFits(look.body, 'headlights', parts.headlights!)) P = { ...P, head: { ...P.head, style: (parts.headlights === 'popup' && o.popups === 'up' ? 'popupUp' : parts.headlights) as HeadStyle } };
+  if (parts.taillights === 'smoked') P = { ...P, tailSmoke: true };
+  else if (on(parts.taillights)) P = { ...P, tail: { ...P.tail, style: parts.taillights as TailStyle } };
+  if (on(parts.mirrors)) P = parts.mirrors === 'none' ? { ...P, mirrors: false } : { ...P, mirrors: true, mirrorColor: MIRROR[parts.mirrors!] };
   // body kit (kit.ts draws it): a fitted bumper / diffuser replaces the body's own splitter / diffuser
   if (on(parts.bumper)) P = { ...P, splitter: false };
   if (on(parts.diffuser)) P = { ...P, diffuser: false };
@@ -454,13 +481,16 @@ export function profileFor(look: CarLook): BodyProfile | null {
 setBodyBuilder(look => {
   const P = profileFor(look); if (!P) return null;
   const r = buildBodyVoxels(P);
-  return { ...r, L: P.L, W: P.W, dims: { L: P.L, W: P.W, yb: P.yBot + P.ride, wheels: P.wheels, archR: P.wheelR + 0.9, belt: x => lerpPts(P.lower, Math.max(0, Math.min(P.L - 1, x))) - 1 + P.ride, hoodEnd: P.green[0][0] } };
+  return { ...r, L: P.L, W: P.W, dims: { L: P.L, W: P.W, yb: P.yBot + P.ride, wheels: P.wheels, archR: P.wheelR + 0.9, belt: x => lerpPts(P.lower, Math.max(0, Math.min(P.L - 1, x))) - 1 + P.ride, hoodEnd: P.green[0][0],
+    roof: { x0: P.wsEnd + 1, x1: P.roofEnd, inset: P.roofInset, top: x => lerpPts(P.green, x) + P.ride } } };
 });
 
 /** The part values a body comes with from the factory (owner Q114: a part identical to these is the Factory part). */
-export function stockParts(body?: string): Record<'spoiler' | 'exhaust' | 'hood' | 'wheels' | 'bumper' | 'diffuser', string> {
+export function stockParts(body?: string): Record<'spoiler' | 'exhaust' | 'hood' | 'wheels' | 'bumper' | 'diffuser' | 'headlights' | 'taillights' | 'mirrors', string> {
   const P = body && body !== 'civix' ? BODY_PROFILES[body] : undefined;
-  if (!P) return { spoiler: 'none', exhaust: 'dual', hood: 'none', wheels: 'steel', bumper: 'none', diffuser: 'none' };   // Panda Civix
+  if (!P) return { spoiler: 'none', exhaust: 'dual', hood: 'none', wheels: 'steel', bumper: 'none', diffuser: 'none', headlights: 'rect', taillights: 'rect', mirrors: 'body' };   // Panda Civix
   return { spoiler: P.wing ?? 'none', exhaust: P.exhaust ?? (P.quadExhaust ? 'quad' : 'dual'), hood: P.scoop ? 'scoop' : (P.hood ?? 'none'), wheels: P.rim,
-    bumper: P.splitter === true ? 'lip' : 'none', diffuser: P.diffuser ? 'fins' : 'none' };
+    bumper: P.splitter === true ? 'lip' : 'none', diffuser: P.diffuser ? 'fins' : 'none',
+    headlights: P.head.style === 'popupUp' ? 'popup' : P.head.style, taillights: P.tail.style,
+    mirrors: !P.mirrors ? 'none' : Object.keys(MIRROR).find(k => MIRROR[k] === P.mirrorColor) ?? 'custom' };
 }

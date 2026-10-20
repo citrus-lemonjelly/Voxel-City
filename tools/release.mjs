@@ -5,6 +5,7 @@
 //                                           also copy those files to DIR and write DIR/commit-N.json (≤ 50 files each)
 //   --same      allow re-building the same version (only for a rebuild that ships nothing new)
 //   --no-sim    skip the sim checks
+//   --no-collide  skip the parts collision check
 // Rules (owner): every update raises the version (V0.x.y); a big update gets a `header` in src/data/changelog.ts.
 import { createRequire } from 'node:module';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, copyFileSync, readdirSync, statSync } from 'node:fs';
@@ -39,6 +40,12 @@ if (!flag('--no-sim')) {
   try { out = execFileSync(tsx, [resolve(root, 'tests/sim.ts')], { encoding: 'utf8', shell: process.platform === 'win32' }); }
   catch (e) { out = String(e.stdout || ''); console.log(out.split('\n').filter(l => l.startsWith('FAIL')).join('\n')); fail('sim checks failed'); }
   say(`sim: ${out.split('\n').filter(l => l.startsWith('PASS')).length} checks passed`);
+}
+
+// 2b. collision check (owner: always check base cars + parts) — a clash stops the release
+if (!flag('--no-collide')) {
+  try { const o = execFileSync(process.execPath, [resolve(root, 'tools/collide.mjs'), '--strict'], { encoding: 'utf8', env: process.env }); say(o.trim().split('\n').pop()); }
+  catch (e) { console.log(String(e.stdout || '')); fail('collision check found clashing blocks'); }
 }
 
 // 3. build (+ the root copy the owner opens)

@@ -180,7 +180,7 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
 {
   const sold = VISUAL_PARTS.filter(p => !isFactory(p) && !p.won), won = VISUAL_PARTS.filter(p => p.won);
   const r1 = randomParts(makeRngT(42)), r2 = randomParts(makeRngT(42));
-  check(sold.every(p => COSMETIC_PRICES[p.id]?.price > 0) && won.every(p => !COSMETIC_PRICES[p.id]) && won.length === 30 && PART_SLOTS.length === 10
+  check(sold.every(p => COSMETIC_PRICES[p.id]?.price > 0) && won.every(p => !COSMETIC_PRICES[p.id]) && won.length === 30 && PART_SLOTS.length === 15
     && ownsPart('decal.boss_D_3', [], ['decal_D_3']) && !ownsPart('decal.boss_D_4', [], ['decal_D_3']) && JSON.stringify(r1) === JSON.stringify(r2)
     && Object.values(r1).every(v => !String(v).startsWith('boss_')),
     `visual parts: ${sold.length} for sale (all priced), ${won.length} boss decals (won, never sold), ${PART_SLOTS.length} tabs; rival parts repeatable: ${JSON.stringify(r1)}`);
@@ -244,5 +244,15 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   for (let i = 0; i < 180; i++) { [x, v] = glide(x, v, target, dt); after.push(x); if (v > 1) moving += dt; if (v > prev + 1e-6) smooth = false; if (x > target + 1e-9) never = false; prev = v; }
   check(vStop > 30 && moving > 0.6 && smooth && never && target - after[after.length - 1] < 1,
     `typing glide: stop typing at ${(vStop).toFixed(0)} blocks/s → the car rolls on ${(target - stopAt).toFixed(0)} blocks over ~${moving.toFixed(1)} s, slowing smoothly, never past your letters`);
+}
+// Body Shop (owner 2026-10-19): every part has a price, plate text rules, paint prices, pop-ups only where they fit
+{
+  const { VISUAL_PARTS, isFactory } = await import('../src/data/visualParts');
+  const { COSMETIC_PRICES, PAINT, PLATE_TEXT, repaintPrice } = await import('../src/data/economy');
+  const { cleanPlate } = await import('../src/data/plates');
+  const unpriced = VISUAL_PARTS.filter(p => !isFactory(p) && !p.won && !COSMETIC_PRICES[p.id]).map(p => p.id);
+  check(unpriced.length === 0, `body shop: every part has a price${unpriced.length ? ' — missing ' + unpriced.join(', ') : ''}`);
+  check(cleanPlate('ab#c 12345') === 'ABC 123' && cleanPlate('vx-1') === 'VX-1' && PLATE_TEXT.crowns > 0, `plate text: upper case, A–Z 0–9 space -, max 7 ("${cleanPlate('ab#c 12345')}"), ${PLATE_TEXT.crowns} Crowns a change`);
+  check(repaintPrice('S' as any) > repaintPrice('D' as any) && PAINT.premium.every(p => p.crowns > 0 && /^#[0-9a-f]{6}$/.test(p.color)), `paint: repaint ${repaintPrice('D' as any)} VX (League D) → ${repaintPrice('S' as any)} VX (League S); ${PAINT.premium.length} premium paints`);
 }
 process.exit(fail ? 1 : 0);

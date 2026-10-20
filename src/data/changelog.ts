@@ -26,6 +26,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.7.0', date: '2026-10-19', title: 'Body Shop: paint, plates, lights, mirrors, roof parts and more', header: 'Body Shop Update',
+    added: [
+      'Parts is now the Body Shop (Garage → pick a car → Body Shop).',
+      'Paint tab: your first paint is picked free when you buy a car. A repaint costs VX (more in higher leagues). 8 premium paints are bought once with Crowns, then free on every car.',
+      'License plates: 5 pre-made designs (City, Classic, Euro, Race, Gold) and your own text on the rear plate — up to 7 letters/numbers, 10 Crowns per change.',
+      'Roof parts: roof scoop, twin roof scoops and a roof rack.',
+      'Side exhaust: pipes under the doors, just ahead of the rear wheels (side skirts stop short of them).',
+      '5 new wheels: Deep dish, Blade, Rally disc, Bronze seven and Wire spoke (Crowns).',
+      'Headlights (9 styles, including pop-ups on low-nosed cars only), Taillights (6 styles, including Smoked) and Mirrors (Body colour, Black, Chrome, Carbon or Shaved).',
+      'Spin toggle beside Profile turns the garage turntable on or off, and you can drag a car with the mouse to turn it.',
+    ],
+    changed: [
+      'The Catalog only picks paint for cars you are buying; owned cars are repainted in the Body Shop.',
+      'Styles that do not fit a car are hidden for it, and rival cars only wear parts that fit them.',
+      'Cars build about 4× faster (Garage cards and race loading).',
+    ],
+    fixed: [
+      'Collision check on every car and part: tail pipes no longer cut through diffusers or the plate, ducktails sit above full-width tail lights, GT wing legs no longer go through the rear glass, and fitted headlights no longer overlap grilles.',
+    ],
+  },
+  {
     version: '0.6.1', date: '2026-10-19', title: 'Controls + per-car records',
     added: [
       'Settings ▸ Controls: change your keys, with a Drag Race set (gas / shift up, shift down) and a Typing Race set (nitro, leave the race). Click a key, then press the new one; a key already in use swaps places. Reset puts the defaults back.',

@@ -81,7 +81,30 @@ export const COSMETIC_PRICES: Record<string, { price: number; currency?: 'vx' | 
   'bumper.lip': { price: 4_000 }, 'bumper.aero': { price: 10_000 }, 'bumper.track': { price: 30, currency: 'crowns' },
   'skirts.black': { price: 3_500 }, 'skirts.painted': { price: 7_000 }, 'skirts.carbon': { price: 25, currency: 'crowns' },
   'diffuser.fins': { price: 4_000 }, 'diffuser.race': { price: 11_000 },
+  // Body Shop update (owner 2026-10-19)
+  'exhaust.side': { price: 9_000 },
+  'wheels.rally8': { price: 4_000 }, 'wheels.deepdish': { price: 10_000 }, 'wheels.blade': { price: 10_000 }, 'wheels.center7': { price: 12_000 }, 'wheels.wire': { price: 35, currency: 'crowns' },
+  'roof.rack': { price: 4_500 }, 'roof.scoop': { price: 7_000 }, 'roof.twin': { price: 8_000 },
+  'headlights.rect': { price: 3_000 }, 'headlights.slim': { price: 4_000 }, 'headlights.round': { price: 4_000 }, 'headlights.quad': { price: 7_000 }, 'headlights.split': { price: 8_000 },
+  'headlights.notch': { price: 8_000 }, 'headlights.bar': { price: 9_000 }, 'headlights.blade': { price: 25, currency: 'crowns' }, 'headlights.popup': { price: 30, currency: 'crowns' },
+  'taillights.rect': { price: 2_500 }, 'taillights.tall': { price: 3_000 }, 'taillights.smoked': { price: 5_000 }, 'taillights.bar': { price: 6_000 }, 'taillights.quad': { price: 6_000 }, 'taillights.blade': { price: 20, currency: 'crowns' },
+  'mirrors.body': { price: 1_500 }, 'mirrors.black': { price: 1_500 }, 'mirrors.chrome': { price: 3_500 }, 'mirrors.none': { price: 5_000 }, 'mirrors.carbon': { price: 15, currency: 'crowns' },
+  'plate.city': { price: 1_500 }, 'plate.classic': { price: 2_000 }, 'plate.euro': { price: 2_000 }, 'plate.racing': { price: 3_500 }, 'plate.gold': { price: 20, currency: 'crowns' },
 };
+/** Your own text on a license plate: Crowns for every change (owner 2026-10-19). Up to 7 letters / numbers. */
+export const PLATE_TEXT = { crowns: 10, maxLength: 7 };
+/** Paint (owner 2026-10-19): picked free when you buy a car; after that a repaint costs VX (× the car's league scale).
+ *  Premium paints are bought once with Crowns, then free on every car. */
+export const PAINT = {
+  repaintVx: 1_500,
+  premium: [
+    { id: 'candy', name: 'Candy apple', color: '#c8102e', crowns: 25 }, { id: 'lime', name: 'Electric lime', color: '#9be03a', crowns: 25 },
+    { id: 'midnight', name: 'Midnight purple', color: '#3d1f78', crowns: 30 }, { id: 'sunburst', name: 'Sunburst gold', color: '#e6a822', crowns: 30 },
+    { id: 'ocean', name: 'Deep ocean', color: '#0b5a8c', crowns: 25 }, { id: 'magenta', name: 'Hot magenta', color: '#e0287a', crowns: 25 },
+    { id: 'steel', name: 'Liquid steel', color: '#b4bcc6', crowns: 35 }, { id: 'onyx', name: 'Onyx black', color: '#0c0c0f', crowns: 35 },
+  ],
+};
+export const repaintPrice = (league: EcoLeague) => round(PAINT.repaintVx * LEAGUE_SCALE[league], 50);
 export const cosmeticPrice = (id: string) => COSMETIC_PRICES[id] ?? { price: 0 };
 
 // ---------------- The Strip ----------------

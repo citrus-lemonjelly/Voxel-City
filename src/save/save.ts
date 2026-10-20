@@ -24,6 +24,8 @@ export interface SaveV1 {
   raceDiff: 'easy' | 'medium' | 'hard';
   /** Visual parts owned — bought once, fit every car (owner Q110). Factory parts are always owned. */
   partsOwned: string[];
+  /** premium paints bought with Crowns (Body Shop; free on every car once bought) */
+  paintsOwned?: string[];
   /** Universal decals won (Strip bosses) — used when decals arrive with parts/visuals. */
   decals: string[];
   /** Newest patch notes version the player has opened (the notes button shows NEW until then). */
@@ -64,12 +66,16 @@ export interface CarState {
   opts: Record<string, string>;
   /** visual parts fitted to this car, by slot → part id (owner 2026-10-19) */
   parts: Record<string, string>;
+  /** the player's own rear plate text (Body Shop) */
+  plateText?: string;
 }
 export interface Settings {
   camera: 'dynamic' | 'close';            // C = Dynamic, C2 = Dynamic close
   time: 'day' | 'dusk' | 'night';         // time-of-day preview (stages will set this later)
   nearSide: 'mixed' | 'curb' | 'barrier'; // near-side dressing (preview while we choose)
   blur: 'off' | 'low' | 'full';           // speed blur on the world (cars stay sharp)
+  /** garage turntable slow spin (owner 2026-10-19); missing = on */
+  spin?: 'on' | 'off';
   /** key bindings (owner 2026-10-19; defaults in game/keys.ts) */
   keys?: Partial<{ drag: Partial<Record<'gas' | 'down', string>>; typing: Partial<Record<'nitro' | 'leave', string>> }>;
 }

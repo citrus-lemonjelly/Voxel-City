@@ -22,6 +22,9 @@ export class World {
   private sun = new THREE.DirectionalLight('#fff2dc', 2.4);
   private garageCar?: CarModel;
   private turntable = new THREE.Group();
+  /** garage: slow turntable spin (Settings toggle); the player can also drag the car round (owner 2026-10-19) */
+  autoSpin = true;
+  private drag = { on: false, x: 0, v: 0, id: -1 };
   stage?: Stage;
   player?: CarModel;
   opponent?: CarModel;
@@ -58,6 +61,16 @@ export class World {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.NeutralToneMapping;
     canvasHost.appendChild(this.renderer.domElement);
+    // drag the car round on the turntable; it keeps a little momentum, then the slow spin (if on) takes over again
+    const cv = this.renderer.domElement as HTMLCanvasElement, D = this.drag;
+    cv.addEventListener('pointerdown', (e: PointerEvent) => { if (this.mode !== 'garage') return; D.on = true; D.x = e.clientX; D.v = 0; D.id = e.pointerId; cv.setPointerCapture(e.pointerId); cv.classList.add('grabbing'); });
+    cv.addEventListener('pointermove', (e: PointerEvent) => {
+      cv.classList.toggle('grab', this.mode === 'garage');
+      if (!D.on || e.pointerId !== D.id) return;
+      const dx = (e.clientX - D.x) * 0.012; D.x = e.clientX; this.turntable.rotation.y += dx; D.v = dx;
+    });
+    const end = (e: PointerEvent) => { if (e.pointerId !== D.id) return; D.on = false; cv.classList.remove('grabbing'); };
+    cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
     const env = new THREE.PMREMGenerator(this.renderer).fromScene(new RoomEnvironment(), 0.04).texture;
     this.garageScene.environment = env; this.raceScene.environment = env;
     this.mats = makeMaterials();
@@ -279,7 +292,9 @@ export class World {
 
   render(dt: number) {
     if (this.mode === 'garage') {
-      this.turntable.rotation.y += dt * 0.25;
+      const D = this.drag;
+      if (!D.on) { this.turntable.rotation.y += D.v; D.v *= Math.pow(0.02, dt); if (Math.abs(D.v) < 0.0005) D.v = 0; }
+      if (this.autoSpin && !D.on && D.v === 0) this.turntable.rotation.y += dt * 0.25;
       this.renderer.render(this.garageScene, this.garageCam);
     } else if (this.mode === 'typing' && this.typing) this.renderer.render(this.typing.scene, this.typing.cam); else if (this.blur.strength > 0) this.blur.render(this.raceScene, this.raceCam, dt);
     else this.renderer.render(this.raceScene, this.raceCam);
