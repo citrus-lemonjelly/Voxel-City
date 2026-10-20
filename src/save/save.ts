@@ -52,7 +52,10 @@ export interface SaveV1 {
 }
 export type RaceDist = 600 | 700 | 800;
 export const RACE_DISTS: RaceDist[] = [600, 700, 800];
+/** Per-car drag-race record (owner Q138), counted from V0.6.1. */
+export interface CarRecord { races: number; wins: number; best: Record<number, number | null> }
 export interface CarState {
+  stats?: CarRecord;
   owned: { engine: Tier[]; trans: Tier[] };
   equipped: { engine: Tier; trans: Tier };
   /** chosen paint (empty = the car's factory paint) */
@@ -67,6 +70,8 @@ export interface Settings {
   time: 'day' | 'dusk' | 'night';         // time-of-day preview (stages will set this later)
   nearSide: 'mixed' | 'curb' | 'barrier'; // near-side dressing (preview while we choose)
   blur: 'off' | 'low' | 'full';           // speed blur on the world (cars stay sharp)
+  /** key bindings (owner 2026-10-19; defaults in game/keys.ts) */
+  keys?: Partial<{ drag: Partial<Record<'gas' | 'down', string>>; typing: Partial<Record<'nitro' | 'leave', string>> }>;
 }
 export const DEFAULT_SETTINGS: Settings = { camera: 'dynamic', time: 'day', nearSide: 'mixed', blur: 'low' };
 const KEY = 'voxelcity.save';

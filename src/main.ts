@@ -24,6 +24,7 @@ import { freshSave, typingStats } from './save/save';
 import { TypingRun, TypingRival, makeTypingRace, averageFor, typedBy, placeOf, wpmOf, glide } from './game/typing';
 import { TypingHud, renderTypingResults } from './ui/typingHud';
 import { openCarLab } from './ui/carLab';
+import { keysOf, keyMatches, keyName, DEFAULT_KEYS } from './game/keys';
 import { TYPE_TRACK, laneZ } from './render/typingView';
 import { typingPay, TYPING } from './data/economy';
 
@@ -79,18 +80,20 @@ function release() { input.held = false; hud?.setPressed(false); hud?.setGas(fal
 function paddlePress() { hud?.setPressed(true); if (playerRacer?.launched) input.shiftQueued = true; }
 function paddleRelease() { hud?.setPressed(false); }
 // downshift (left "−" paddle): Shift or ↓ — owner request, for when an upshift came too early
-const DOWN_KEYS = ['ShiftLeft', 'ShiftRight', 'ArrowDown'];
+// keys come from Settings ▸ Controls (owner 2026-10-19)
 function downPress() { if (playerRacer?.launched) input.downQueued = true; hud?.setDownPressed(true); }
 function downRelease() { hud?.setDownPressed(false); }
 window.addEventListener('keydown', e => {
   if (screen === 'typing') return typingKey(e);                       // the Typing Race takes every key
-  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) press(); }
-  else if (DOWN_KEYS.includes(e.code) && screen === 'race') { e.preventDefault(); if (!e.repeat) downPress(); }
+  const K = keysOf(save.settings).drag;
+  if (keyMatches(e.code, K.gas)) { e.preventDefault(); if (!e.repeat) press(); }
+  else if (keyMatches(e.code, K.down) && screen === 'race') { e.preventDefault(); if (!e.repeat) downPress(); }
 });
 window.addEventListener('keyup', e => {
   if (screen === 'typing') return;
-  if (e.code === 'Space') { e.preventDefault(); release(); }
-  else if (DOWN_KEYS.includes(e.code)) downRelease();
+  const K = keysOf(save.settings).drag;
+  if (keyMatches(e.code, K.gas)) { e.preventDefault(); release(); }
+  else if (keyMatches(e.code, K.down)) downRelease();
 });
 class PlayerController implements Controller {
   held() { return input.held; }
@@ -109,7 +112,14 @@ function showGarage(toast?: string) {
     onPreview: look => world.setGarageCar(look ?? playerLook()), onView: v => world.setGarageView(v),
     onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, onBuyPart: buyPart, onFitPart: (id: string, carId: string) => fitPart(id, undefined, carId),
     onFav: (id: string) => { const f = save.favs ??= []; const i = f.indexOf(id); if (i >= 0) f.splice(i, 1); else f.push(id); writeSave(save); showGarage(); }, onDistance: setDistance, onDifficulty: setDifficulty, thumb: (look, view) => world.thumbnail(look, undefined, undefined, view), playerLook,
-    onNotesSeen: () => { save.seenVersion = VERSION; writeSave(save); }, onTyping: () => startTyping() }, toast);
+    onNotesSeen: () => { save.seenVersion = VERSION; writeSave(save); },
+    onKeyBind: (mode, action, code) => {
+      const k = (save.settings.keys ??= {});
+      if (!code) { delete (k as any)[mode]; writeSave(save); return showGarage(`${mode === 'drag' ? 'Drag Race' : 'Typing Race'} keys reset`); }
+      const cur = keysOf(save.settings)[mode] as Record<string, string>, other = Object.keys(cur).find(a => a !== action && keyMatches(code, cur[a]));
+      const next = { ...cur, [action]: code } as any; if (other) next[other] = cur[action];      // taken? swap the two
+      (k as any)[mode] = next; writeSave(save); showGarage(`${keyName(code)} set${other ? ` (swapped with ${keyName(cur[action])})` : ''}`);
+    }, onTyping: () => startTyping() }, toast);
 }
 
 /** Catalog (Q79): buy a car (it comes with the paint/options picked and goes straight into use). */
@@ -207,7 +217,8 @@ function startRace(kind: 'street' | 'strip' = 'street', stripR?: Rung) {
   oppRacer = race.add(opp.id, carStats(opp.carId, opp.engineTier as Tier, opp.transTier as Tier, stage), new AIController(devOppSkill() ?? opp.skill, opp.reaction, opp.seed));
   world.setupRace(stage, dist, playerLook(), oppLook(), { time: save.settings.time, near: save.settings.nearSide });
   // the "Space or click" hint shows for the player's first 3 races (owner Q29)
-  hud = new Hud(ui, race, playerRacer, oppRacer, { oppName: opp.name, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
+  const DK = keysOf(save.settings).drag;
+  hud = new Hud(ui, race, playerRacer, oppRacer, { keys: { gas: keyName(DK.gas), down: keyName(DK.down) }, oppName: opp.name, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
   const btn = hud.shiftBtn;
   btn.addEventListener('pointerdown', e => { e.preventDefault(); btn.setPointerCapture(e.pointerId); paddlePress(); });
   btn.addEventListener('pointerup', paddleRelease); btn.addEventListener('pointercancel', paddleRelease);
@@ -237,6 +248,8 @@ function finishRace() {
   if (me.launchGrade === 'Perfect') earnings.push(['Perfect launch', pay.perfectLaunch]);
   if (newBest) earnings.push(['New best time', pay.newBest]);
   const total = earnings.reduce((a, [, v]) => a + v, 0);
+  const rec = (save.cars[save.carId].stats ??= { races: 0, wins: 0, best: {} });       // per-car record (owner Q138)
+  rec.races++; if (won) rec.wins++; if (rec.best[dist] == null || me.finish! < rec.best[dist]!) rec.best[dist] = me.finish!;
   save.voxels += total; save.races += 1; save.perfectShifts += perfects; if (won) save.wins += 1; if (newBest) { save.best[dist] = me.finish!; if (dist === 800) save.bestTime = me.finish!; }
   writeSave(save);
   const lr = doneRung ? levelReward(doneRung.league, doneRung.n) : null;
@@ -307,19 +320,24 @@ function startTyping() {
   world.setupTyping(looks);
   const hudEl = ui; const names = lanes.map(r => r ? r.name : 'YOU');
   ty = { run: new TypingRun(text), rivals, start: performance.now(), vis: [0, 0, 0, 0, 0], vel: [0, 0, 0, 0, 0], doneAt: 0, diff, seed,
-    hud: new TypingHud(hudEl, { text, names, you: TYPE_LANE, caption: `Typing Race · ${stage.name} · League ${league} · ${DIFFICULTY[diff].label}`, nitros: TYPING.nitros }) };
+    hud: new TypingHud(hudEl, { text, names, you: TYPE_LANE, caption: `Typing Race · ${stage.name} · League ${league} · ${DIFFICULTY[diff].label}`, nitros: TYPING.nitros,
+      nitroKey: keyName(keysOf(save.settings).typing.nitro), leaveKey: keyName(keysOf(save.settings).typing.leave) }) };
   (ty as any).lanes = lanes;
 }
 function typingKey(e: KeyboardEvent) {
   if (!ty) return;
-  if (e.key === 'Escape') { e.preventDefault(); ty = null; return showGarage('Left the Typing Race'); }
+  const K = keysOf(save.settings).typing, t = typingClock();
+  if (keyMatches(e.code, K.leave)) { e.preventDefault(); ty = null; return showGarage('Left the Typing Race'); }
+  if (keyMatches(e.code, K.nitro)) {                                 // nitro (owner: Enter, so Space can't fire it by accident)
+    e.preventDefault();
+    if (t >= 0 && ty.run.nitro(t) === 'nitro') { ty.hud.setText(ty.run.pos, ty.run.typo); ty.hud.setNitro(ty.run.nitros); ty.hud.flash('NITRO!'); if (ty.run.done && !ty.doneAt) ty.doneAt = performance.now(); }
+    return;
+  }
   if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
   e.preventDefault();                                                // no page scroll on space, no quick-find on ' or /
-  const t = typingClock();
   if (t < 0 || ty.run.done) return;                                  // keys before GO don't count
-  const r = ty.run.key(e.key, t);
+  ty.run.key(e.key, t);
   ty.hud.setText(ty.run.pos, ty.run.typo);
-  if (r === 'nitro') { ty.hud.setNitro(ty.run.nitros); ty.hud.flash('NITRO!'); }
   if (ty.run.done && !ty.doneAt) ty.doneAt = performance.now();
 }
 function typingFrame(dt: number, now: number) {

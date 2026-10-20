@@ -41,7 +41,7 @@ await pg.click('#toGarage'); await pg.waitForFunction(() => window.__vc.screen =
 // one Typing Race (auto-typed), with a nitro
 await pg.click('#raceBtn'); await pg.click('#typingRace');
 await pg.waitForFunction(() => window.__vc.screen === 'typing' && window.__vc.typing && window.__vc.typing.run.pos > 3);
-await pg.keyboard.press('Space');
+await pg.keyboard.press('Enter');                                   // nitro
 await pg.waitForFunction(() => window.__vc.screen === 'results' && window.__vc.lastTyping);
 const ty = await ev(() => [window.__vc.lastTyping.place, Math.round(window.__vc.lastTyping.wpm), window.__vc.lastTyping.total]);
 ok('Typing Race finishes with places and pay', ty[0] >= 1 && ty[0] <= 5 && ty[1] > 0 && ty[2] > 0, JSON.stringify(ty));

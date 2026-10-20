@@ -57,12 +57,12 @@ export class Hud {
   private paddleEl!: HTMLElement; private downEl!: HTMLElement; private plusRects: Element[] = []; private skin!: PaddleSkin;
   private last = { gear: '', mph: -1, zone: '', grade: '', count: '' };
 
-  constructor(root: HTMLElement, private race: Race, private player: Racer, private opp: Racer, opts: { oppName: string; paddle: string; paint?: string; showKeyHint: boolean; paddleShape?: 'arc' | 'tab'; pedal?: PedalStyle }) {
+  constructor(root: HTMLElement, private race: Race, private player: Racer, private opp: Racer, opts: { oppName: string; paddle: string; paint?: string; showKeyHint: boolean; paddleShape?: 'arc' | 'tab'; pedal?: PedalStyle; /** bound key names (Settings ▸ Controls) */ keys?: { gas: string; down: string } }) {
     root.innerHTML = '';
     this.gaugeMax = Math.ceil(player.stats.redline / 1000);
     this.el = h(`<div class="overlay hud2">
       <div id="lights" class="blk"><i></i><i></i><i></i></div>
-      <div id="hint" class="blk">Hold <b>Space</b> to keep the revs in the green. Let go when the light turns green.</div>
+      <div id="hint" class="blk">Hold <b>${opts.keys?.gas ?? 'SPACE'}</b> to keep the revs in the green. Let go when the light turns green.</div>
       <div class="race-strip"><div class="gap"></div><div class="road"></div><div class="flag"></div><div class="car them"></div><div class="car me"></div></div>
       <div class="cluster"></div>
     </div>`);
@@ -147,7 +147,7 @@ export class Hud {
     cluster.appendChild(this.shiftBtn); cluster.appendChild(this.downBtn);
     // labels with key pictures (owner): "SHIFT DOWN" + [SHIFT] under the left paddle, "SHIFT UP" + [SPACE] under the right
     const visR = Math.round((GXO + D - 8 + px + pw) / 2), visL = PWc - visR, LY = D - 34;
-    this.keyHint = h(`<div class="keylabels">${keyLabel('SHIFT DOWN', 'SHIFT', visL, LY)}${keyLabel('SHIFT UP', 'SPACE', visR, LY)}</div>`);
+    this.keyHint = h(`<div class="keylabels">${keyLabel('SHIFT DOWN', opts.keys?.down ?? 'SHIFT', visL, LY)}${keyLabel('SHIFT UP', opts.keys?.gas ?? 'SPACE', visR, LY)}</div>`);
     if (opts.showKeyHint) cluster.appendChild(this.keyHint);
     // ---- gas pedal (owner): sits in the plate's bay right of the "+" paddle for the launch, then drops away ----
     this.pedalPod = h(`<div class="pedal-pod" style="left:${PWc}px;top:0;width:${BAY}px;height:${D}px"></div>`);
@@ -158,7 +158,7 @@ export class Hud {
     this.pedalPod.appendChild(this.pedalEl);
     this.gasBtn = h(`<button class="paddle-hit" aria-label="Gas" style="left:0;top:${PT}px;width:${BAY}px;height:${D - PT}px"></button>`);
     this.pedalPod.appendChild(this.gasBtn);
-    if (opts.showKeyHint) this.pedalPod.appendChild(h(`<div class="keylabels">${keyLabel('GAS', 'SPACE', BAY / 2 - 4, LY)}</div>`));
+    if (opts.showKeyHint) this.pedalPod.appendChild(h(`<div class="keylabels">${keyLabel('GAS', opts.keys?.gas ?? 'SPACE', BAY / 2 - 4, LY)}</div>`));
     cluster.appendChild(this.pedalPod);
     // ---- grade + countdown (block lettering above the gauge / centre screen) ----
     const over = svgEl('svg', { width: 520, height: 46, class: 'grade' }, this.el); this.gradeG = svgEl('g', {}, over);

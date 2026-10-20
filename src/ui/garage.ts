@@ -17,6 +17,7 @@ import { averageWpm, averageFor } from '../game/typing';
 import { PART_SLOTS, SOON_SLOTS, partsFor, PART_BY_ID, STOCK_PART, SLOT_VIEW, PartSlot, lookParts, VISUAL_PARTS, ownsPart, isFactory, VisualPart } from '../data/visualParts';
 import { CarLook, STOCK_LOOK } from '../render/carBuilder';
 import { CHANGELOG, VERSION } from '../data/changelog';
+import { keysOf, keyName, KEY_ACTIONS } from '../game/keys';
 
 const h = (html: string) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild as HTMLElement; };
 const fmtTime = (s: number) => s.toFixed(3) + ' s';
@@ -52,13 +53,15 @@ export interface GarageHandlers {
   playerLook(): CarLook;
   /** Typing Race (owner 2026-10-19). */
   onTyping(): void;
+  /** Settings ▸ Controls: bind a key (code) to an action, or reset a mode (code = null). */
+  onKeyBind(mode: 'drag' | 'typing', action: string, code: string | null): void;
   /** Patch notes opened: remember the version so the NEW tag goes away. */
   onNotesSeen(): void;
 }
 type Panel = 'profile' | 'garage' | 'upgrades' | 'parts' | 'catalog' | 'settings' | 'strip' | 'notes' | null;
 /** UI state that survives re-renders (buying a part re-draws the screen). */
 // work = the car Parts / Upgrades act on (the one in use, or the one picked in the Garage); back = panel to return to
-const ui = { panel: null as Panel, back: null as Panel, work: '', gsel: '', dial: false, favOnly: false, raceMenu: false, part: { slot: 'spoiler' as PartSlot, sel: '' }, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
+const ui = { kmode: 'drag' as 'drag' | 'typing', capture: '' as string, kmsg: '', panel: null as Panel, back: null as Panel, work: '', gsel: '', dial: false, favOnly: false, raceMenu: false, part: { slot: 'spoiler' as PartSlot, sel: '' }, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
 export function resetGarageUI() { ui.panel = null; ui.back = null; ui.dial = false; ui.raceMenu = false; }
 export const garageInCatalog = () => ui.panel === 'catalog' || ui.panel === 'parts' || ui.panel === 'garage' || !!ui.back;
 /** Open the Strip screen on the next garage render (results → "The Strip"). */
@@ -210,6 +213,15 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   });
   el.querySelector('#gUpg')?.addEventListener('click', () => { ui.work = ui.gsel; ui.back = 'garage'; ui.panel = 'upgrades'; ui.dial = false; on.onView('panel'); renderGarage(root, save, opp, stage, on); });
   el.querySelectorAll<HTMLButtonElement>('[data-set]').forEach(b => b.addEventListener('click', () => on.onSetting(b.dataset.set!, b.dataset.val!)));
+  // Settings ▸ Controls: pick Drag Race / Typing Race, click a key, press the new key
+  el.querySelectorAll<HTMLButtonElement>('[data-kmode]').forEach(b => b.addEventListener('click', () => { ui.kmode = b.dataset.kmode as any; ui.capture = ''; ui.kmsg = ''; renderGarage(root, save, opp, stage, on); }));
+  el.querySelectorAll<HTMLButtonElement>('[data-bind]').forEach(b => b.addEventListener('click', () => { ui.capture = ui.capture === b.dataset.bind ? '' : b.dataset.bind!; ui.kmsg = ''; renderGarage(root, save, opp, stage, on); }));
+  el.querySelector('#kReset')?.addEventListener('click', () => { ui.capture = ''; ui.kmsg = ''; on.onKeyBind(ui.kmode, '', null); });
+  onCapture = ui.capture ? (e: KeyboardEvent) => {
+    const [mode, action] = ui.capture.split('.') as ['drag' | 'typing', string];
+    if (mode === 'typing' && e.key.length === 1) { ui.kmsg = 'That key is used for typing — pick Enter, Tab, Shift, Ctrl, an arrow or an F key.'; return renderGarage(root, save, opp, stage, on); }
+    ui.capture = ''; ui.kmsg = ''; on.onKeyBind(mode, action, e.code);
+  } : null;
   // catalog
   const restyle = () => { on.onPreview(catLook(save)); if (save.cars[ui.cat.id]) on.onCarStyle(ui.cat.id, ui.cat.paint, ui.cat.opts); else renderGarage(root, save, opp, stage, on); };
   el.querySelectorAll<HTMLButtonElement>('[data-car]').forEach(b => b.addEventListener('click', () => { pickCar(save, b.dataset.car!); on.onPreview(catLook(save)); renderGarage(root, save, opp, stage, on); }));
@@ -226,6 +238,17 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   const list = el.querySelector('.cat-list'); if (list) list.scrollTop = catScroll; list?.addEventListener('scroll', () => (catScroll = (list as HTMLElement).scrollTop));
 }
 let catScroll = 0, partScroll = 0, garScroll = 0;
+// while a Controls key is waiting, the next key press goes to it (before the game's own key handling)
+let onCapture: ((e: KeyboardEvent) => void) | null = null;
+window.addEventListener('keydown', e => { if (!onCapture || ui.panel !== 'settings' || e.repeat) return; e.preventDefault(); e.stopImmediatePropagation(); const f = onCapture; onCapture = null; f(e); }, true);
+/** Settings ▸ Controls (owner 2026-10-19): two sets, Drag Race and Typing Race. */
+function controlsHtml(save: SaveV1): string {
+  const K = keysOf(save.settings), m = ui.kmode;
+  const rows = (KEY_ACTIONS[m] as [string, string][]).map(([a, label]) => { const id = `${m}.${a}`, wait = ui.capture === id;
+    return `<div class="setrow"><span>${label}</span><button class="keycap ${wait ? 'wait' : ''}" data-bind="${id}">${wait ? 'Press a key…' : keyName((K[m] as any)[a])}</button></div>`; }).join('');
+  return `<div class="ctl"><h3 class="hd">Controls</h3><div class="seg ctl-tabs"><button class="${m === 'drag' ? 'on' : ''}" data-kmode="drag">Drag Race</button><button class="${m === 'typing' ? 'on' : ''}" data-kmode="typing">Typing Race</button></div>
+    ${rows}<div class="ctl-foot"><span class="g-note">${ui.kmsg || (m === 'drag' ? 'Hold gas to rev, let go on green to launch; gas shifts up after that.' : 'Letters, numbers, space and punctuation always type.')}</span><button class="keycap ghost" id="kReset">Reset</button></div></div>`;
+}
 
 /** The car being worked on wearing one part (Parts preview and card stills). */
 function partLook(save: SaveV1, id: string): CarLook {
@@ -270,6 +293,11 @@ function partsHtml(save: SaveV1, on: GarageHandlers): string {
     </div>`;
 }
 
+/** This car's drag-race record (owner Q138; counted from V0.6.1). */
+function recHtml(save: SaveV1, id: string): string {
+  const r = save.cars[id]?.stats, t = (d: number) => r?.best[d] != null ? r.best[d]!.toFixed(2) : '—';
+  return `<span><b>${r?.races ?? 0}</b> races</span><span><b>${r?.wins ?? 0}</b> wins</span><span>Best <b>${t(600)}</b> / <b>${t(700)}</b> / <b>${t(800)}</b> s <em>600 / 700 / 800 m</em></span>`;
+}
 /** Owned cars for the Garage list: favourites first, then by league and catalogue order; optionally favourites only. */
 function garageCars(save: SaveV1): string[] {
   const favs = save.favs ?? [], order = [...CATALOG_ORDER, ...Object.keys(CARS).filter(k => CARS[k].unique)];
@@ -305,6 +333,7 @@ function garageHtml(save: SaveV1, on: GarageHandlers): string {
   return `<div class="cat-list gr-list blk"><div class="gr-head"><b class="hd">${ids.length} car${ids.length === 1 ? '' : 's'}</b><button class="gr-favonly ${ui.favOnly ? 'on' : ''}" id="gFavOnly">★ Favourites only</button></div>${list}${more}</div>
     <div class="gr-info blk"><button class="g-close" aria-label="Close">✕</button>
       <div class="gr-name"><b class="hd">${carName(id)}</b><span>${spec.unique ? 'Boss car' : `${carBrand(id)} · ${TYPE_SUB[id] ?? ''}`} · League ${spec.league}</span></div>
+      <div class="gr-rec">${recHtml(save, id)}</div>
       <div class="gr-stats">${bars}</div>
       <div class="gr-key"><span><u></u>Stock</span><span><s></s>Upgrades add</span><span><em></em>Upgrades cost</span></div>
     </div>${dial}`;
@@ -362,7 +391,7 @@ function panelHtml(save: SaveV1, on: GarageHandlers): string {
       <div class="g-note">More part slots (tyres, nitrous, weight) come with the upgrade roadmap.</div></div>`;
   }
   if (ui.panel === 'settings') return `<div class="g-panel blk">${close}<h2 class="hd">Settings</h2><div class="settings">${SETTING_ROWS.map(([key, label, opts]) => `<div class="setrow"><span>${label}</span><div class="seg">${opts.map(([v, t]) => `<button class="${(save.settings as any)[key] === v ? 'on' : ''}" data-set="${key}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>
-      <div class="g-note">Controls: hold <b>SPACE</b> (or the gas pedal) to rev, release on green to launch · <b>SPACE</b> shifts up · <b>SHIFT</b> shifts down.</div></div>`;
+      ${controlsHtml(save)}</div>`;
   if (ui.panel === 'notes') {
     const KINDS = [['added', 'Added'], ['changed', 'Changed'], ['fixed', 'Fixed'], ['removed', 'Removed']] as const;
     return `<div class="g-panel g-notes blk">${close}<h2 class="hd">Patch notes <small class="g-sub">Current V${VERSION}</small></h2>

@@ -19,7 +19,7 @@ export class TypingRun {
   finish: number | null = null;
   /** last time a correct key landed (the car eases to a stop while you're stuck on a typo) */
   lastHit = 0;
-  /** nitro bars left (owner 2026-10-19): Space in the middle of a word finishes the word — two per race */
+  /** nitro bars left (owner 2026-10-19): the nitro key (Enter) finishes the word — two per race */
   nitros = TYPING.nitros;
   /** when the last nitro fired (for the boost flame) */
   nitroAt = -99;
@@ -27,9 +27,8 @@ export class TypingRun {
   get done() { return this.pos >= this.text.length; }
   get progress() { return this.pos / this.text.length; }
   /** A typed character at time t → 'ok' | 'typo' | 'ignored'. */
-  key(ch: string, t: number): 'ok' | 'typo' | 'ignored' | 'nitro' {
+  key(ch: string, t: number): 'ok' | 'typo' | 'ignored' {
     if (this.done || ch.length !== 1) return 'ignored';
-    if (ch === ' ' && this.text[this.pos] !== ' ' && this.nitros > 0) return this.nitro(t);   // Space mid-word = nitro
     this.keys++;
     if (ch === this.text[this.pos]) {
       this.pos++; this.typo = false; this.lastHit = t;
@@ -42,7 +41,8 @@ export class TypingRun {
   /** Nitro: the rest of the current word (and the space after it) completes at once; clears a red letter. Nitro letters
    *  don't count as keys, so accuracy is untouched. */
   nitro(t: number): 'nitro' | 'ignored' {
-    if (this.done || this.nitros <= 0 || this.text[this.pos] === ' ') return 'ignored';
+    if (this.done || this.nitros <= 0) return 'ignored';
+    if (this.text[this.pos] === ' ') this.pos++;                     // on a space: the next word
     while (this.pos < this.text.length && this.text[this.pos] !== ' ') this.pos++;
     if (this.pos < this.text.length) this.pos++;                   // and the space after the word
     this.nitros--; this.typo = false; this.lastHit = t; this.nitroAt = t;

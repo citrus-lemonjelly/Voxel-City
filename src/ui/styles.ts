@@ -296,4 +296,15 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .lab-flags{display:grid;grid-template-columns:1fr 1fr;gap:4px}.lab-flags label{justify-content:flex-start}
 #carlab textarea{background:#14161c;color:var(--text);border:0;box-shadow:0 0 0 2px var(--edge);font:12px "Courier New",monospace;padding:6px;resize:vertical}
 .lab-btns{display:flex;gap:8px;flex-wrap:wrap}.lab-btns .btn{font-size:12px;padding:8px 10px}.lab-msg{color:var(--good)}
+
+/* ---- Settings ▸ Controls (owner 2026-10-19) ---- */
+.ctl{display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge)}.ctl h3{margin:0;font-size:14px;color:var(--accent)}
+.ctl-tabs{display:flex;margin-bottom:4px}.ctl-tabs button{flex:1;padding:7px 8px;font-size:12px}
+.keycap{border:0;cursor:pointer;min-width:84px;padding:5px 10px;background:#14161c;color:var(--text);font:900 12px "Courier New",monospace;letter-spacing:.06em;box-shadow:0 0 0 2px var(--edge),3px 3px 0 2px #0b0c10}
+.keycap:hover{box-shadow:0 0 0 2px var(--accent),3px 3px 0 2px #0b0c10}.keycap.wait{background:var(--accent);color:#14161c;box-shadow:0 0 0 2px #b8901c,3px 3px 0 2px #0b0c10}
+.keycap.ghost{min-width:0;color:var(--dim)}
+.ctl-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:2px}
+/* Garage ▸ per-car record */
+.gr-rec{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--dim);padding:6px 8px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge)}
+.gr-rec b{color:var(--text);font:700 12px system-ui;font-variant-numeric:tabular-nums}.gr-rec em{font-style:normal;font-size:10px}
 `;

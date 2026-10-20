@@ -9,6 +9,7 @@ import { CARS, CATALOG_ORDER, LEAGUES } from '../src/data/cars';
 import { makeRival, simTime, MATCH } from '../src/game/rivals';
 import { CHANGELOG, VERSION } from '../src/data/changelog';
 import { isNewer } from '../src/game/updates';
+import { keysOf, keyMatches, keyName } from '../src/game/keys';
 import { TypingRun, typistSchedule, makeTypingRace, placeOf, averageWpm, averageFor, wpmOf, typedBy, glide } from '../src/game/typing';
 import { PASSAGES, PASSAGES_BY_DIFFICULTY } from '../src/data/passages';
 import { typingPay, TYPING } from '../src/data/economy';
@@ -203,11 +204,15 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   check(tierOk, 'typing: each difficulty races its own passages');
   // nitro (owner 2026-10-19): two uses; Space mid-word finishes the word (and its space); clears a typo; no accuracy cost
   const nr = new TypingRun('one two three four');
-  const n1 = [nr.key('o', 1), nr.key(' ', 1.2), nr.pos, nr.nitros, nr.key('t', 2), nr.key('x', 2.1), nr.typo, nr.key(' ', 2.2), nr.pos, nr.typo, nr.nitros, nr.key(' ', 3), nr.errors, nr.pos];
+  const n1 = [nr.key('o', 1), nr.nitro(1.2), nr.pos, nr.nitros, nr.key('t', 2), nr.key('x', 2.1), nr.typo, nr.nitro(2.2), nr.pos, nr.typo, nr.nitros, nr.key(' ', 3), nr.errors, nr.pos];
   check(JSON.stringify(n1) === JSON.stringify(['ok', 'nitro', 4, 1, 'ok', 'typo', true, 'nitro', 8, false, 0, 'typo', 2, 8]) && nr.keys === 4 + 0,
-    `typing nitro: Space mid-word finishes the word, two per race, clears a red letter, then a mid-word Space is a typo (${JSON.stringify(n1)})`);
-  const last = new TypingRun('go now'); last.key('g', 1); last.key('o', 1.1); last.key(' ', 1.2); last.key('n', 1.3); last.key(' ', 1.4);
-  check(last.done && last.finish === 1.4, 'typing nitro: on the last word it finishes the race');
+    `typing nitro (its own key, Enter): finishes the word, two per race, clears a red letter; Space only ever types a space (${JSON.stringify(n1)})`);
+  const last = new TypingRun('go now'); last.key('g', 1); last.key('o', 1.1); last.key(' ', 1.2); last.key('n', 1.3); last.nitro(1.4);
+  const sp = new TypingRun('ab cd'); sp.key('a', 1); sp.key('b', 1.1); sp.nitro(1.2);
+  check(last.done && last.finish === 1.4 && sp.done, 'typing nitro: on a space it finishes the next word; on the last word it finishes the race');
+  check(keyMatches('ShiftRight', 'ShiftLeft') && !keyMatches('KeyA', 'Space') && keyMatches('Enter', 'Enter') && keyName('KeyQ') === 'Q' && keyName('ShiftLeft') === 'SHIFT' && keyName('Space') === 'SPACE'
+    && keysOf({}).typing.nitro === 'Enter' && keysOf({ keys: { drag: { gas: 'KeyW' } } }).drag.gas === 'KeyW' && keysOf({ keys: { drag: { gas: 'KeyW' } } }).drag.down === 'ShiftLeft',
+    'controls: bindings fill in defaults (Typing nitro = Enter), Shift matches either side, key names read plainly');
   check(Math.abs(averageFor({ recent: [60] }, 'hard') - 60 * TYPING.textSpeed.hard) < 1e-9 && averageFor({ recent: [60], recentBy: { hard: [40, 42, 44] } }, 'hard') === 42,
     'typing: rivals match your average for that difficulty (starting from your overall average, adjusted for the text)');
   const run = new TypingRun('ab c');

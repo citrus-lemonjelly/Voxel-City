@@ -202,11 +202,11 @@ with sync_playwright() as p:
     text = pg.evaluate("window.__vc.typing.run.text")
     pg.keyboard.type('#'); time.sleep(0.3)
     ty = pg.evaluate("[window.__vc.typing.run.pos, window.__vc.typing.run.typo, !!document.querySelector('.ty-text .bad'), document.querySelectorAll('.ty-tag').length]")
-    # nitro (owner 2026-10-19): Space mid-word finishes the word — here it also clears the red letter; one of two bars used
-    pg.keyboard.press('Space'); time.sleep(0.3)
+    # nitro (owner 2026-10-19; Enter since V0.6.1): finishes the word — here it also clears the red letter; one of two bars used
+    pg.keyboard.press('Enter'); time.sleep(0.3)
     nz = pg.evaluate("[window.__vc.typing.run.pos, window.__vc.typing.run.typo, window.__vc.typing.run.nitros, document.querySelectorAll('.ty-nitro i.on').length]")
     pg.screenshot(path=f'{out}/15-typing-nitro.png')
-    ok('Typing Race: Space mid-word = nitro — finishes the word, clears the red letter, one of two bars used', nz[0] == text.index(' ') + 1 and not nz[1] and nz[2] == 1 and nz[3] == 1, json.dumps(nz))
+    ok('Typing Race: Enter = nitro — finishes the word, clears the red letter, one of two bars used', nz[0] == text.index(' ') + 1 and not nz[1] and nz[2] == 1 and nz[3] == 1, json.dumps(nz))
     pg.keyboard.type(text[nz[0]:], delay=15)
     pg.wait_for_function("window.__vc.screen === 'results' && window.__vc.lastTyping", timeout=600000); time.sleep(1)
     pg.screenshot(path=f'{out}/16-typing-results.png')

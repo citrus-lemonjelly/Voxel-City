@@ -26,6 +26,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.6.1', date: '2026-10-19', title: 'Controls + per-car records',
+    added: [
+      'Settings ▸ Controls: change your keys, with a Drag Race set (gas / shift up, shift down) and a Typing Race set (nitro, leave the race). Click a key, then press the new one; a key already in use swaps places. Reset puts the defaults back.',
+      'Garage: each car now shows its own races, wins and best 600 / 700 / 800 m times (counted from this update).',
+    ],
+    changed: [
+      'Typing Race nitro is now Enter (it can be changed in Settings ▸ Controls), so a Space can never fire it by accident. Enter on a space finishes the next word.',
+      'Drag Race key hints show the keys you picked.',
+    ],
+  },
+  {
     version: '0.6.0', date: '2026-10-19', header: 'Garage Update', title: 'Garage polish, Car Lab and faster tools',
     added: [
       'Car Lab (developers only: test console ▸ Car Lab): design a car with sliders for every body setting, start from any car, try paint and decals, and export the settings to send in.',

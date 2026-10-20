@@ -32,11 +32,7 @@ if (/^0\.\d+\.0$/.test(VERSION) && !top.header) say(`! V${VERSION} is a minor ve
 const pkgPath = resolve(root, 'package.json'), pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
 if (pkg.version !== VERSION) { pkg.version = VERSION; writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n'); say(`package.json → ${VERSION}`); }
 
-// 2. build (+ the root copy the owner opens)
-execFileSync(process.execPath, [resolve(root, 'tools/build.mjs')], { stdio: 'inherit', env: process.env });
-copyFileSync(resolve(root, 'build/VoxelCity.html'), resolve(root, 'VoxelCity.html'));
-
-// 3. sim checks (seconds)
+// 2. sim checks first (seconds) — a failure stops before anything is built
 if (!flag('--no-sim')) {
   const tsx = process.env.TSX_PATH || resolve(root, 'node_modules/.bin/tsx' + (process.platform === 'win32' ? '.cmd' : ''));
   let out = '';
@@ -44,6 +40,10 @@ if (!flag('--no-sim')) {
   catch (e) { out = String(e.stdout || ''); console.log(out.split('\n').filter(l => l.startsWith('FAIL')).join('\n')); fail('sim checks failed'); }
   say(`sim: ${out.split('\n').filter(l => l.startsWith('PASS')).length} checks passed`);
 }
+
+// 3. build (+ the root copy the owner opens)
+execFileSync(process.execPath, [resolve(root, 'tools/build.mjs')], { stdio: 'inherit', env: process.env });
+copyFileSync(resolve(root, 'build/VoxelCity.html'), resolve(root, 'VoxelCity.html'));
 
 // 4. what changed since the last release (hash manifest)
 const TRACK = ['src', 'tests', 'tools', 'docs', 'build/index.html', 'build/VoxelCity.html', 'build/version.json', 'package.json', 'README.md', 'VoxelCity.html', 'index.html', 'tsconfig.json'];

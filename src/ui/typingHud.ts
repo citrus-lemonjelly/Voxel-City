@@ -5,7 +5,7 @@ const h = (html: string) => { const t = document.createElement('template'); t.in
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const ORD = ['1st', '2nd', '3rd', '4th', '5th'];
 
-export interface TypingHudOpts { text: string; names: string[]; you: number; caption: string; nitros: number }
+export interface TypingHudOpts { text: string; names: string[]; you: number; caption: string; nitros: number; nitroKey: string; leaveKey: string }
 
 export class TypingHud {
   el: HTMLElement;
@@ -29,8 +29,8 @@ export class TypingHud {
       <div class="ty-panel blk"><div class="ty-text">${passage}</div>
         <div class="ty-stats"><div class="stat"><b data-s="wpm">—</b><span>WPM</span></div><div class="stat"><b data-s="acc">—</b><span>Accuracy</span></div>
           <div class="stat"><b data-s="place">—</b><span>Place</span></div><div class="stat"><b data-s="time">0:00</b><span>Time</span></div>
-          <div class="stat ty-nitro"><b>${'<i class="on"></i>'.repeat(o.nitros)}</b><span>Nitro · Space mid-word</span></div>
-          <div class="stat ty-hint"><b data-s="hint">Get ready…</b><span>Wrong key = red letter · type the right one to go on · Esc leaves</span></div></div></div>
+          <div class="stat ty-nitro"><b>${'<i class="on"></i>'.repeat(o.nitros)}</b><span>Nitro · ${esc(o.nitroKey)}</span></div>
+          <div class="stat ty-hint"><b data-s="hint">Get ready…</b><span>Wrong key = red letter · type the right one to go on · ${esc(o.leaveKey)} leaves</span></div></div></div>
     </div>`);
     root.appendChild(this.el);
     this.chars = [...this.el.querySelectorAll<HTMLElement>('.ty-text [data-i]')];
