@@ -13,6 +13,8 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Cosmetics are visual-only. Same block size everywhere. Asset packs are references only.
 - Always check collisions on base cars and every part (`npm run collide`) and fix clashes before shipping.
 - Workflow: analyze → suggest / ask (Q# numbered questions, tables) → build → short summary. Detailed, table-heavy replies.
+  Replies use lettered sections (§A, §B …) with numbered items (A1, A2 …) so the owner can refer to them in comments.
+  Ask / discuss before an update ships; ship only when the owner says so.
   When the owner sends a drawing or reference, match it.
 - Every reply ends with recommendations / other paths / ideas, each labelled with effort (Small, Medium, Big).
 - Always look for faster ways to work and reduce load: use the project tools first; if a step is slow, fix the tool.
@@ -25,9 +27,13 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - `npm run release` — version check → package.json sync → sim → collision check → build → list of changed files.
   It refuses if the version wasn't raised. Only use `--same` if that version has never shipped.
 - `npm run shot -- OUT.png "Title" "click:SEL; wait:MS; cap:TEXT"` — screenshot sheet for review (1–2 per feature)
+- `npm run economy` — pacing tables from `economy.ts`: VX/min per mode, hours per league vs the owner's targets
+  (D 2–3 h · C 3–4 h · B/A/S 3–6 h), cosmetics in minutes, Crowns. Run it after any price/payout change.
+- `npm run ship` (owner: double-click `Ship It.cmd`) — git check → release → smoke → commit "V0.x.y" → push to GitHub;
+  Pages publishes `build` about a minute later. `--no-push` keeps the commit local. Push only when the owner says ship.
 - Don't run `npm run build` by itself just to look — a rebuild changes the build stamp and triggers the website's Update notice.
-- After a release: tell the owner which version shipped and that the `build` folder is ready to upload to GitHub
-  (or commit + push it if this folder is a git clone and he asks).
+- This folder is a git clone of `citrus-lemonjelly/Voxel-City`; a push to `main` updates the website (`.github/workflows/static.yml`).
+  After shipping, tell the owner which version is live.
 
 ## Where things live
 - Prices / payouts: `src/data/economy.ts` (TYPING, COSMETIC_PRICES, PAINT repaint/premium, PLATE_TEXT). Cars: `src/data/cars.ts`.

@@ -1,6 +1,6 @@
 {
   "name": "voxel-city",
-  "version": "0.8.0",
+  "version": "0.8.2",
   "private": true,
   "description": "Voxel City — voxel drag racing (Step 1: playable race slice)",
   "type": "module",
@@ -13,7 +13,9 @@
     "smoke": "node tests/smoke.mjs",
     "collide": "node tools/collide.mjs --strict",
     "test": "tsx tests/sim.ts",
-    "shot": "node tools/shot.mjs"
+    "shot": "node tools/shot.mjs",
+    "ship": "node tools/ship.mjs",
+    "economy": "tsx tools/economy.mts"
   },
   "dependencies": {
     "three": "0.170.0"

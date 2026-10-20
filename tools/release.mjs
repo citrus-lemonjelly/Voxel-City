@@ -35,9 +35,10 @@ if (pkg.version !== VERSION) { pkg.version = VERSION; writeFileSync(pkgPath, JSO
 
 // 2. sim checks first (seconds) — a failure stops before anything is built
 if (!flag('--no-sim')) {
-  const tsx = process.env.TSX_PATH || resolve(root, 'node_modules/.bin/tsx' + (process.platform === 'win32' ? '.cmd' : ''));
+  // run tsx through node itself (a .cmd + shell breaks on folders with spaces, e.g. "AI Games")
+  const [cmd, pre] = process.env.TSX_PATH ? [process.env.TSX_PATH, []] : [process.execPath, [require.resolve('tsx/cli')]];
   let out = '';
-  try { out = execFileSync(tsx, [resolve(root, 'tests/sim.ts')], { encoding: 'utf8', shell: process.platform === 'win32' }); }
+  try { out = execFileSync(cmd, [...pre, resolve(root, 'tests/sim.ts')], { encoding: 'utf8' }); }
   catch (e) { out = String(e.stdout || ''); console.log(out.split('\n').filter(l => l.startsWith('FAIL')).join('\n')); fail('sim checks failed'); }
   say(`sim: ${out.split('\n').filter(l => l.startsWith('PASS')).length} checks passed`);
 }

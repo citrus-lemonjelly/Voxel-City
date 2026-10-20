@@ -26,6 +26,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.8.2', date: '2026-10-19', title: 'Faster publishing and an economy checker (behind the scenes)',
+    added: [
+      'Behind the scenes: one-click "Ship It" that checks the game, runs the smoke test and publishes it to the website.',
+      'Behind the scenes: an economy checker that shows money per minute for each race type and how long each league takes.',
+    ],
+    fixed: [
+      'Behind the scenes: the code check runs cleanly again on the PC.',
+    ],
+  },
+  {
     version: '0.8.0', date: '2026-10-19', title: 'Grilles, window tint, front plate text and a tidier Body Shop', header: 'Tint & Grille Update',
     added: [
       'Grille parts: Slats, Mesh, Chrome bars, Framed and Shaved (styles that do not fit a car are hidden).',
