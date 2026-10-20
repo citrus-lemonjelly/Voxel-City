@@ -23,12 +23,14 @@ import { DEV, devOppSkill, initDevConsole } from './ui/devConsole';
 import { freshSave, typingStats } from './save/save';
 import { TypingRun, TypingRival, makeTypingRace, averageFor, typedBy, placeOf, wpmOf, glide } from './game/typing';
 import { TypingHud, renderTypingResults } from './ui/typingHud';
+import { openCarLab } from './ui/carLab';
 import { TYPE_TRACK, laneZ } from './render/typingView';
 import { typingPay, TYPING } from './data/economy';
 
 const params = new URLSearchParams(location.search);
 const AUTOPLAY = params.has('autoplay');          // test hook: the player car drives itself
-const MAX_DT = +(params.get('maxdt') || 0.25);     // test hook: let slow (software-rendered) frames advance the clock fully
+const MAX_DT = +(params.get('maxdt') || 0.25);
+const FAST = Math.max(1, +(params.get('fast') || 1));   // test hook: run the game clock N× faster (smoke tests)     // test hook: let slow (software-rendered) frames advance the clock fully
 let NO_RENDER = params.has('norender');           // test hook: skip 3D drawing during races (input-timing tests)
 let paused = false;                               // preview hook: freeze physics while posing cars
 
@@ -97,7 +99,7 @@ class PlayerController implements Controller {
 }
 
 // ---------------- screens ----------------
-type Screen = 'garage' | 'race' | 'results' | 'typing';
+type Screen = 'garage' | 'race' | 'results' | 'typing' | 'lab';
 let screen: Screen = 'garage';
 let race: Race | null = null, hud: Hud | null = null, oppRacer: Racer | null = null, finishedAt = 0;
 
@@ -250,7 +252,7 @@ function finishRace() {
 const STEP = 1 / 120;
 let acc = 0, last = performance.now();
 function frame(now: number) {
-  const dt = Math.min(MAX_DT, (now - last) / 1000); last = now;
+  const dt = Math.min(MAX_DT, (now - last) / 1000) * FAST; last = now;
   if (screen === 'race' && race && playerRacer && oppRacer) {
     acc += dt;
     while (acc >= STEP) {
@@ -263,7 +265,7 @@ function frame(now: number) {
     world.updateRace(lerp(playerRacer), lerp(oppRacer), playerRacer.v, oppRacer.v, dt, race.t);
     hud?.update();
     world.setTree(Math.min(3, Math.floor(race.t)), race.green);
-    if (race.done && !paused) { finishedAt ||= now; if (now - finishedAt > 1200) finishRace(); }
+    if (race.done && !paused) { finishedAt ||= now; if ((now - finishedAt) * FAST > 1200) finishRace(); }
   }
   if (screen === 'typing') typingFrame(dt, now);
   if (!(NO_RENDER && screen === 'race')) world.render(dt);
@@ -277,13 +279,14 @@ function pose(playerM: number, oppM: number, speedMs = 30, t = 10) {
   race!.t = t; playerRacer!.x = playerRacer!.px = playerM; oppRacer!.x = oppRacer!.px = oppM; playerRacer!.v = oppRacer!.v = speedMs;
   playerRacer!.launched = oppRacer!.launched = t > 3;
 }
-(window as any).__vc = { get screen() { return screen; }, get typing() { return ty; }, startTyping, get opp() { return opp; }, cars: CARS, levelReward, partPrice, cosmeticPrice, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
+(window as any).__vc = { get screen() { return screen; }, get typing() { return ty; }, startTyping, openLab, version: VERSION, get opp() { return opp; }, cars: CARS, levelReward, partPrice, cosmeticPrice, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
   /** preview hook: rebuild the race HUD with another paddle shape/skin (review renders) */
   hudPreview: (shape: string, skin: string, pedalStyle?: string) => { if (race && playerRacer && oppRacer) { hud = new Hud(ui, race, playerRacer, oppRacer, { oppName: opp.name, paddle: skin, paint: playerLook().paint, showKeyHint: true, paddleShape: shape as any, pedal: (pedalStyle || params.get('pedal') || 'alloy') as any }); hud.update(); } }, startRace, showGarage, buyOrEquip, pose, setCam: (m: string) => (world.camMode = m as any), setSetting, world, setNoRender: (b: boolean) => (NO_RENDER = b), setPaused: (b: boolean) => (paused = b) };
 // test console (owner Q58): ?dev once turns it on for this browser; ` opens it
 const dev = initDevConsole({
   save: () => save, write: () => writeSave(save),
   refresh: (msg?: string) => { if (screen === 'garage') showGarage(msg); },
+  openLab: () => openLab(),
   resetSave: () => { save = freshSave(); writeSave(save); },
   race: () => race, screen: () => screen,
 }, params.has('dev'));
@@ -292,7 +295,7 @@ const dev = initDevConsole({
 // a wrong key turns the letter red until you type the right one. Rivals are seeded typists matched to your average.
 const COUNT = 3, TYPE_LANE = 2;                                      // you race in the middle lane
 let ty: { run: TypingRun; rivals: TypingRival[]; hud: TypingHud; start: number; vis: number[]; vel: number[]; doneAt: number; diff: Difficulty; seed: number } | null = null;
-const typingClock = (now = performance.now()) => ty ? (now - ty.start) / 1000 - COUNT : 0;   // seconds since GO
+const typingClock = (now = performance.now()) => ty ? (now - ty.start) / 1000 * FAST - COUNT : 0;   // seconds since GO
 function startTyping() {
   screen = 'typing'; document.getElementById('vc-update')?.remove();
   const seed = params.get('tseed') ? +params.get('tseed')! : ((Date.now() & 0x7fffffff) || 1);
@@ -339,7 +342,7 @@ function typingFrame(dt: number, now: number) {
   const ahead = ty.rivals.filter(r => (typedBy(r, t) > run.pos) || (run.done && r.finish < run.finish!)).length;
   ty.hud.setStats(t > 0.5 ? run.wpm(t) : null, run.keys ? run.accuracy : null, t > 0 ? ahead + 1 : null, run.finish ?? Math.max(0, t));
   if (AUTOPLAY && t > 0 && !run.done && t * 6 > run.pos) { run.key(run.text[run.pos], t); ty.hud.setText(run.pos, run.typo); if (run.done) ty.doneAt = now; }   // test hook: ~72 wpm
-  if (ty.doneAt && now - ty.doneAt > 2000) finishTyping();          // time for your car to glide over the line
+  if (ty.doneAt && (now - ty.doneAt) * FAST > 2000) finishTyping();          // time for your car to glide over the line
 }
 function finishTyping() {
   if (!ty) return;
@@ -369,6 +372,13 @@ function finishTyping() {
   renderTypingResults(ui, data, { again: () => startTyping(), garage: () => showGarage() });
 }
 
+// ---------------- Car Lab (owner 2026-10-19): developers only — test console ▸ Car Lab, or ?lab with dev mode on ----------------
+function openLab() {
+  if (!DEV.enabled) return;
+  screen = 'lab'; world.mode = 'garage'; world.setGarageView('mycars'); document.getElementById('vc-update')?.remove();
+  openCarLab(ui, { preview: look => world.setGarageCar(look), close: () => showGarage('Closed Car Lab') });
+}
+
 // ---------------- update notice (owner V0.2.1) ----------------
 // A newer build on the site → a notice in the garage / results (never mid-race). "Refresh now" saves and reloads into the
 // new build, which is a new session; the progress is kept in the save.
@@ -387,6 +397,7 @@ watchForUpdates(r => { pendingUpdate = r; showUpdate(); });
 // first start on a new version: say so once (the patch notes button also shows NEW)
 const updatedFrom = save.lastVersion && save.lastVersion !== VERSION ? save.lastVersion : null;
 if (save.lastVersion !== VERSION) { save.lastVersion = VERSION; writeSave(save); }
-showGarage(updatedFrom ? `Updated to V${VERSION} — ${CHANGELOG[0].title}. See Patch notes (bottom-left).` : undefined);
+showGarage(updatedFrom ? `Updated to V${VERSION} — ${CHANGELOG[0].header ?? CHANGELOG[0].title}. See Patch notes (bottom-left).` : undefined);
+if (params.has('lab')) openLab();
 prewarmVehicles(world.mats);
 requestAnimationFrame(frame);

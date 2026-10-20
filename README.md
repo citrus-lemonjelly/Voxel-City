@@ -74,3 +74,15 @@ npm run sim        # headless physics checks
 1. Add a new entry at the **top** of `src/data/changelog.ts` (version, date, title, Added / Changed / Fixed / Removed) and set the same version in `package.json`.
 2. Build: `node tools/build.mjs` → `build/index.html`, `build/VoxelCity.html`, `build/version.json`, `docs/CHANGELOG.md`.
 3. Upload the `build` folder to GitHub. The Pages workflow publishes it at https://citrus-lemonjelly.github.io/Voxel-City/ and anyone playing there gets the **Update ready** notice within ~2 minutes.
+
+## Developer tools (owner 2026-10-19)
+
+| Command | What it does |
+|---|---|
+| `npm run release` | Checks the version went up in `src/data/changelog.ts`, syncs `package.json`, builds, runs the sim checks and lists every file changed since the last release. |
+| `npm run smoke` | Quick browser test: every screen, one drag race, one Typing Race, Car Lab (first time: `npx playwright install chromium`). |
+| `npm test` | The sim checks (game maths) in a few seconds. |
+| `npm run shot -- OUT.png "Title" "click:[data-panel=garage]; wait:1500; cap:Garage"` | Review sheet of one or more screens. |
+| Car Lab | Open the game with `?dev`, press the backquote key, then **Car Lab**. Design a car and use **Copy settings** to send it in. |
+
+Versions: every update raises the version (patch 0.x.Y for fixes and tweaks, minor 0.X.0 for big updates); a big update gets a `header` such as "Garage Update".

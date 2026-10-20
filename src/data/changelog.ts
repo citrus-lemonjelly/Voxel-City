@@ -16,6 +16,8 @@ export interface ChangelogEntry {
   date: string;
   /** one-line headline for the version */
   title: string;
+  /** big updates (owner 2026-10-19): a header named after the biggest feature, e.g. "Garage Update" */
+  header?: string;
   added?: string[];
   changed?: string[];
   fixed?: string[];
@@ -23,6 +25,18 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.6.0', date: '2026-10-19', header: 'Garage Update', title: 'Garage polish, Car Lab and faster tools',
+    added: [
+      'Car Lab (developers only: test console ▸ Car Lab): design a car with sliders for every body setting, start from any car, try paint and decals, and export the settings to send in.',
+      'Big updates now get a header in the patch notes (this one: Garage Update).',
+      'Developer tools: one-command release check (version must go up), a quick smoke test of every screen, and a review-shot tool.',
+    ],
+    changed: [
+      'Garage: the camera pulls back so the whole car fits between your car list and the stats box.',
+      'Garage: Drive / Parts / Upgrade connect to the picked car with a blocky connector in the game\'s panel style.',
+    ],
+  },
   {
     version: '0.5.0', date: '2026-10-19', title: 'Garage',
     added: [

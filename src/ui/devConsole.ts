@@ -20,7 +20,7 @@ export const DEV: DevState = (() => {
 })();
 const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(DEV)); } catch { /* storage blocked */ } };
 
-export interface DevHooks {
+export interface DevHooks { /** Car Lab (owner 2026-10-19) */ openLab?(): void;
   save(): SaveV1;
   write(): void;
   /** Re-draw the current screen after a change (garage refresh). */
@@ -64,6 +64,7 @@ export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
       <div class="dev-sec"><b>Race</b><div>
         ${btn('auto', 'Auto-drive my car', DEV.autoDrive)}${btn('dbg', 'Debug readout', DEV.debug)}</div><div>
         Opponent: ${btn('oppN', 'Normal', DEV.opp === 'normal')}${btn('oppP', 'Perfect', DEV.opp === 'perfect')}${btn('oppS', 'Sloppy', DEV.opp === 'sloppy')}</div></div>
+      <div class="dev-sec"><b>Tools</b><div>${btn('lab', 'Car Lab (designer)')}</div></div>
       <div class="dev-sec"><b>Save</b><div>${btn('wipe', wipeArmed ? 'Click again to wipe the save' : 'Reset save', wipeArmed)}${btn('off', 'Turn dev mode off')}</div></div>`;
   }
   const toggle = (show = panel.hidden) => { panel.hidden = !show; if (show) { wipeArmed = false; render(); } };
@@ -108,6 +109,7 @@ export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
       case 'oppP': DEV.opp = 'perfect'; break;
       case 'oppS': DEV.opp = 'sloppy'; break;
       case 'wipe': if (!wipeArmed) { wipeArmed = true; render(); return; } wipeArmed = false; hooks.resetSave(); msg = 'Save wiped'; break;
+      case 'lab': toggle(false); hooks.openLab?.(); return;
       case 'off': DEV.enabled = false; persist(); panel.remove(); tag.remove(); readout.remove(); hooks.refresh('Dev mode off — reopen with ?dev'); return;
     }
     persist(); hooks.write(); hooks.refresh(msg || undefined); render();

@@ -69,6 +69,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .catalog-mode .g-notesbtn,.strip-mode .g-notesbtn{display:none}
 .g-panel.g-notes{left:28px;right:auto;top:160px;bottom:106px;width:470px;gap:10px}
 .pn-ver{padding:12px 14px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge)}
+.pn-ver.big{box-shadow:0 0 0 2px var(--accent)}.pn-banner{margin:-12px -14px 10px;padding:8px 14px;background:var(--accent);color:#14161c;font-size:15px;letter-spacing:.1em}
 .pn-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}.pn-head .hd{color:var(--accent);font-size:18px}
 .pn-head span{flex:1;font-weight:700;font-size:13px}.pn-head time{font-size:11px;color:var(--dim)}
 .pn-kind{font:800 11px system-ui;letter-spacing:.08em;text-transform:uppercase;margin:8px 0 2px}
@@ -282,4 +283,17 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .gr-dbtn.drive{background:var(--accent);color:#14161c;box-shadow:0 0 0 3px #b8901c,4px 4px 0 3px #0b0c10}.gr-dbtn.drive span{color:#3a3010}
 .gr-dbtn:disabled{cursor:default;opacity:.6}
 .gr-pick{position:absolute;left:380px;top:140px;width:200px}
+
+/* ---- Car Lab (dev only) ---- */
+#carlab input,#carlab select{accent-color:var(--accent)}
+#carlab input[type=range]{height:6px}
+#carlab{position:absolute;left:20px;top:20px;bottom:20px;width:380px;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;font-size:12px}
+.lab-h{display:flex;flex-direction:column;gap:2px;position:relative}.lab-h b{font-size:20px;color:var(--accent)}.lab-h span{color:var(--dim)}.lab-h .g-close{right:0;top:0}
+.lab-sec{display:flex;flex-direction:column;gap:6px;padding:10px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge)}.lab-sec>b{color:var(--accent);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.lab-sec label{display:flex;align-items:center;gap:8px;justify-content:space-between;color:var(--dim)}
+.lab-n span{flex:0 0 120px}.lab-n input{flex:1}.lab-n em{flex:0 0 32px;font-style:normal;text-align:right;color:var(--text);font-variant-numeric:tabular-nums}
+.lab-p select,.lab-sec select{background:#14161c;color:var(--text);border:0;box-shadow:0 0 0 2px var(--edge);padding:3px 6px;font:600 12px system-ui}
+.lab-flags{display:grid;grid-template-columns:1fr 1fr;gap:4px}.lab-flags label{justify-content:flex-start}
+#carlab textarea{background:#14161c;color:var(--text);border:0;box-shadow:0 0 0 2px var(--edge);font:12px "Courier New",monospace;padding:6px;resize:vertical}
+.lab-btns{display:flex;gap:8px;flex-wrap:wrap}.lab-btns .btn{font-size:12px;padding:8px 10px}.lab-msg{color:var(--good)}
 `;
