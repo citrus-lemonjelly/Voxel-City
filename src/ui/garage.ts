@@ -1,5 +1,5 @@
 // Garage HUD (owner, 2026-10-18): the car on its turntable in the middle, car name top-left, voxels top-right,
-// a bottom bar of icon buttons (mini HUD · Profile · Garage · Upgrades · Catalog · Settings), Patch notes + camera angle
+// a bottom bar of icon buttons (mini HUD · Profile · Garage · Catalog · Settings), Patch notes + camera angle
 // bottom-left, and a RACE button bottom-right that opens the race menu. Panels open on the right; Catalog, Body Shop and
 // My cars put a list on the left.
 // This file is the screen shell: layout, which panel shows, and the shared buttons. Each panel has its own file in
@@ -46,7 +46,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
       : `<div class="hd screen-title">${carBrand(save.carId)} · League ${car.league}</div><h1 class="hd">${carName(save.carId)}</h1>
       <div class="g-stats"><span><b>${st.hp}</b> hp</span><span><b>${st.shifts}</b> shifts</span><span><b>${st.shiftTime.toFixed(2)}s</b> shift</span><span><b>${(st.redline / 1000).toFixed(1)}k</b> redline</span></div>`}</div>
     <div class="g-wallet"><span class="voxels">${vx} VX</span><span class="crowns">${crownIcon()}${DEV.unlimited ? '∞' : save.crowns.toLocaleString()}</span><span class="g-rec">Best ${save.raceDist} m ${save.best[save.raceDist] ? fmtTime(save.best[save.raceDist]!) : '—'} · ${save.wins}–${save.races - save.wins}</span></div>
-    <div class="g-bar">${miniHud(save)}${(['profile', 'garage', 'upgrades', 'catalog', 'settings'] as const).map(k => `<div class="g-tabwrap"><button class="g-tab ${ui.panel === k ? 'on' : ''}" data-panel="${k}">${icon(k)}<span>${k[0].toUpperCase() + k.slice(1)}</span></button>${k === 'garage' ? subTabsHtml(save) : ''}</div>`).join('')}</div>
+    <div class="g-bar">${miniHud(save)}${(['profile', 'garage', 'catalog', 'settings'] as const).map(k => `<div class="g-tabwrap"><button class="g-tab ${ui.panel === k ? 'on' : ''}" data-panel="${k}">${icon(k)}<span>${k[0].toUpperCase() + k.slice(1)}</span></button>${k === 'garage' ? subTabsHtml(save) : ''}</div>`).join('')}</div>
     <button class="g-notesbtn ${ui.panel === 'notes' ? 'on' : ''}" id="notesBtn" title="Patch notes" aria-label="Patch notes">${icon('notes', 2)}<span>V${VERSION}</span>${save.seenVersion !== VERSION ? '<em class="g-new">New</em>' : ''}</button>
     <button class="g-cambtn" id="camBtn" title="Camera angle ${gcam.toUpperCase()} (${GARAGE_CAMS[gcam].label}) — click for the next angle" aria-label="Camera angle">${icon('camera', 2)}<span>Cam ${gcam.toUpperCase()}</span></button>
     <button class="btn race g-racebtn" id="raceBtn">Race ▸</button>
@@ -60,7 +60,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   el.querySelectorAll<HTMLButtonElement>('[data-panel]').forEach(b => b.addEventListener('click', () => {
     const k = b.dataset.panel as Panel, was = ui.panel, back = ui.back;
     ui.panel = was === k && !back ? null : k; ui.raceMenu = false; ui.back = null; ui.dial = false;
-    if (ui.panel !== 'parts') ui.work = save.carId;                                   // bottom-bar Upgrades = the car in use
+    if (ui.panel !== 'parts') ui.work = save.carId;
     if (ui.panel === 'garage') { ui.gsel = save.carId; on.onPreview(lookOf(save, ui.gsel)); }
     if (back && !ui.panel) on.onPreview(null);
     if (ui.panel === 'catalog' && was !== 'catalog') { pickCar(save, save.carId); on.onPreview(catLook(save)); }

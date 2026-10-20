@@ -52,11 +52,11 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Decisions log: `docs/DECISIONS.md` (S-numbered rows). Patch notes doc is generated: `docs/CHANGELOG.md`.
 - Test URL flags: `?dev` (test console), `?fast=N` (clock ×N), `?autoplay`, `?lab` (Car Lab).
 
-## Where we left off (V0.8.0 "Tint & Grille Update", 2026-10-19)
-- Shipped: Body Shop (paint rules, premium paints, plates + custom text, roof, side exhaust, rims, lights, mirrors, grille, tint),
-  grouped tabs, car turns to the part, Garage sub-tabs over the Garage button, Spin toggle + drag-to-turn. Smoke test passed on the PC (V0.7.0).
-- **Next: Economy Pass.** Open questions to ask the owner: Q148 per-minute earnings parity across modes · Q149 2–3 hours per league ·
-  Q150 dailies · Q151 monthly login calendar · Q152 Garage slots (6 free, 50 Crowns each) · Q153 selling cars at 50% · Q154 crew events later.
-  Also review the League S repaint price (115,050 VX).
-- Idea backlog: Body Shop "undo" back to fitted (Small) · saved looks / presets per car (Medium) · rival plate text (Small) ·
-  one-click "Ship It" = smoke test + push (Medium).
+## Where we left off (V0.10.0 "Garage Room Update", 2026-10-20 — live, shipped for the owner's testing)
+- Shipped: 3D garage room behind the menus (showcase turntable, loft, office nook, mechanic bay + lift with primer shell, roll-up
+  door with the street; S64), garage door + camera-angle buttons (Cam A–D, default D), Upgrades/Profile camera turns (E2),
+  random race time of day (test console can force it; S65), garage UI split into one file per panel. Smoke 16/16 on the PC.
+- **Next:** owner feedback on the garage room. Q159 trophy shelf (later). Run heavy checks one at a time (owner: don't max the CPU).
+- Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
+  weighted time of day (Small) · garage decor shop with Crowns (Big) · Body Shop "undo" (Small) · saved looks per car (Medium) ·
+  rival plate text (Small) · split main.ts further (Typing Race, race setup) (Medium).

@@ -25,7 +25,8 @@ await pg.goto(pathToFileURL(resolve(root, 'build/index.html')).href + '?fast=4&a
 await pg.waitForFunction(() => window.__vc && window.__vc.screen === 'garage');
 const v = await ev(() => [window.__vc.version, document.querySelector('#notesBtn span')?.textContent]);
 ok('garage loads, version shown', v[1] === `V${v[0]}`, v.join(' / '));
-for (const tab of ['profile', 'garage', 'upgrades', 'catalog', 'settings', 'daily', 'calendar']) {
+ok('bottom bar: no separate Upgrades tab (it lives in Garage ▸ Upgrade)', await ev(() => !document.querySelector('[data-panel="upgrades"]')));
+for (const tab of ['profile', 'garage', 'catalog', 'settings', 'daily', 'calendar']) {
   await pg.click(`[data-panel="${tab}"]`); await pg.waitForTimeout(400);
   const open = await ev(() => !!document.querySelector('.g-panel, .cat-list, .gr-list'));
   ok(`tab opens: ${tab}`, open);
@@ -34,7 +35,10 @@ for (const tab of ['profile', 'garage', 'upgrades', 'catalog', 'settings', 'dail
     const paint = await ev(() => document.querySelectorAll('.pt-swatch').length);
     await pg.click('[data-slot="plate"]'); await pg.waitForTimeout(500);
     ok('body shop: paint tab + plate text box', paint >= 20 && await ev(() => !!document.querySelector('#plateText')), `${paint} paints`);
-    await pg.click('[data-slot="paint"]'); await pg.waitForTimeout(200); await pg.click('#garage .g-close'); await pg.waitForTimeout(300); continue; }
+    await pg.click('[data-slot="paint"]'); await pg.waitForTimeout(200); await pg.click('#garage .g-close'); await pg.waitForTimeout(300);
+    await pg.click('#gUpg'); await pg.waitForTimeout(400);
+    ok('garage ▸ Upgrade opens the Upgrades panel', await ev(() => !!document.querySelector('button.tier[data-kind="engine"]')));
+    await pg.click('#garage .g-close'); await pg.waitForTimeout(300); await pg.click('#garage .g-close'); await pg.waitForTimeout(300); continue; }
   await pg.click(`[data-panel="${tab}"]`); await pg.waitForTimeout(200);
 }
 await pg.click('#notesBtn'); await pg.waitForTimeout(300); ok('patch notes open', await ev(() => !!document.querySelector('.pn-ver'))); await pg.click('#notesBtn');

@@ -26,6 +26,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.1', date: '2026-10-20', title: 'One way to Upgrades',
+    changed: [
+      'Upgrades open from the Garage: press Garage, then Upgrade, for the car you picked.',
+    ],
+    removed: [
+      'The separate Upgrades button on the bottom bar (it did the same thing as Garage ▸ Upgrade).',
+    ],
+  },
+  {
     version: '0.10.0', date: '2026-10-20', title: 'A real garage behind the menus', header: 'Garage Room Update',
     added: [
       'The menus now sit in a full 3D garage: your car on a showcase turntable with a lit ring, a loft upstairs, an office nook with the Garage Terminal, and a mechanic bay.',

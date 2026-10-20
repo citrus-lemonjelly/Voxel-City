@@ -28,7 +28,7 @@ with sync_playwright() as p:
     ok('garage loads', pg.evaluate("window.__vc.screen") == 'garage')
 
     # 2. buy + equip T2 transmission via the real button
-    pg.click('[data-panel="upgrades"]'); time.sleep(0.5)                                   # Garage HUD: Upgrades panel
+    pg.click('[data-panel="garage"]'); time.sleep(0.5); pg.click('#gUpg'); time.sleep(0.5)   # Garage ▸ Upgrade
     v0, p2 = pg.evaluate("[window.__vc.save.voxels, window.__vc.partPrice('trans', 2, 'D')]")
     pg.click('button.tier[data-kind="trans"][data-tier="2"]'); time.sleep(1.5)
     s = pg.evaluate("window.__vc.save")
@@ -111,7 +111,7 @@ with sync_playwright() as p:
     pg.click('.dev-panel [data-a="unl"]'); time.sleep(0.3)
     pg.screenshot(path=f'{out}/9-dev-console.png')
     pg.keyboard.press('Backquote'); time.sleep(0.3)                 # close the console so it doesn't cover the garage
-    pg.click('[data-panel="upgrades"]'); time.sleep(0.5)
+    pg.click('[data-panel="garage"]'); time.sleep(0.5); pg.click('#gUpg'); time.sleep(0.5)
     pg.click('button.tier[data-kind="engine"][data-tier="5"]'); time.sleep(1)
     s6 = pg.evaluate("window.__vc.save")
     ok('test console: +10,000 VX and free purchases', v1 == v0 + 10000 and 5 in s6['owned']['engine'] and s6['voxels'] == v1, f'{v0} -> {v1} -> {s6["voxels"]}, engine {s6["owned"]["engine"]}')
