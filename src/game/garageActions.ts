@@ -4,7 +4,7 @@
 import { SaveV1, writeSave, addCar, switchCar, removeCar, slotsUsed, slotsTotal, sellBlock, RaceDist } from '../save/save';
 import { CARS, carName, carPaint } from '../data/cars';
 import { GARAGE, sellValue, EcoLeague, cosmeticPrice, PAINT, PLATE_TEXT, repaintPrice, Difficulty } from '../data/economy';
-import { ENGINE, TRANSMISSION, Tier } from '../data/parts';
+import { Tier, PerfKind, PART_TABLE, Gearing, GEARING_BY_ID } from '../data/parts';
 import { PART_BY_ID, ownsPart, isFactory } from '../data/visualParts';
 import { claimDaily, claimCalendar, paintName } from './daily';
 import { cleanPlate, DEFAULT_PLATE } from '../render/plate';
@@ -125,11 +125,11 @@ export function garageActions(ctx: GarageActionContext) {
   /** Street Race length (owner Q100) and difficulty (Q106). */
   function setDistance(d: RaceDist) { const save = ctx.save(); save.raceDist = d; writeSave(save); show(); }
   function setDifficulty(d: Difficulty) { const save = ctx.save(); save.raceDiff = d; writeSave(save); show(); }
-  /** Buy / fit an engine or gearbox tier on a car (the one in use, or any owned car from the Garage). */
-  function buyOrEquip(kind: 'engine' | 'trans', tier: Tier, carId = ctx.save().carId) {
+  /** Buy / fit a performance tier on a car (the one in use, or any owned car from the Garage). */
+  function buyOrEquip(kind: PerfKind, tier: Tier, carId = ctx.save().carId) {
     const save = ctx.save(); if (!save.cars[carId]) return;
     if (CARS[carId].unique) return show('Boss cars come as they are — they can\'t be upgraded');
-    const lg = CARS[carId].league, def = (kind === 'engine' ? ENGINE[lg] : TRANSMISSION[lg])[tier - 1];
+    const lg = CARS[carId].league, def = PART_TABLE[kind][lg][tier - 1];
     const T = carId === save.carId ? save : save.cars[carId];        // the car in use keeps its tiers at the top of the save
     let msg: string | undefined;
     if (!T.owned[kind].includes(tier)) {
@@ -141,6 +141,13 @@ export function garageActions(ctx: GarageActionContext) {
     T.equipped[kind] = tier; writeSave(save);
     show(msg ?? `Equipped ${def.label}`);
   }
+  /** Gearing (owner Q170): free, one choice per car — boss cars too. */
+  function setGearing(g: Gearing, carId = ctx.save().carId) {
+    const save = ctx.save(); if (!save.cars[carId]) return;
+    const T = carId === save.carId ? save : save.cars[carId];
+    T.equipped.gearing = g; writeSave(save);
+    show(`${GEARING_BY_ID[g].label} gearing`);
+  }
 
-  return { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip };
+  return { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setGearing };
 }

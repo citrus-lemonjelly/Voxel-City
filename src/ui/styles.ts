@@ -27,6 +27,11 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .stat span{font-size:12px;color:var(--dim)}
 .upg h3{margin:4px 0 6px;font-size:14px}
 .upg .desc{font-size:12px;color:var(--dim);margin-bottom:6px;min-height:16px}
+.g-panel.g-upg{gap:9px}.g-upg h2{margin:0}
+.upg-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:5px}.upg-hd h3{margin:0;font-size:13px;flex:none;width:104px}
+.upg-hd .desc{margin:0;min-height:0;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-upg .tier{padding:4px 2px;font-size:11px;gap:0}.g-upg .tier b{font-size:14px}
+.tiers.g3{grid-template-columns:repeat(3,1fr)}.g-upg .tier.gear{padding:7px 2px}.g-upg .tier.gear b{font-size:13px;text-transform:uppercase}
 .tiers{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .tier{border:0;padding:8px 2px;cursor:pointer;background:var(--panel2);color:var(--text);box-shadow:0 0 0 2px var(--edge);font:700 12px system-ui;display:flex;flex-direction:column;align-items:center;gap:2px}
 .tier b{font:900 16px "Courier New",monospace}

@@ -5,6 +5,8 @@
 // confirms them (car prices below are the owner's ranges).
 // ============================================================================================================
 
+import type { Tune } from './parts';
+
 export type EcoLeague = 'D' | 'C' | 'B' | 'A' | 'S';
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
@@ -62,8 +64,13 @@ export function racePay(league: EcoLeague, diff: Difficulty, won: boolean) {
 
 // ---------------- Performance parts ----------------
 /** League D prices per tier (T1 = stock, free); other leagues × LEAGUE_SCALE. Effects live in parts.ts. */
-export const PART_PRICES = { engine: [0, 4_000, 8_000, 14_000, 22_000], trans: [0, 4_500, 9_000, 15_500, 24_000] };
-export const partPrice = (kind: 'engine' | 'trans', tier: number, league: EcoLeague) => round(PART_PRICES[kind][tier - 1] * LEAGUE_SCALE[league], 50);
+/** Tuning Update (owner Q172): tyres 60 %, weight 70 % and turbo 100 % of the engine's prices. */
+export const PART_PRICES = {
+  engine: [0, 4_000, 8_000, 14_000, 22_000], trans: [0, 4_500, 9_000, 15_500, 24_000],
+  tires: [0, 2_400, 4_800, 8_400, 13_200], weight: [0, 2_800, 5_600, 9_800, 15_400], turbo: [0, 4_000, 8_000, 14_000, 22_000],
+};
+export type PartKind = keyof typeof PART_PRICES;
+export const partPrice = (kind: PartKind, tier: number, league: EcoLeague) => round(PART_PRICES[kind][tier - 1] * LEAGUE_SCALE[league], 50);
 
 // ---------------- Visual parts (cosmetic, owner 2026-10-19) ----------------
 /** Bought once, fit every car (Q110). Common/rare in VX, the special ones in Crowns (Q111). Factory parts are free. */
@@ -124,9 +131,9 @@ export const GARAGE = {
   /** selling: share of the car's price and of the upgrades bought for it. The starter, boss cars and Crowns cars can't be sold. */
   sellCar: 0.5, sellUpgrades: 0.5,
 };
-/** VX for selling a car: half its price + half of the engine / gearbox tiers bought for it (owner Q153). */
-export function sellValue(league: EcoLeague, carPrice: number, owned: { engine: number[]; trans: number[] }) {
-  const upg = owned.engine.filter(t => t > 1).reduce((a, t) => a + partPrice('engine', t, league), 0) + owned.trans.filter(t => t > 1).reduce((a, t) => a + partPrice('trans', t, league), 0);
+/** VX for selling a car: half its price + half of the performance tiers bought for it (owner Q153). */
+export function sellValue(league: EcoLeague, carPrice: number, owned: Partial<Record<PartKind, number[]>>) {
+  const upg = (Object.keys(PART_PRICES) as PartKind[]).reduce((a, k) => a + (owned[k] ?? []).filter(t => t > 1).reduce((b, t) => b + partPrice(k, t, league), 0), 0);
   return round(carPrice * GARAGE.sellCar + upg * GARAGE.sellUpgrades, 50);
 }
 
@@ -201,4 +208,4 @@ export function typingPerMin(l: EcoLeague, wpm = PACING.wpm) {
 // ---------------- Rivals ----------------
 // Rival shape. Rivals are rolled at random per race (src/game/rivals.ts, owner Q87): name, a car from your league, paint,
 // upgrade tiers and skill (how close its launch/shift timing lands to Perfect), matched to your car + upgrades.
-export interface OpponentDef { id: string; name: string; carId: string; engineTier: number; transTier: number; skill: number; reaction: [number, number]; paint: string }
+export interface OpponentDef { id: string; name: string; carId: string; /** its parts + gearing (owner Q173: random for variety) */ tune: Tune; skill: number; reaction: [number, number]; paint: string }

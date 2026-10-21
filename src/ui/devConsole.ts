@@ -2,10 +2,10 @@
 // changes THIS browser's local save, so it grants nothing anywhere else. The real admin role will be checked by the
 // server against the owner's account.
 // Turn on: open the game once with ?dev in the address (stays on in this browser). Open/close: the ` key, or the DEV tag.
-import { SaveV1, addCar, freshCar } from '../save/save';
+import { SaveV1, addCar, freshCar, Owned } from '../save/save';
 import { CARS, STARTER_CAR } from '../data/cars';
 import { VISUAL_PARTS } from '../data/visualParts';
-import { ENGINE, TRANSMISSION, Tier } from '../data/parts';
+import { Tier, PERF_KINDS } from '../data/parts';
 import { PADDLES, PADDLE_SHAPES, PEDALS, PaddleShape, PedalStyle } from '../data/cosmetics';
 import { Race } from '../game/race';
 import { dragPerMin, EcoLeague } from '../data/economy';
@@ -101,12 +101,12 @@ export function initDevConsole(hooks: DevHooks, urlHasDev: boolean) {
       case 'unl': DEV.unlimited = !DEV.unlimited; msg = DEV.unlimited ? 'Unlimited voxels on' : 'Unlimited voxels off'; break;
       case 'cars': Object.keys(CARS).forEach(id => addCar(s, id)); msg = 'All cars unlocked (Catalog → Use this car)'; break;
       case 'parts': {
-        const eng = all.filter(t => ENGINE.D[t - 1]), tr = all.filter(t => TRANSMISSION.D[t - 1]);
-        for (const c of Object.values(s.cars)) c.owned = { engine: [...eng], trans: [...tr] };
-        s.owned.engine = [...eng]; s.owned.trans = [...tr]; msg = 'All parts unlocked'; break;
+        const allOwned = () => Object.fromEntries(PERF_KINDS.map(k => [k, [...all]])) as Owned;
+        for (const c of Object.values(s.cars)) c.owned = allOwned();
+        s.owned = allOwned(); msg = 'All parts unlocked'; break;
       }
       case 'cosm': s.partsOwned = VISUAL_PARTS.map(p => p.id); s.paddles.owned = Object.keys(PADDLES); s.paddles.shapes = Object.keys(PADDLE_SHAPES) as PaddleShape[]; s.pedals.owned = Object.keys(PEDALS) as PedalStyle[]; msg = 'All cosmetics unlocked'; break;
-      case 'relock': s.partsOwned = []; s.carId = STARTER_CAR; s.cars = { [STARTER_CAR]: freshCar() }; s.owned = { engine: [1], trans: [1] }; s.equipped = { engine: 1, trans: 1 }; s.paddles = { owned: ['stock'], equipped: 'stock', shapes: ['arc', 'tab'], shape: 'arc' }; s.pedals = { owned: ['alloy'], equipped: 'alloy' }; msg = 'Back to stock'; break;
+      case 'relock': s.partsOwned = []; s.carId = STARTER_CAR; s.cars = { [STARTER_CAR]: freshCar() }; s.owned = JSON.parse(JSON.stringify(s.cars[STARTER_CAR].owned)); s.equipped = JSON.parse(JSON.stringify(s.cars[STARTER_CAR].equipped)); s.paddles = { owned: ['stock'], equipped: 'stock', shapes: ['arc', 'tab'], shape: 'arc' }; s.pedals = { owned: ['alloy'], equipped: 'alloy' }; msg = 'Back to stock'; break;
       case 'strip10': { const lg = CARS[s.carId].league; s.strip[lg] = Math.min(60, (s.strip[lg] ?? 0) + 10); msg = `Strip ${lg}: level ${s.strip[lg] + 1} next`; break; }
       case 'hour': { const lg = CARS[s.carId].league as EcoLeague, vx = Math.round(dragPerMin(lg) * 60 / 10) * 10, races = Math.round(60 * 60 / 41); s.voxels += vx; s.races += races; s.wins += Math.round(races * 0.7); msg = `1 hour of League ${lg} play (typical player): +${vx.toLocaleString()} VX, ${races} races`; break; }
       case 'day': shiftDay(1); msg = `It is now ${today()} — new dailies, calendar ready`; break;

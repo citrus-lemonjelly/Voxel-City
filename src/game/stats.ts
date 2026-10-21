@@ -1,6 +1,6 @@
 // Effective car stats = base car data + equipped performance tiers. Pure functions (testable headless).
 import { CARS, CarDef } from '../data/cars';
-import { ENGINE, TRANSMISSION, Tier, TransmissionTier, LAUNCH } from '../data/parts';
+import { ENGINE, TRANSMISSION, TIRES, WEIGHT, TURBO, LEAGUE_EFFECT, TransmissionTier, LAUNCH, SPOOL, Tune, fullTune, GEARING_BY_ID } from '../data/parts';
 import { StageDef } from '../data/stages';
 
 export interface CarStats {
@@ -18,23 +18,31 @@ export interface CarStats {
   trans: TransmissionTier;
   /** this car's launch window (fractions of redline) — LAUNCH widened/narrowed by the car's feel */
   launch: { perfectMin: number; perfectMax: number; goodPad: number };
-  engineTier: Tier;
-  transTier: Tier;
+  /** turbo: extra power at full boost, and the share lost below the boost (owner Q168 B) */
+  boost: number;
+  lowLoss: number;
+  /** gearing: drive multiplier in 1st and 2nd gear */
+  pull: number;
+  tune: Tune;
 }
 
-export function carStats(carId: string, engineTier: Tier, transTier: Tier, stage?: StageDef): CarStats {
-  const car = CARS[carId];
-  const eng = ENGINE[car.league][engineTier - 1];
-  const base = TRANSMISSION[car.league][transTier - 1], f = car.feel || {};
-  const trans: TransmissionTier = { ...base, shiftTime: base.shiftTime * (f.shift ?? 1), zoneWidth: base.zoneWidth * (f.window ?? 1) };
-  const lc = (LAUNCH.perfectMin + LAUNCH.perfectMax) / 2, lh = (LAUNCH.perfectMax - LAUNCH.perfectMin) / 2 * (f.launch ?? 1);
-  const launch = { perfectMin: lc - lh, perfectMax: lc + lh, goodPad: LAUNCH.goodPad * (f.launch ?? 1) };
+export function carStats(carId: string, tuneIn: Partial<Tune>, stage?: StageDef): CarStats {
+  const car = CARS[carId], tune = fullTune(car.unique ? { gearing: tuneIn.gearing } : tuneIn);   // boss cars: parts as they come, gearing free
+  const eng = ENGINE[car.league][tune.engine - 1], tyre = TIRES[car.league][tune.tires - 1];
+  const wt = WEIGHT[car.league][tune.weight - 1], turbo = TURBO[car.league][tune.turbo - 1], k = LEAGUE_EFFECT[car.league], gain = (car.engineGain ?? 1) * k;
+  const base = TRANSMISSION[car.league][tune.trans - 1], f = car.feel || {};
+  const gear = GEARING_BY_ID[tune.gearing ?? 'balanced'], ratios = base.ratios.map((r, i, a) => i === a.length - 1 ? r * gear.top : r);
+  const trans: TransmissionTier = { ...base, ratios, shiftTime: base.shiftTime * (f.shift ?? 1), zoneWidth: base.zoneWidth * (f.window ?? 1) };
+  const lc = (LAUNCH.perfectMin + LAUNCH.perfectMax) / 2, lh = (LAUNCH.perfectMax - LAUNCH.perfectMin) / 2 * (f.launch ?? 1) * tyre.launchMult;
+  const gripMult = 1 + (tyre.gripMult - 1) * k;
+  const launch = { perfectMin: lc - lh, perfectMax: lc + lh, goodPad: LAUNCH.goodPad * (f.launch ?? 1) * tyre.launchMult };
+  const massKg = car.massKg * (1 - (1 - wt.massMult) * k + turbo.massAdd * k);
   const redline = car.redline + eng.redlineAdd;
   const grip = stage ? stage.modifiers.gripMult : 1;
   return {
     car,
-    massKg: car.massKg,
-    peakPowerW: car.hp * (1 + (eng.hpMult - 1) * (car.engineGain ?? 1)) * 745.7,
+    massKg,
+    peakPowerW: car.hp * (1 + (eng.hpMult - 1) * gain) * 745.7,
     peakRpm: redline * car.peakRpmFrac,
     idleRpm: car.idleRpm,
     redline,
@@ -42,11 +50,13 @@ export function carStats(carId: string, engineTier: Tier, transTier: Tier, stage
     wheelRadiusM: car.wheelRadiusM,
     dragArea: car.dragArea * (stage ? stage.modifiers.dragMult : 1),
     rollingCoeff: car.rollingCoeff,
-    tractionN: car.gripG * grip * car.massKg * 9.81 * car.drivenWeightShare,
+    tractionN: car.gripG * gripMult * grip * massKg * 9.81 * car.drivenWeightShare,
     trans,
     launch,
-    engineTier,
-    transTier,
+    boost: turbo.boost * (car.turboGain ?? car.engineGain ?? 1) * k,
+    lowLoss: turbo.lowLoss * (car.turboGain ?? car.engineGain ?? 1) * k,
+    pull: gear.pull,
+    tune,
   };
 }
 
@@ -54,8 +64,14 @@ export function carStats(carId: string, engineTier: Tier, transTier: Tier, stage
 export function torqueAt(s: CarStats, rpm: number): number {
   const r = Math.max(rpm, s.idleRpm);
   const x = r / s.peakRpm;
-  const p = s.peakPowerW * Math.max(0.12, x * (2 - x));
+  let p = s.peakPowerW * Math.max(0.12, x * (2 - x));
+  if (s.boost > 0) { const k = spool(r / s.redline); p *= 1 + s.boost * k - s.lowLoss * (1 - k); }
   return p / (r * Math.PI / 30);
+}
+/** Turbo boost share 0–1 at an rpm (share of redline): smooth from SPOOL.from to SPOOL.full. */
+export function spool(frac: number): number {
+  const t = Math.min(1, Math.max(0, (frac - SPOOL.from) / (SPOOL.full - SPOOL.from)));
+  return t * t * (3 - 2 * t);
 }
 
 export function wheelRpm(s: CarStats, speedMs: number, gear: number): number {
@@ -65,7 +81,7 @@ export function wheelRpm(s: CarStats, speedMs: number, gear: number): number {
 /** Summary numbers for the garage screen. */
 export function displayStats(s: CarStats) {
   return {
-    hp: Math.round(s.peakPowerW / 745.7),
+    hp: Math.round(s.peakPowerW * (1 + s.boost) / 745.7),
     redline: s.redline,
     gears: s.trans.ratios.length,
     shifts: s.trans.ratios.length - 1,

@@ -36,7 +36,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   const car = CARS[save.carId];
   if (!ui.work || !save.cars[ui.work]) ui.work = save.carId;
   if (!ui.gsel || !save.cars[ui.gsel]) ui.gsel = save.carId;
-  const st = displayStats(carStats(save.carId, save.equipped.engine, save.equipped.trans));
+  const st = displayStats(carStats(save.carId, save.equipped));
   const vx = DEV.unlimited ? '∞' : save.voxels.toLocaleString(), gcam = save.settings.gcam ?? 'd';
   const redraw = () => renderGarage(root, save, opp, stage, on);
   root.innerHTML = '';

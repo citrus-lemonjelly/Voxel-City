@@ -2,7 +2,7 @@
 // the UI state that survives re-renders, the handlers main.ts passes in, the block icons, and small helpers
 // (car looks, prices) used by several panels.
 import { SaveV1, RaceDist } from '../../save/save';
-import { Tier } from '../../data/parts';
+import { Tier, PerfKind, Gearing } from '../../data/parts';
 import { CARS, carBody, carPaint } from '../../data/cars';
 import { Difficulty } from '../../data/economy';
 import { lookParts, PartSlot } from '../../data/visualParts';
@@ -13,7 +13,9 @@ export const h = (html: string) => { const t = document.createElement('template'
 export const fmtTime = (s: number) => s.toFixed(3) + ' s';
 
 export interface GarageHandlers {
-  onBuyOrEquip(kind: 'engine' | 'trans', tier: Tier, carId: string): void;
+  onBuyOrEquip(kind: PerfKind, tier: Tier, carId: string): void;
+  /** Upgrades: Short / Balanced / Long gearing for a car (free) */
+  onGearing(g: Gearing, carId: string): void;
   /** Garage (owner 2026-10-19): ★ a car */
   onFav(id: string): void;
   onRace(): void;

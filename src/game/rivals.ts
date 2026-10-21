@@ -7,7 +7,7 @@ import { carStats } from './stats';
 import { CARS, CATALOG_ORDER } from '../data/cars';
 import { OpponentDef } from '../data/economy';
 import { StageDef } from '../data/stages';
-import { Tier } from '../data/parts';
+import { Tier, Tune, PERF_KINDS, GEARINGS, STOCK_TUNE, fullTune } from '../data/parts';
 
 export interface Rival extends OpponentDef { seed: number; /** the rival's finish time (s), known ahead */ expect: number; /** your perfect-run time (s) */ yours: number }
 
@@ -20,9 +20,9 @@ export const PAINTS = ['#d23a2a', '#f2a43a', '#f2c230', '#2f9a5a', '#1f8a8a', '#
 const TIERS: Tier[] = [1, 2, 3, 4, 5];
 
 /** Finish time of one racer over the stage (same fixed step as the game). */
-export function simTime(carId: string, eng: Tier, trans: Tier, stage: StageDef, skill: number, reaction: [number, number], seed: number, distanceM = stage.distanceM): number {
+export function simTime(carId: string, tune: Partial<Tune>, stage: StageDef, skill: number, reaction: [number, number], seed: number, distanceM = stage.distanceM): number {
   const race = new Race(distanceM);
-  const r = race.add('x', carStats(carId, eng, trans, stage), new AIController(skill, reaction, seed));
+  const r = race.add('x', carStats(carId, tune, stage), new AIController(skill, reaction, seed));
   for (let i = 0; i < 120 * 90 && !race.done; i++) race.step(1 / 120);
   return r.finish ?? 999;
 }
@@ -37,25 +37,29 @@ export function rivalNear(league: string, target: number, floor: number, stage: 
   let best: Rival | null = null;
   for (let i = 0; i < (opts.candidates ?? MATCH.candidates); i++) {
     const tiers = TIERS.filter(x => x >= (opts.minTier ?? 1) && x <= Math.max(opts.minTier ?? 1, opts.maxTier ?? 5)), [sLo, sHi] = opts.skill ?? [0, 1];
-    const c = pick(pool), e = pick(tiers), t = pick(tiers), s = (rng() * 0x7fffffff) | 1, jitter = rng() * 0.08;
+    // owner Q173: rivals get every part, each at a random tier, and a random gearing — for variety
+    const c = pick(pool), tune = Object.fromEntries(PERF_KINDS.map(k => [k, pick(tiers)])) as unknown as Tune, s = (rng() * 0x7fffffff) | 1, jitter = rng() * 0.08;
+    tune.gearing = pick(GEARINGS).id;
     for (const base of [0.95, 0.85, 0.75, 0.65, 0.55, 0.45, 0.35]) {                // try this car/tune at several driving levels
       const skill = Math.min(0.99, base + jitter), reaction = reactionFor(skill);
       if (skill < sLo || skill > sHi) continue;
-      const time = simTime(c, e, t, stage, skill, reaction, s, distanceM);
+      const time = simTime(c, tune, stage, skill, reaction, s, distanceM);
       if (time < floor) continue;                                                // never faster than your perfect run (owner Q92)
       if (!best || Math.abs(time - target) < Math.abs(best.expect - target))
-        best = { id: 'rival', name: pick(NAMES), carId: c, engineTier: e, transTier: t, skill, reaction, paint: pick(PAINTS), seed: s, expect: time, yours };
+        best = { id: 'rival', name: pick(NAMES), carId: c, tune, skill, reaction, paint: pick(PAINTS), seed: s, expect: time, yours };
     }
   }
   // fallback (should not happen): the slowest stock car of the league with a middling driver
-  return best ?? { id: 'rival', name: pick(NAMES), carId: pool[0], engineTier: 1, transTier: 1, skill: 0.55, reaction: reactionFor(0.55), paint: pick(PAINTS), seed: 1, expect: simTime(pool[0], 1, 1, stage, 0.55, reactionFor(0.55), 1, distanceM), yours };
+  return best ?? { id: 'rival', name: pick(NAMES), carId: pool[0], tune: { ...STOCK_TUNE }, skill: 0.55, reaction: reactionFor(0.55), paint: pick(PAINTS), seed: 1, expect: simTime(pool[0], STOCK_TUNE, stage, 0.55, reactionFor(0.55), 1, distanceM), yours };
 }
 
 /** Street Race rival: close to YOUR perfect run with the car + upgrades you have now. */
-export function makeRival(carId: string, eng: Tier, trans: Tier, stage: StageDef, seed = (Date.now() & 0x7fffffff) || 1, distanceM = stage.distanceM,
+export function makeRival(carId: string, tune: Partial<Tune>, stage: StageDef, seed = (Date.now() & 0x7fffffff) || 1, distanceM = stage.distanceM,
   gap: [number, number] = [MATCH.minGap, MATCH.maxGap]): Rival {
   const rng = makeRng(seed);
-  const yours = simTime(carId, eng, trans, stage, 1, [MATCH.reaction, MATCH.reaction], 7, distanceM);
+  const yours = simTime(carId, tune, stage, 1, [MATCH.reaction, MATCH.reaction], 7, distanceM);
   const target = yours + gap[0] + rng() * (gap[1] - gap[0]);                    // difficulty sets the window (Easy / Medium / Hard)
-  return rivalNear(CARS[carId].league, target, yours + gap[0], stage, distanceM, rng, yours);
+  // parts are random per rival but stay near your level (±1 tier around your average), so a close match is always there
+  const t = fullTune(tune), lvl = Math.round(PERF_KINDS.reduce((a, k) => a + t[k], 0) / PERF_KINDS.length);
+  return rivalNear(CARS[carId].league, target, yours + gap[0], stage, distanceM, rng, yours, { minTier: Math.max(1, lvl - 1), maxTier: Math.min(5, lvl + 1) });
 }

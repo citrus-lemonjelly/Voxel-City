@@ -26,6 +26,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.11.0', date: '2026-10-21', title: 'Tyres, weight, turbo and gearing', header: 'Tuning Update',
+    added: [
+      'Three new upgrades for every car, T1–T5 in each league: Tyres (more grip and an easier perfect launch), Weight (a lighter car) and Turbo (more power high in the revs, a little less down low, and a little extra weight).',
+      'Gearing for every car, free to change in Upgrades: Short (harder launch, runs out of revs sooner), Balanced (factory) or Long (softer launch, more top speed). Stock cars like Short; fully upgraded cars often need Long so they don\'t hit the rev limiter before the line.',
+      'Boss cars can change their gearing too (their parts still come as they are).',
+    ],
+    changed: [
+      'Rivals now carry all five parts, each at a random tier near your own level, and a random gearing, so no two rivals are set up the same.',
+      'The Strip\'s top rungs expect a fully upgraded car on the right gearing for the race length.',
+      'Upgrades in Leagues C and B are a little gentler so a fully upgraded car never beats a stock car of the next league.',
+      'Boss cars of Leagues D and B got a little more power so they keep their head start in the next league.',
+      'The Garage list shows how many upgrade steps a car has (for example Upgrades 6/20).',
+      'Selling a car pays back half of every part bought for it, not just the engine and gearbox.',
+    ],
+  },
+  {
     version: '0.10.1', date: '2026-10-20', title: 'One way to Upgrades',
     changed: [
       'Upgrades open from the Garage: press Garage, then Upgrade, for the car you picked.',

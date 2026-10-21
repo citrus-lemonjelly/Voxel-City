@@ -60,11 +60,11 @@ if (params.get('dmin')) { world.camFrame.dMin = +params.get('dmin')!; world.camF
 const stage = STAGES[START_STAGE];
 /** A new random rival for the car + upgrades in use (owner Q87); rolled again after every race or when the car/parts change. */
 let opp: Rival, oppKey = '';
-const rivalKey = () => `${save.carId}:${save.equipped.engine}:${save.equipped.trans}:${save.raceDist}:${save.raceDiff}`;
+const rivalKey = () => `${save.carId}:${JSON.stringify(save.equipped)}:${save.raceDist}:${save.raceDiff}`;
 function rollRival(force = false) {
   if (!force && oppKey === rivalKey() && opp) return;
   const seed = params.get('rseed') ? +params.get('rseed')! : undefined;                 // test hook: fixed rival
-  opp = makeRival(save.carId, save.equipped.engine, save.equipped.trans, stage, seed, save.raceDist, DIFFICULTY[save.raceDiff].gap); oppKey = rivalKey();
+  opp = makeRival(save.carId, save.equipped, stage, seed, save.raceDist, DIFFICULTY[save.raceDiff].gap); oppKey = rivalKey();
 }
 rollRival();
 /** The car in use, as the player has painted and optioned it (Q79). */
@@ -116,7 +116,7 @@ let race: Race | null = null, hud: Hud | null = null, oppRacer: Racer | null = n
 
 function showGarage(toast?: string) {
   screen = 'garage'; world.mode = 'garage'; setTimeout(showUpdate, 0); rollRival(); if (!garageInCatalog()) world.setGarageCar(playerLook());
-  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onRace: () => startRace(), onStrip: startStrip, stripNext, onClaim: claimLevel, onSetting: setSetting, onRepaint: repaint, onPlateText: setPlateText,
+  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onGearing: setGearing, onRace: () => startRace(), onStrip: startStrip, stripNext, onClaim: claimLevel, onSetting: setSetting, onRepaint: repaint, onPlateText: setPlateText,
     onPreview: look => world.setGarageCar(look ?? playerLook()), onView: v => world.setGarageView(v), onFace: d => world.faceGarage(d),
     onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, onBuyPart: buyPart, onFitPart: (id: string, carId: string) => fitPart(id, undefined, carId),
     onFav: (id: string) => { const f = save.favs ??= []; const i = f.indexOf(id); if (i >= 0) f.splice(i, 1); else f.push(id); writeSave(save); showGarage(); }, onDistance: setDistance, onDifficulty: setDifficulty, thumb: (look, view) => world.thumbnail(look, undefined, undefined, view), playerLook,
@@ -131,7 +131,7 @@ function showGarage(toast?: string) {
     onClaimDaily: claimDailyTask, onClaimCal: claimCal, onSellCar: sellCar, onBuySlot: buySlot }, toast);
 }
 // buying, selling, claiming, fitting, painting, equipping: src/game/garageActions.ts
-const { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip } =
+const { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setGearing } =
   garageActions({ save: () => save, world, show: msg => showGarage(msg), lookFor, playerLook });
 
 /** Time of day for a race (owner 2026-10-20): random every race, unless ?time= or the test console forces one. */
@@ -178,8 +178,8 @@ function startRace(kind: 'street' | 'strip' = 'street', stripR?: Rung) {
   input.held = false; input.shiftQueued = false; input.downQueued = false;
   const dist = rung ? rung.dist : save.raceDist;
   race = new Race(dist);
-  playerRacer = race.add('player', carStats(save.carId, save.equipped.engine, save.equipped.trans, stage), AUTOPLAY || (DEV.enabled && DEV.autoDrive) ? new AIController(1, [0.15, 0.15], 3) : new PlayerController());
-  oppRacer = race.add(opp.id, carStats(opp.carId, opp.engineTier as Tier, opp.transTier as Tier, stage), new AIController(devOppSkill() ?? opp.skill, opp.reaction, opp.seed));
+  playerRacer = race.add('player', carStats(save.carId, save.equipped, stage), AUTOPLAY || (DEV.enabled && DEV.autoDrive) ? new AIController(1, [0.15, 0.15], 3) : new PlayerController());
+  oppRacer = race.add(opp.id, carStats(opp.carId, opp.tune, stage), new AIController(devOppSkill() ?? opp.skill, opp.reaction, opp.seed));
   world.setupRace(stage, dist, playerLook(), oppLook(), { time: raceTime(), near: save.settings.nearSide });
   // the "Space or click" hint shows for the player's first 3 races (owner Q29)
   const DK = keysOf(save.settings).drag;

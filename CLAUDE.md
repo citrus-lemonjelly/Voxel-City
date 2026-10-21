@@ -52,11 +52,13 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Decisions log: `docs/DECISIONS.md` (S-numbered rows). Patch notes doc is generated: `docs/CHANGELOG.md`.
 - Test URL flags: `?dev` (test console), `?fast=N` (clock ×N), `?autoplay`, `?lab` (Car Lab).
 
-## Where we left off (V0.10.0 "Garage Room Update", 2026-10-20 — live, shipped for the owner's testing)
-- Shipped: 3D garage room behind the menus (showcase turntable, loft, office nook, mechanic bay + lift with primer shell, roll-up
-  door with the street; S64), garage door + camera-angle buttons (Cam A–D, default D), Upgrades/Profile camera turns (E2),
-  random race time of day (test console can force it; S65), garage UI split into one file per panel. Smoke 16/16 on the PC.
-- **Next:** owner feedback on the garage room. Q159 trophy shelf (later). Run heavy checks one at a time (owner: don't max the CPU).
+## Where we left off (V0.11.0 "Tuning Update", 2026-10-21 — built on branch, NOT shipped; live is still V0.10.1)
+- Built: Tyres / Weight / Turbo upgrades T1–T5 + free Short / Balanced / Long gearing per car (S66; `src/data/parts.ts`,
+  physics `src/game/stats.ts`), rivals with random full set-ups near your level (Q173), Strip top rungs = maxed + best gearing.
+  Class limit kept with `LEAGUE_EFFECT` (C 0.38, B 0.6) and per-car `turboGain` (`src/data/cars.ts`). Sim 62/62, smoke 17/17.
+- **Waiting on the owner:** Q174 (keep class limit vs bigger upgrades in C/B), Q175 nitrous badge (mockup in
+  `docs/reference/tuning-update/`), garage review §A + Q164 (shots in `docs/reference/garage-review/`). Then: V0.11.1 Nitrous
+  (key 1, one shot per race), economy pass (D 3.4 h a bit slow; B/A/S 2.5–3.0 h a bit fast), close Milestone 2.
 - Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
   weighted time of day (Small) · garage decor shop with Crowns (Big) · Body Shop "undo" (Small) · saved looks per car (Medium) ·
-  rival plate text (Small) · split main.ts further (Typing Race, race setup) (Medium).
+  rival plate text (Small) · split main.ts further (Typing Race, race setup) (Medium) · gearing hint on the results screen (Small).

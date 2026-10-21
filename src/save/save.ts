@@ -1,7 +1,7 @@
 // Local save (P5: localStorage until the backend exists). Versioned so later steps can migrate old saves.
 import { ECONOMY, GARAGE } from '../data/economy';
 import { STARTER_CAR, CARS } from '../data/cars';
-import { Tier } from '../data/parts';
+import { Tier, PerfKind, PERF_KINDS, Tune, STOCK_TUNE } from '../data/parts';
 import { PaddleShape, PedalStyle, STANDARD_PADDLE, STANDARD_PEDAL, STANDARD_SHAPES } from '../data/cosmetics';
 
 export interface SaveV1 {
@@ -10,8 +10,8 @@ export interface SaveV1 {
   /** Crowns — the special currency (E3): earned, never buys performance parts. Crowns-only cars are owner 2026-10-18. */
   crowns: number;
   carId: string;
-  owned: { engine: Tier[]; trans: Tier[] };
-  equipped: { engine: Tier; trans: Tier };
+  owned: Owned;
+  equipped: Tune;
   /** Best time at 800 m (kept for old saves; same as best[800]). */
   bestTime: number | null;
   /** Best time per race length (owner Q100: 600 / 700 / 800 m). */
@@ -62,10 +62,13 @@ export type RaceDist = 600 | 700 | 800;
 export const RACE_DISTS: RaceDist[] = [600, 700, 800];
 /** Per-car drag-race record (owner Q138), counted from V0.6.1. */
 export interface CarRecord { races: number; wins: number; best: Record<number, number | null> }
+/** Performance tiers bought, per part (Tuning Update: tyres, weight, turbo join engine + transmission). */
+export type Owned = Record<PerfKind, Tier[]>;
 export interface CarState {
   stats?: CarRecord;
-  owned: { engine: Tier[]; trans: Tier[] };
-  equipped: { engine: Tier; trans: Tier };
+  owned: Owned;
+  /** fitted tiers + gearing */
+  equipped: Tune;
   /** chosen paint (empty = the car's factory paint) */
   paint: string;
   /** body options (e.g. popups: 'up', roof: 'black') */
@@ -94,12 +97,18 @@ const KEY = 'voxelcity.save';
 
 const freshPaddles = (): SaveV1['paddles'] => ({ owned: [STANDARD_PADDLE], equipped: STANDARD_PADDLE, shapes: [...STANDARD_SHAPES], shape: 'arc' });
 
-const stockParts = () => ({ owned: { engine: [1] as Tier[], trans: [1] as Tier[] }, equipped: { engine: 1 as Tier, trans: 1 as Tier } });
+const stockOwned = (): Owned => Object.fromEntries(PERF_KINDS.map(k => [k, [1]])) as Owned;
+const stockEquipped = (): Tune => ({ ...STOCK_TUNE });
+const stockParts = () => ({ owned: stockOwned(), equipped: stockEquipped() });
+/** Saves from before the Tuning Update (V0.11.0): fill the new parts in at stock. */
+function fillParts(c: { owned: Partial<Owned>; equipped: Partial<Tune> }) {
+  for (const k of PERF_KINDS) { c.owned[k] ??= [1]; c.equipped[k] ??= 1; }
+}
 export const freshCar = (paint = '', opts: Record<string, string> = {}): CarState => ({ ...stockParts(), paint, opts: { ...opts }, parts: {} });
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 
 export function freshSave(): SaveV1 {
-  return { raceDiff: 'medium', partsOwned: [], decals: [], stripClaimed: {}, strip: { D: 0, C: 0, B: 0, A: 0, S: 0 }, best: { 600: null, 700: null, 800: null }, raceDist: 800, crowns: 0, cars: { [STARTER_CAR]: freshCar() }, version: 1, voxels: ECONOMY.startingVoxels, carId: STARTER_CAR, owned: { engine: [1], trans: [1] }, equipped: { engine: 1, trans: 1 }, bestTime: null, races: 0, wins: 0, settings: { ...DEFAULT_SETTINGS }, paddles: freshPaddles(), pedals: { owned: [STANDARD_PEDAL], equipped: STANDARD_PEDAL }, perfectShifts: 0 };
+  return { raceDiff: 'medium', partsOwned: [], decals: [], stripClaimed: {}, strip: { D: 0, C: 0, B: 0, A: 0, S: 0 }, best: { 600: null, 700: null, 800: null }, raceDist: 800, crowns: 0, cars: { [STARTER_CAR]: freshCar() }, version: 1, voxels: ECONOMY.startingVoxels, carId: STARTER_CAR, owned: stockOwned(), equipped: stockEquipped(), bestTime: null, races: 0, wins: 0, settings: { ...DEFAULT_SETTINGS }, paddles: freshPaddles(), pedals: { owned: [STANDARD_PEDAL], equipped: STANDARD_PEDAL }, perfectShifts: 0 };
 }
 
 export function loadSave(): SaveV1 {
@@ -115,6 +124,7 @@ export function loadSave(): SaveV1 {
       // saves from before car buying (Q79): the one car they had keeps its parts
       if (!data.cars) s.cars = { [s.carId]: { owned: clone(s.owned), equipped: clone(s.equipped), paint: '', opts: {}, parts: {} } };
       if (!CARS[s.carId] || !s.cars[s.carId]) { s.carId = STARTER_CAR; s.cars[STARTER_CAR] ??= freshCar(); Object.assign(s, clone(stockFor(s))); }
+      fillParts(s); for (const c of Object.values(s.cars)) fillParts(c);
       return s;
     }
   } catch { /* storage blocked or corrupt: start fresh */ }
