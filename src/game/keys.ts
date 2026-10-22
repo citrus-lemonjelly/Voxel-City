@@ -3,15 +3,15 @@
 // (those are typed).
 export type DragAction = 'gas' | 'up' | 'down' | 'nitrous';
 export type TypeAction = 'nitro' | 'leave';
-export type DriftAction = 'gas' | 'drift' | 'up' | 'down' | 'leave';
+export type DriftAction = 'gas' | 'drift' | 'leave';
 export type KeyMode = 'drag' | 'typing' | 'drift';
 export interface KeyBinds { drag: Record<DragAction, string>; typing: Record<TypeAction, string>; drift: Record<DriftAction, string> }
 export const DEFAULT_KEYS: KeyBinds = { drag: { gas: 'Space', up: 'ArrowUp', down: 'ShiftLeft', nitrous: 'Digit1' }, typing: { nitro: 'Enter', leave: 'Escape' },
-  drift: { gas: 'Space', drift: 'ShiftLeft', up: 'ArrowUp', down: 'ArrowDown', leave: 'Escape' } };
+  drift: { gas: 'Space', drift: 'ShiftLeft', leave: 'Escape' } };
 export const KEY_ACTIONS: { drag: [DragAction, string][]; typing: [TypeAction, string][]; drift: [DriftAction, string][] } = {
   drag: [['gas', 'Gas (Classic: also shifts up)'], ['up', 'Shift up'], ['down', 'Shift down'], ['nitrous', 'Nitrous']],
   typing: [['nitro', 'Nitro (finish the word)'], ['leave', 'Leave the race']],
-  drift: [['gas', 'Gas (launch revs · revs in a drift)'], ['drift', 'Drift (kick the rear out at a turn)'], ['up', 'Shift up'], ['down', 'Shift down'], ['leave', 'Leave the run']],
+  drift: [['gas', 'Gas (the revs in a drift)'], ['drift', 'Drift (kick the rear out at a turn)'], ['leave', 'Leave the run']],
 };
 export const KEY_MODE_LABEL: Record<KeyMode, string> = { drag: 'Drag Race', typing: 'Typing Race', drift: 'Drift' };
 const side = (c: string) => c.replace(/^(Shift|Control|Alt|Meta)(Left|Right)$/, '$1');

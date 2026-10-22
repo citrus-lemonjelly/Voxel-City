@@ -1,4 +1,5 @@
-// Drift HUD (owner, V0.18.0): the Street Race HUD — lights, progress strip, gauge, "−" / "+" paddles, gas pedal — with the Drift
+// Drift HUD (owner, V0.18.0): the Street Race HUD — lights, progress strip, gauge, gas pedal (no shift paddles: automatic gears,
+// V0.18.1) — with the Drift
 // button standing beside the gas pedal, the gauge showing the green rev band while you slide, and on top: your score + chain,
 // the ghost rival's score, and the live points of the drift you're in. No turn markers (owner): the road and its chevrons tell you.
 import { DriftRun, DRIFT, chainMult } from '../game/drift';
@@ -7,7 +8,7 @@ import type { PedalStyle, PaddleShape } from '../data/cosmetics';
 
 export interface DriftHudOpts {
   rivalName: string; rivalScore: (t: number) => number; rivalS: (t: number) => number;
-  keys: { gas: string; drift: string; up: string; down: string }; phone: boolean; swap: boolean; button: string; pedal: PedalStyle;
+  keys: { gas: string; drift: string }; phone: boolean; swap: boolean; button: string; pedal: PedalStyle;
   paddle: string; paddleShape: PaddleShape; paint: string;
   icons?: { me: string; them: string }; wet: boolean; showKeyHint: boolean;
   /** a cue light came on (1–3) or went green (4) — for the beep */
@@ -34,13 +35,13 @@ export class DriftHud {
     this.sync();
     this.hud = new Hud(root, this.race as any, this.me, this.them, {
       oppName: o.rivalName, paddle: o.paddle, paddleShape: o.paddleShape, paint: o.paint, pedal: o.pedal, showKeyHint: o.showKeyHint,
-      keys: { gas: o.keys.gas, up: o.keys.up, down: o.keys.down }, drive: 'pedal', icons: o.icons, wet: o.wet, phone: o.phone, swap: o.swap,
+      keys: { gas: o.keys.gas, down: '' }, drive: 'pedal', noPaddles: true, icons: o.icons, wet: o.wet, phone: o.phone, swap: o.swap,
       drift: { button: o.button, key: o.keys.drift },
       // the gauge: the launch window, then the shift zone on the straights, the rev band while sliding
       zone: () => { if (!run.drifting) return null; const [lo, hi] = run.band(); return [lo, hi]; },
     });
     const hint = this.el.querySelector<HTMLElement>('#hint');
-    if (hint) hint.innerHTML = `Hold <b>${o.keys.gas}</b>, let go on green · shift up with <b>${o.keys.up}</b> · at the turns tap <b>${o.keys.drift}</b> and feather <b>${o.keys.gas}</b> to keep the revs in the green.${o.wet ? ' <b class="wet">Rain — less grip, the turns come slower.</b>' : ''}`;
+    if (hint) hint.innerHTML = `Gears are automatic. When the lights above the gauge turn green, tap <b>${o.keys.drift}</b> — then feather <b>${o.keys.gas}</b> to keep the revs in the green.${o.wet ? ' <b class="wet">Rain — less grip, the turns come slower.</b>' : ''}`;
     this.el.classList.add('dhud');
     this.el.insertAdjacentHTML('beforeend', `<div class="d-score blk"><span class="d-lbl">Score</span><b class="hd" id="dScore">0</b><span class="d-chain hd" id="dChain">×1</span></div>
       <div class="d-rival blk"><span class="d-lbl">${o.rivalName} · ghost</span><b class="hd" id="dRival">0</b></div><div class="d-run" id="dRun"></div>`);

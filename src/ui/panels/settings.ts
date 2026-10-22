@@ -54,7 +54,7 @@ const DRIVE_NOTE = { classic: 'Classic: hold gas to rev, let go on green to laun
 const MODE_NOTE: Record<KeyMode, (save: SaveV1) => string> = {
   drag: save => DRIVE_NOTE[save.settings.drive ?? 'classic'],
   typing: () => 'Letters, numbers, space and punctuation always type.',
-  drift: () => 'Launch and shift up like a drag race; at the turns tap Drift, then feather the gas to keep the revs in the green band.',
+  drift: () => 'Gears are automatic. When the lights above the gauge go green, tap Drift — then feather the gas to keep the revs in the green band.',
 };
 
 function controlsHtml(save: SaveV1): string {

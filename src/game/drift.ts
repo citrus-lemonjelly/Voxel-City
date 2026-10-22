@@ -1,17 +1,17 @@
 // Drift (owner, V0.18.0, ROADMAP E4.6 / E1–E7). A run has three parts (owner 2026-10-22):
-//   1. DRAG  — the lights, a launch (hold gas to rev, let go on green) and a drag up the first straight, shifting up on the paddles
-//              (graded like a Street Race: Perfect / Good / Early / Late).
+//   1. DRAG  — the lights, then the car pulls away and drags up the first straight. Gears are automatic (owner, V0.18.1: "the player
+//              should just be concerned about hitting the drift button and maintaining the revs").
 //   2. DRIFT — 3–5 turns. The car brakes and drops gears by itself for them and follows the road (E4). Tap DRIFT at the turn-in to
 //              kick the rear out, then feather the GAS to hold the revs inside the green band (E1) — its middle is Perfect. Above
 //              the band the angle grows until you spin; below it the car straightens up and the drift ends.
-//   3. DRAG  — the car levels out on the last straight: shift up again to the finish.
-// Score (E2): Perfect launch / shifts add points; a drift earns angle × distance slid × the band bonus, banked × the chain
+//   3. DRAG  — the car levels out and drags to the finish, dropping into the right gear as it comes out of the turn.
+// Score (E2): a drift earns angle × distance slid × the band bonus, banked × the chain
 // multiplier when it reaches the end of its turn (×1.25, ×1.5 … ×3 for clean drifts in a row); esses link without stopping.
 // Speed itself scores nothing (owner: points come first). Pure logic — the sim tests drive it, and the ghost rival is the AI (E7).
 import { CarStats, torqueAt, wheelRpm } from './stats';
 import { DriftPath, DriftTurn, pathAt } from '../data/driftCourses';
 import { driftKitOf, LAUNCH } from '../data/parts';
-import { SHIFT_TIME_MULT, LUG, ShiftGrade, LaunchGrade } from './race';
+import { SHIFT_TIME_MULT, LUG, LaunchGrade } from './race';
 import { makeRng } from './ai';
 
 export const DRIFT = {
@@ -31,8 +31,9 @@ export const DRIFT = {
   speed: { keep: 1.1, rate: 1.4, scrub: 0.3 },
   /** points per second = k × angle × speed (m/s) × zone bonus — that is angle × distance slid: a turn is worth the same in any car */
   pts: { k: 0.12, perfect: 1.5, band: 1, out: 0.3 },
-  /** drag points: the launch and each upshift, by grade */
-  dragPts: { launch: { Perfect: 150, Good: 75 } as Record<string, number>, shift: { Perfect: 100, Good: 50 } as Record<string, number> },
+  /** automatic gearbox (V0.18.1): up at `up` × redline, down when the revs fall under `down` × redline (never so low that the
+   *  engine bogs coming out of a turn or a spin); no upshift in the last `hold` m before a turn (the car is about to brake) */
+  auto: { up: 0.9, down: 0.55, hold: 25 },
   entryMult: { Perfect: 1.25, Good: 1.1, Early: 1, Late: 1 } as Record<EntryGrade, number>,
   /** chain: each clean drift in a row adds `step` to the multiplier, up to `max` steps (×3) */
   chain: { step: 0.25, max: 8 },
@@ -53,9 +54,6 @@ export interface DriftControl {
   gas(run: DriftRun): boolean;
   /** true once per tap of Drift */
   drift(run: DriftRun): boolean;
-  /** true once per tap of shift up / shift down */
-  shift(run: DriftRun): boolean;
-  downshift?(run: DriftRun): boolean;
 }
 
 const G = 9.81, AIR = 1.2, DRIVELINE = 0.88;
@@ -63,7 +61,6 @@ const G = 9.81, AIR = 1.2, DRIVELINE = 0.88;
 export class DriftRun {
   t = 0; s = 0; ps = 0; v = 0; gear = 0; rpm: number; gasOn = false; wasGas = false;
   launched = false; launchGrade?: LaunchGrade; launchTimer = 0; shifting = 0; shiftDir: 1 | -1 = 1; boost = 0;
-  shifts: ShiftGrade[] = []; dragPts = 0;
   drifting = false; turn = -1; dir: 1 | -1 = 1; angle = 0; entry: EntryGrade | null = null;
   runPts = 0; score = 0; chain = 0; bestChain = 0; spinT = 0; spins = 0; perfectEntries = 0; clean = 0;
   zone: Zone = ''; lateral = 0;
@@ -126,18 +123,18 @@ export class DriftRun {
   step(dt: number) {
     this.t += dt; this.ps = this.s;
     const st = this.stats, red = st.redline;
-    const gas = this.gasOn = this.ctl.gas(this), released = this.wasGas && !gas;
+    const gas = this.gasOn = this.ctl.gas(this);
     this.wasGas = gas;
-    if (!this.launched) {                                                  // the lights: rev it, let go on green (Classic launch)
+    if (!this.launched) {                                                  // the lights: blip the gas if you like; the car goes on green
       this.rpm = gas ? Math.min(red * 0.985, this.rpm + 5200 * dt) : Math.max(st.idleRpm, this.rpm - 7000 * dt);
       if (gas && this.rpm >= red * 0.985) this.rpm -= 450;                 // limiter bounce
-      this.ctl.drift(this); this.ctl.shift(this); this.ctl.downshift?.(this);
-      if (this.green && (released || (!gas && this.time > 0.05))) this.launch();
+      this.ctl.drift(this);
+      if (this.green) { this.launched = true; this.launchGrade = 'Good'; this.launchTimer = 0; this.rpm = Math.max(this.rpm, red * st.launch.perfectMin); }
       return;
     }
-    if (this.finish !== undefined) { this.v = Math.max(0, this.v - 6 * dt); this.s += this.v * dt; this.rpm = Math.max(st.idleRpm, this.rpm - 3000 * dt); this.angle *= Math.exp(-4 * dt); this.lateral *= Math.exp(-3 * dt); this.ctl.drift(this); this.ctl.shift(this); return; }
+    if (this.finish !== undefined) { this.v = Math.max(0, this.v - 6 * dt); this.s += this.v * dt; this.rpm = Math.max(st.idleRpm, this.rpm - 3000 * dt); this.angle *= Math.exp(-4 * dt); this.lateral *= Math.exp(-3 * dt); this.ctl.drift(this); return; }
     this.launchTimer += dt;
-    const press = this.ctl.drift(this), up = this.ctl.shift(this), down = this.ctl.downshift?.(this) ?? false;
+    const press = this.ctl.drift(this);
     if (this.spinT > 0) {                                                  // spun: sliding to a crawl, no control for a moment
       this.spinT -= dt; this.v = Math.max(3, this.v - 12 * dt); this.rpm = Math.max(st.idleRpm, this.rpm - 4000 * dt);
       this.angle = Math.max(0, this.angle - 60 * dt); this.lateral *= Math.exp(-2 * dt);
@@ -154,31 +151,20 @@ export class DriftRun {
       }
     }
     if (this.drifting) this.slide(dt, gas);
-    else { this.gears(up, down); this.grip(dt); }
+    else { this.autoGear(); this.grip(dt); }
     this.s += this.v * dt;
     this.markMissed();
     this.checkFinish();
   }
 
-  private launch() {
-    const s = this.stats, frac = this.rpm / s.redline, L = s.launch;
-    const g: LaunchGrade = frac >= L.perfectMin && frac <= L.perfectMax ? 'Perfect' : frac >= L.perfectMin - L.goodPad && frac <= L.perfectMax + L.goodPad ? 'Good' : frac < L.perfectMin ? 'Bog' : 'Wheelspin';
-    this.launched = true; this.launchGrade = g; this.launchTimer = 0;
-    const pts = DRIFT.dragPts.launch[g] ?? 0; this.dragPts += pts; this.score += pts;
-    this.event(g === 'Perfect' ? 'Perfect launch' : g === 'Good' ? 'Good launch' : g, pts || undefined);
-  }
-  /** the paddles (not mid-drift): a graded upshift like a Street Race, a quick downshift */
-  private gears(up: boolean, down: boolean) {
-    const s = this.stats, n = s.trans.ratios.length;
+  /** the automatic gearbox (not mid-drift): a quick clean upshift near the top of the revs, and down a gear whenever the revs fall
+   *  too low — so the car always comes out of a turn (or a spin) in a gear that pulls */
+  private autoGear() {
+    const s = this.stats, n = s.trans.ratios.length, red = s.redline, A = DRIFT.auto;
     if (this.shifting > 0) return;
-    if (down && this.gear > 0) { this.shiftDir = -1; this.shifting = s.trans.shiftTime * 0.35; this.event('Downshift'); return; }
-    if (!up || this.gear >= n - 1) return;
-    const frac = this.rpm / s.redline, half = s.trans.zoneWidth / 2, c = s.trans.zoneCentre;
-    const grade: ShiftGrade = Math.abs(frac - c) <= half ? 'Perfect' : Math.abs(frac - c) <= half + s.trans.zoneWidth * 0.6 ? 'Good' : frac < c ? 'Early' : 'Late';
-    this.shiftDir = 1; this.shifting = s.trans.shiftTime * SHIFT_TIME_MULT[grade]; this.shifts.push(grade);
-    if (grade === 'Perfect') this.boost = 0.8;
-    const pts = DRIFT.dragPts.shift[grade] ?? 0; this.dragPts += pts; this.score += pts;
-    this.event(grade, pts || undefined);
+    if (this.gear > 0 && wheelRpm(s, this.v, this.gear) < red * A.down && wheelRpm(s, this.v, this.gear - 1) < red * A.up) { this.gear--; return; }
+    const i = this.nextTurn(), soon = i >= 0 && this.s < this.path.turns[i].s0 && this.path.turns[i].s0 - this.s < A.hold;
+    if (this.gear < n - 1 && !soon && this.rpm >= red * A.up) { this.shiftDir = 1; this.shifting = s.trans.shiftTime * SHIFT_TIME_MULT.Perfect; }
   }
 
   /** in a drift: the gas moves the revs, the revs set the angle, the angle and distance make the points */
@@ -212,7 +198,7 @@ export class DriftRun {
   }
   private end() { this.drifting = false; this.turn = -1; this.entry = null; this.zone = ''; }
 
-  /** on grip: full throttle by itself (the drags), engine on the gear you chose; it brakes for the turns and drops gears as it does */
+  /** on grip: full throttle by itself (the drags), automatic gears; it brakes for the turns and drops gears as it does */
   private grip(dt: number) {
     const st = this.stats, red = st.redline, n = st.trans.ratios.length;
     if (this.shifting > 0) { this.shifting -= dt; if (this.shifting <= 0) this.gear = Math.max(0, Math.min(this.gear + this.shiftDir, n - 1)); }
@@ -231,7 +217,7 @@ export class DriftRun {
       if (this.launchGrade === 'Bog' && this.launchTimer < 1) drive *= LAUNCH.bogPenalty;
       drive = Math.min(drive, traction);
     }
-    if (this.rpm >= red) this.rpm = red;                                   // on the limiter: no drive until you shift up
+    if (this.rpm >= red) this.rpm = red;                                   // on the limiter (top gear): no more drive
     const resist = 0.5 * AIR * st.dragArea * this.v * this.v + st.rollingCoeff * st.massKg * G;
     this.v = Math.max(0, this.v + (drive - resist) / st.massKg * dt);
     // brake for the turn ahead (or hold its grip speed inside it), dropping gears on the way down
@@ -258,21 +244,14 @@ export class DriftRun {
   }
 }
 
-/** The AI driver (E7): launches and shifts like the Street Race AI (scatter by skill), taps Drift near each turn-in and feathers
- *  the gas round the middle of the band. Skill 1 = a sharp player; lower = later/earlier taps and shifts, a wobblier foot. */
+/** The AI driver (E7): taps Drift near each turn-in and feathers the gas round the middle of the band. Skill 1 = a sharp player;
+ *  lower = later/earlier taps and a wobblier foot. */
 export class DriftAI implements DriftControl {
   private rng: () => number; private err: number[] = []; private aim = 0.5; private nextT = 0; private on = false; private tapped = -1;
-  private launchAt: number; private reaction: number; private shiftAt = 0;
-  constructor(public skill: number, seed = 1) {
-    this.rng = makeRng(seed);
-    const mid = (LAUNCH.perfectMin + LAUNCH.perfectMax) / 2;
-    this.launchAt = mid + this.gauss() * (1 - skill) * 0.28; this.reaction = 0.3 + this.rng() * 0.12 * (1.5 - skill);
-    this.newShift();
-  }
+  constructor(public skill: number, seed = 1) { this.rng = makeRng(seed); }
   private gauss() { let u = 0; for (let i = 0; i < 6; i++) u += this.rng(); return (u - 3) / Math.sqrt(0.5); }
-  private newShift() { this.shiftAt = this.gauss() * (1 - this.skill) * 0.12; }
   gas(run: DriftRun): boolean {
-    if (!run.launched) return run.time < this.reaction && run.rpm / run.stats.redline < this.launchAt;
+    if (!run.launched) return run.rpm / run.stats.redline < 0.6;          // a blip on the lights
     if (!run.drifting) return true;
     if (run.t < this.nextT) return this.on;
     const k = 1 - this.skill;
@@ -281,13 +260,6 @@ export class DriftAI implements DriftControl {
     const [lo, hi] = run.band(), u = (run.rpm / run.stats.redline - lo) / (hi - lo), hw = 0.05 + 0.4 * k;
     this.on = u < this.aim - hw ? true : u > this.aim + hw ? false : this.on;
     return this.on;
-  }
-  shift(run: DriftRun): boolean {
-    if (!run.launched || run.drifting || run.shifting > 0 || run.gear >= run.stats.trans.ratios.length - 1) return false;
-    // no upshift right before a turn (the car is about to brake)
-    const i = run.nextTurn(); if (i >= 0 && run.path.turns[i].s0 - run.s < 30 && run.s < run.path.turns[i].s1) return false;
-    if (run.rpm / run.stats.redline >= run.stats.trans.zoneCentre + this.shiftAt) { this.newShift(); return true; }
-    return false;
   }
   drift(run: DriftRun): boolean {
     if (!run.launched || run.drifting) return false;

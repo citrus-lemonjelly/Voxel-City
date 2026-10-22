@@ -22,7 +22,6 @@ for (const [car, lg] of [['panda_civix', 'D'], ['muscle', 'C'], ['hyper', 'S']] 
     const run = new DriftRun(path, carStats(car, allAt(3)), {
       gas: (r: any) => !r.launched ? false : r.drifting ? p.gas(r, hist[Math.max(0, hist.length - 1 - Math.round(react * 60))] ?? r.rpm / r.stats.redline) : true,
       drift: (r: any) => { if (!fired && r.s >= t0.s0) { fired = true; return true; } return false; },
-      shift: (r: any) => !r.drifting && r.rpm / r.stats.redline > 0.9,
     });
     let start = -1, res = '';
     for (let i = 0; i < 60 * 60 && !res; i++) {

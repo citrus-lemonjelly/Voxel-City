@@ -496,20 +496,16 @@ function finishTyping() {
 // ---------------- Drift (owner, V0.18.0, ROADMAP E4.6) ----------------
 // A winding night road in a district; the car drives itself, you tap Drift at each turn and work the gas to hold the revs in the
 // band. Your score against a ghost rival (an AI run replayed). Physics + scoring in game/drift.ts, the scene in render/driftView.ts.
-const dIn = { gas: false, tap: false, up: false, down: false };
+const dIn = { gas: false, tap: false };
 let dr: { run: DriftRun; hud: DriftHud; rival: DriftRival; course: string; wet: boolean; doneAt: number; diff: Difficulty } | null = null;
 class DriftPlayer implements DriftControl {
   gas() { return dIn.gas; }
   drift() { const q = dIn.tap; dIn.tap = false; return q; }
-  shift() { const q = dIn.up; dIn.up = false; return q; }
-  downshift() { const q = dIn.down; dIn.down = false; return q; }
 }
 function driftKey(e: KeyboardEvent, down: boolean) {
   const K = keysOf(save.settings).drift;
   if (keyMatches(e.code, K.gas)) { e.preventDefault(); if (!e.repeat) { dIn.gas = down; dr?.hud.setGas(down); } }
   else if (keyMatches(e.code, K.drift)) { e.preventDefault(); if (down && !e.repeat) dIn.tap = true; dr?.hud.setDrift(down); }
-  else if (keyMatches(e.code, K.up)) { e.preventDefault(); if (down && !e.repeat) dIn.up = true; dr?.hud.setPressed(down); }
-  else if (keyMatches(e.code, K.down)) { e.preventDefault(); if (down && !e.repeat) dIn.down = true; dr?.hud.setDownPressed(down); }
   else if (down && keyMatches(e.code, K.leave)) { e.preventDefault(); leaveDrift(); }
 }
 const driftCourse = () => DRIFT_BY_ID[save.driftCourse ?? ''] ? save.driftCourse! : DRIFT_COURSES[0].id;
@@ -521,20 +517,18 @@ function startDrift() {
   const seed = params.get('rseed') ? +params.get('rseed')! : ((Date.now() & 0x7fffffff) || 1);
   const rival = makeDriftRival(save.carId, save.equipped, path, diff, track, seed);
   const rivalLook: CarLook = { ...STOCK_LOOK, body: carBody(rival.carId).profile ?? 'civix', paint: rival.paint, parts: rivalParts(rival.carId, rival.seed) };
-  Object.assign(dIn, { gas: false, tap: false, up: false, down: false }); acc = 0;
+  Object.assign(dIn, { gas: false, tap: false }); acc = 0;
   const run = new DriftRun(path, carStats(save.carId, save.equipped, track), AUTOPLAY || (DEV.enabled && DEV.autoDrive) ? new DriftAI(0.95, 5) : new DriftPlayer());
   world.setupDrift(path, playerLook(), rivalLook, wet);
   driftReset(carBody(save.carId).type);
   const K = keysOf(save.settings).drift;
   const hud = new DriftHud(ui, run, { rivalName: rival.name, rivalScore: t => ghostAt(rival.trace, t).score, rivalS: t => ghostAt(rival.trace, t).s,
-    keys: { gas: keyName(K.gas), drift: keyName(K.drift), up: keyName(K.up), down: keyName(K.down) }, phone: PHONE, swap: save.settings.pedalSide === 'left', button: params.get('dbtn') || save.settings.dbtn || 'brake', pedal: (params.get('pedal') as any) || save.pedals.equipped,
+    keys: { gas: keyName(K.gas), drift: keyName(K.drift) }, phone: PHONE, swap: save.settings.pedalSide === 'left', button: params.get('dbtn') || save.settings.dbtn || 'brake', pedal: (params.get('pedal') as any) || save.pedals.equipped,
     paddle: save.paddles.equipped, paddleShape: save.paddles.shape, paint: playerLook().paint,
     icons: { me: world.thumbnail(playerLook(), 124, 56, 'strip', 'clear'), them: world.thumbnail(rivalLook, 124, 56, 'strip', 'clear') }, wet, showKeyHint: (save.driftRuns ?? 0) < 3 && !PHONE, onCue: driftCue });
   const hold = (el: HTMLElement, down: () => void, up: () => void) => { el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); down(); }); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); };
   hold(hud.gasBtn, () => { dIn.gas = true; hud.setGas(true); }, () => { dIn.gas = false; hud.setGas(false); });
   hold(hud.driftBtn, () => { dIn.tap = true; hud.setDrift(true); }, () => hud.setDrift(false));
-  hold(hud.shiftBtn, () => { dIn.up = true; hud.setPressed(true); }, () => hud.setPressed(false));
-  hold(hud.downBtn, () => { dIn.down = true; hud.setDownPressed(true); }, () => hud.setDownPressed(false));
   dr = { run, hud, rival, course, wet, doneAt: 0, diff };
 }
 function driftFrame(dt: number, now: number) {

@@ -15,7 +15,7 @@ function timed(path: any, st: any, skill: number, seed = 7) {
   const run = new DriftRun(path, st, new DriftAI(skill, seed)), T = path.turns;
   let t1 = 0, t2 = 0;
   for (let i = 0; i < 60 * 240 && run.finish === undefined; i++) { run.step(1 / 60); if (!t1 && run.s >= T[0].s0) t1 = run.time; if (!t2 && run.s >= T[T.length - 1].s1) t2 = run.time; }
-  return { score: run.score, drag1: t1, drift: t2 - t1, drag2: (run.finish ?? 99) - t2, time: run.finish ?? 99, spins: run.spins, clean: run.clean, perfect: run.perfectEntries, shifts: run.shifts.filter((s: string) => s === 'Perfect').length };
+  return { score: run.score, drag1: t1, drift: t2 - t1, drag2: (run.finish ?? 99) - t2, time: run.finish ?? 99, spins: run.spins, clean: run.clean, perfect: run.perfectEntries };
 }
 const f1 = (x: number) => x.toFixed(1).padStart(5);
 
@@ -31,12 +31,12 @@ if (arg === 'pace') {
   for (const c of DRIFT_COURSES) {
     if (arg && c.id !== arg) continue;
     console.log(`\n== ${c.name} ==`);
-    console.log('car                    skill   score  drag1  drift  drag2  total spins clean perf shifts');
+    console.log('car                    skill   score  drag1  drift  drag2  total spins clean perf');
     for (const [id, tune] of cars) {
       const p = driftPath(c.id, 1, CARS[id].league);
       for (const skill of [1, 0.85, 0.7, 0.5]) {
         const r = timed(p, carStats(id, tune), skill);
-        console.log(`${(id + (tune.engine === 1 ? ' stock' : ' max') + (tune.dtyres ? '+kit' : '')).padEnd(22)} ${skill.toFixed(2).padStart(5)} ${String(Math.round(r.score)).padStart(7)} ${f1(r.drag1)}  ${f1(r.drift)}  ${f1(r.drag2)}  ${f1(r.time)} ${String(r.spins).padStart(5)} ${String(r.clean).padStart(5)} ${String(r.perfect).padStart(4)} ${String(r.shifts).padStart(6)}`);
+        console.log(`${(id + (tune.engine === 1 ? ' stock' : ' max') + (tune.dtyres ? '+kit' : '')).padEnd(22)} ${skill.toFixed(2).padStart(5)} ${String(Math.round(r.score)).padStart(7)} ${f1(r.drag1)}  ${f1(r.drift)}  ${f1(r.drag2)}  ${f1(r.time)} ${String(r.spins).padStart(5)} ${String(r.clean).padStart(5)} ${String(r.perfect).padStart(4)}`);
       }
     }
   }

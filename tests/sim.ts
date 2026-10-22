@@ -444,23 +444,25 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   const p = driftPath('downtown', 2, 'D'), st = carStats('panda_civix', STOCK_TUNE), kit = carStats('panda_civix', { ...STOCK_TUNE, dtyres: 5, lsd: 5, angle: 5 });
   const avg = (s: any, skill: number) => { let t = 0; for (let k = 1; k <= 8; k++) t += simDrift(p, s, new DriftAI(skill, k)).score; return t / 8; };
   const top = avg(st, 1), mid = avg(st, 0.7), low = avg(st, 0.4), lowKit = avg(kit, 0.4);
-  class NoDrift { gas(r: DriftRun) { return !r.launched && r.rpm < r.stats.redline * 0.6; } drift() { return false; } shift() { return false; } }
+  class NoDrift { gas(r: DriftRun) { return !r.launched && r.rpm < r.stats.redline * 0.6; } drift() { return false; } }
   const lazy = simDrift(p, st, new NoDrift());
-  check(top > mid && mid > low && lowKit > low * 1.2 && lazy.score <= D.dragPts.launch.Perfect && lazy.run.outcomes.every(o => o === 'Missed') && lazy.time < 99,
-    `drift scoring: sharp ${Math.round(top)} > fair ${Math.round(mid)} > sloppy ${Math.round(low)} pts; full drift kit lifts sloppy to ${Math.round(lowKit)}; no drifting = ${lazy.score} pts (drag only), still finishes`);
-  // the gas holds the revs: flat out the whole drift spins; perfect shifts and a perfect launch score drag points
-  class Flat { gas(r: DriftRun) { return r.launched; } private t = false; drift(r: DriftRun) { if (this.t || !r.launched) return false; const i = r.done.findIndex(d => !d); if (i >= 0 && r.s >= r.path.turns[i].s0) { this.t = true; return true; } return false; } shift() { return false; } }
+  check(top > mid && mid > low && lowKit > low * 1.2 && lazy.score === 0 && lazy.run.outcomes.every(o => o === 'Missed') && lazy.time < 99,
+    `drift scoring: sharp ${Math.round(top)} > fair ${Math.round(mid)} > sloppy ${Math.round(low)} pts; full drift kit lifts sloppy to ${Math.round(lowKit)}; no drifting = ${lazy.score} pts, still finishes`);
+  // the gas holds the revs: flat out the whole drift spins; the gears are automatic (owner V0.18.1) — up near the top of the revs,
+  // and never bogging (under 50 % of redline) once the car is rolling, out of a turn or a spin
+  class Flat { gas(r: DriftRun) { return r.launched; } private t = false; drift(r: DriftRun) { if (this.t || !r.launched) return false; const i = r.done.findIndex(d => !d); if (i >= 0 && r.s >= r.path.turns[i].s0) { this.t = true; return true; } return false; } }
   const flat = simDrift(p, st, new Flat());
-  const sharp = simDrift(p, st, new DriftAI(1, 3));
-  check(flat.spins >= 1 && sharp.run.launchGrade === 'Perfect' && sharp.run.shifts.filter(s => s === 'Perfect').length >= 2 && sharp.run.dragPts >= D.dragPts.launch.Perfect + 2 * D.dragPts.shift.Perfect,
-    `drift controls: holding the gas flat through a drift spins (${flat.spins}); a sharp run launches Perfect and shifts Perfect (${sharp.run.shifts.join(', ')}) for ${sharp.run.dragPts} drag pts`);
+  let bog = 0, ups = 0, lastG = 0, n2 = 0; const gr = new DriftRun(p, st, new DriftAI(0.85, 3));
+  for (let i = 0; i < 60 * 90 && gr.finish === undefined; i++) { gr.step(1 / 60); if (gr.gear > lastG) ups++; lastG = gr.gear;
+    if (gr.launched && !gr.drifting && gr.spinT <= 0 && gr.v > 8 && gr.shifting <= 0) { n2++; if (gr.rpm / gr.stats.redline < 0.5) bog++; } }
+  check(flat.spins >= 1 && ups >= 3 && bog / n2 < 0.03, `drift controls: holding the gas flat through a drift spins (${flat.spins}); automatic gears shift up ${ups}× and the revs sit under 50 % only ${(bog / n2 * 100).toFixed(1)} % of the time`);
   // feel (owner V0.18.1: "tap drift and spin out within 1 second"): flat-out gas takes well over a second to spin, letting go
   // takes about a second to straighten, and a person reacting 0.2 s late to the needle holds every first turn clean
   const feel = (gas: (r: DriftRun, seen: number) => boolean) => { const res: number[] = [], kinds: string[] = [];
     for (const [car, lg] of [['panda_civix', 'D'], ['muscle', 'C']] as [string, string][]) for (let v = 0; v < 4; v++) {
       const path = driftPath('downtown', v, lg), t0 = path.turns[0], hist: number[] = []; let fired = false, start = -1;
       const r = new DriftRun(path, carStats(car, allAt(3)), { gas: (q: DriftRun) => !q.launched ? false : q.drifting ? gas(q, hist[Math.max(0, hist.length - 13)] ?? 0.7) : true,
-        drift: (q: DriftRun) => { if (!fired && q.s >= t0.s0) { fired = true; return true; } return false; }, shift: (q: DriftRun) => !q.drifting && q.rpm / q.stats.redline > 0.9 });
+        drift: (q: DriftRun) => { if (!fired && q.s >= t0.s0) { fired = true; return true; } return false; } });
       for (let i = 0; i < 60 * 60; i++) { r.step(1 / 60); hist.push(r.rpm / r.stats.redline); if (r.drifting && start < 0) start = r.t; const e = r.lastEvent?.text ?? '';
         if (start >= 0 && /Spin|Straight|Clean|Linked/.test(e)) { res.push(r.t - start); kinds.push(e); break; } } }
     return { t: Math.min(...res), kinds }; };
@@ -475,7 +477,7 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   check(dr.every(r => r > 0.88 && r < 1.12) && E2.driftPay('D', 'medium', true).result > E2.driftPay('D', 'medium', false).result, `drift pay parity: Drift ÷ Street per minute ${dr.map(r => r.toFixed(2)).join(' · ')} (D → S)`);
   // keys: a drift set with its own Drift key; drift parts are priced and change only drift
   const K = keysOf({}).drift, base = carStats('panda_civix', STOCK_TUNE);
-  check(!!K.drift && K.drift !== K.gas && K.up !== K.down && base.massKg === kit.massKg && base.peakPowerW === kit.peakPowerW && E2.partPrice('lsd', 3, 'D') > 0,
-    `drift keys + parts: Drift on ${keyName(K.drift)}, gas ${keyName(K.gas)}, shift ${keyName(K.up)} / ${keyName(K.down)}; drift parts cost VX and leave the drag stats alone`);
+  check(!!K.drift && K.drift !== K.gas && !('up' in K) && base.massKg === kit.massKg && base.peakPowerW === kit.peakPowerW && E2.partPrice('lsd', 3, 'D') > 0,
+    `drift keys + parts: Drift on ${keyName(K.drift)}, gas ${keyName(K.gas)}, no shift keys (automatic gears); drift parts cost VX and leave the drag stats alone`);
 }
 process.exit(fail ? 1 : 0);

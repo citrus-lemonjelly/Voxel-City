@@ -66,7 +66,9 @@ export class Hud {
   constructor(root: HTMLElement, private race: Race, private player: Racer, private opp: Racer, opts: { oppName: string; paddle: string; paint?: string; showKeyHint: boolean; paddleShape?: 'arc' | 'tab'; pedal?: PedalStyle; /** bound key names (Settings ▸ Controls) */ keys?: { gas: string; up?: string; down: string; nitrous?: string };
     /** Pedal mode: the pedal stays all race (owner 2026-10-21) */ drive?: 'classic' | 'pedal'; /** top-down car pictures for the progress bar */ icons?: { me: string; them: string }; /** rain: tell the player the road is wet */ wet?: boolean; /** phone race screen */ phone?: boolean; /** phone: pedal on the left */ swap?: boolean;
     /** Drift (owner, V0.18.0): the Drift button beside the gas pedal, and the rev band to show on the gauge instead of the shift zone while sliding */
-    drift?: { button: string; key: string }; zone?: () => [number, number] | null }) {
+    drift?: { button: string; key: string }; zone?: () => [number, number] | null;
+    /** Drift (owner, V0.18.1: automatic gears): no shift paddles — the dash is just the gauge and the pedal bay */
+    noPaddles?: boolean }) {
     root.innerHTML = '';
     this.gaugeMax = Math.ceil(player.stats.redline / 1000);
     const phone = !!opts.phone, pedalMode = opts.drive === 'pedal', gasKey = opts.keys?.gas ?? 'SPACE';
@@ -99,8 +101,8 @@ export class Hud {
     const build = (mirror: boolean, sym: '+' | '-') => shape === 'arc' ? arcPaddle(skin, cell, mirror, sym) : tabPaddle(skin, cell, mirror, sym);
     const r = build(false, '+'), rl = build(true, '-');
     const pw = +r.svg.getAttribute('width')!, ph = +r.svg.getAttribute('height')!;
-    const reach = r.ox + pw;                                            // how far a paddle reaches past the gauge centre
-    const GXO = phone ? 0 : Math.max(22, 14 + reach - CX);              // gauge offset inside the dash plate (room for the left paddle)
+    const np = !!opts.noPaddles, reach = np ? CX + 4 : r.ox + pw;       // how far a paddle reaches past the gauge centre
+    const GXO = phone ? 0 : np ? 16 : Math.max(22, 14 + reach - CX);              // gauge offset inside the dash plate (room for the left paddle)
     const plate = phone ? null : svgEl('svg', { class: 'plate' }, cluster);
     const g = svgEl('svg', { width: D, height: D, class: 'gauge', style: `left:${GXO}px` }, cluster);
     // 3D body (owner Q33): drop shadow, rim thickness, metal bezel lit from the top-left, recessed face, glass sheen
@@ -152,7 +154,7 @@ export class Hud {
     this.paddleEl.appendChild(r.svg);
     this.downEl = h(`<div class="paddle left" style="left:${pxl}px;top:${py}px;width:${pw}px;height:${ph}px"></div>`);
     this.downEl.appendChild(rl.svg);
-    cluster.insertBefore(this.paddleEl, g); cluster.insertBefore(this.downEl, g);   // behind the gauge
+    if (!np) { cluster.insertBefore(this.paddleEl, g); cluster.insertBefore(this.downEl, g); }   // behind the gauge
     // ---- dash plate (owner): ONE see-through panel behind gauge + paddles + gas-pedal bay, stepped top-left corner and a
     //      stepped curve on the top-right. When the car launches the pedal drops away and the bay folds in (plate shrinks). ----
     // Drift: the bay is wider — the Drift button stands in it beside the gas pedal
@@ -173,10 +175,10 @@ export class Hud {
     const HX = GXO + CX + 24, HL = GXO + CX - 24;
     this.shiftBtn = h(`<button class="paddle-hit" aria-label="Shift up" style="left:${HX}px;top:${PT}px;width:${PWc - HX}px;height:${D - PT}px"></button>`);
     this.downBtn = h(`<button class="paddle-hit" aria-label="Shift down" style="left:0;top:${PT}px;width:${HL}px;height:${D - PT}px"></button>`);
-    cluster.appendChild(this.shiftBtn); cluster.appendChild(this.downBtn);
+    if (!np) { cluster.appendChild(this.shiftBtn); cluster.appendChild(this.downBtn); }
     // labels with key pictures (owner): "SHIFT DOWN" + [SHIFT] under the left paddle, "SHIFT UP" + [SPACE] under the right
     const visR = Math.round((GXO + D - 8 + px + pw) / 2), visL = PWc - visR, LY = D - 34;
-    this.keyHint = h(`<div class="keylabels">${keyLabel('SHIFT DOWN', opts.keys?.down ?? 'SHIFT', visL, LY)}${keyLabel('SHIFT UP', pedalMode ? opts.keys?.up ?? '↑' : gasKey, visR, LY)}</div>`);
+    this.keyHint = h(`<div class="keylabels">${np ? '' : keyLabel('SHIFT DOWN', opts.keys?.down ?? 'SHIFT', visL, LY) + keyLabel('SHIFT UP', pedalMode ? opts.keys?.up ?? '↑' : gasKey, visR, LY)}</div>`);
     if (opts.showKeyHint) cluster.appendChild(this.keyHint);
     // ---- gas pedal (owner): sits in the plate's bay right of the "+" paddle for the launch, then drops away ----
     this.pedalPod = h(`<div class="pedal-pod" style="left:${PWc}px;top:0;width:${BAY}px;height:${D}px"></div>`);

@@ -107,7 +107,7 @@ export interface Settings {
   /** phones: a short buzz on a Perfect shift (owner E4). Missing = on */
   buzz?: 'on' | 'off';
   /** key bindings (owner 2026-10-19; defaults in game/keys.ts) */
-  keys?: Partial<{ drag: Partial<Record<'gas' | 'up' | 'down' | 'nitrous', string>>; typing: Partial<Record<'nitro' | 'leave', string>>; drift: Partial<Record<'gas' | 'drift' | 'up' | 'down' | 'leave', string>> }>;
+  keys?: Partial<{ drag: Partial<Record<'gas' | 'up' | 'down' | 'nitrous', string>>; typing: Partial<Record<'nitro' | 'leave', string>>; drift: Partial<Record<'gas' | 'drift' | 'leave', string>> }>;
   /** Drift button look (owner, V0.18.0; ui/driftButton.ts). Missing = brake */
   dbtn?: string;
 }
