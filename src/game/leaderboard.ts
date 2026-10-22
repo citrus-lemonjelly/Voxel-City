@@ -7,7 +7,7 @@ import { usernames } from './usernames';
 
 /** Owner: Supabase ▸ Project Settings ▸ API — the Project URL and the anon public key (safe to ship; the table's rules
  *  only allow reading, and writing through the checked submit_typing function). */
-export const LEADERBOARD = { url: '', anonKey: '', top: 500 };
+export const LEADERBOARD = { url: 'https://kaabvohiyrbnmhgabsto.supabase.co', anonKey: 'sb_publishable_1avIbPGKs2Hfx_aYubayaA_c_coILIk', top: 500 };   // owner's project (V0.19.1)
 export const leaderboardOnline = () => !!(LEADERBOARD.url && LEADERBOARD.anonKey);
 /** Test hook (?lbmock): a made-up board so the screen can be checked without a server. */
 export const LB_MOCK = { on: false };

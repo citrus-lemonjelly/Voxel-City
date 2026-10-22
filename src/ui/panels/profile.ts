@@ -53,7 +53,7 @@ function typingTab(save: SaveV1) {
 const board: { rows: BoardRow[] | null; loading: boolean; at: number } = { rows: null, loading: false, at: 0 };
 function topTab(me: string) {
   if (!leaderboardOnline() && !LB_MOCK.on) return `<div class="pf-top-msg"><b class="hd">Coming soon</b><span>The online leaderboard of the top ${LEADERBOARD.top} typers isn't switched on yet. Your typing XP keeps counting here in the meantime.</span></div>`;
-  if (!board.rows) return `<div class="pf-top-msg"><span>${board.loading ? 'Loading the leaderboard…' : 'The leaderboard didn’t answer — try again in a moment.'}</span></div>`;
+  if (!board.rows) return `<div class="pf-top-msg"><span>${board.loading || !board.at ? 'Loading the leaderboard…' : 'The leaderboard didn’t answer — try again in a moment.'}</span></div>`;
   const id = myBoardId(), mine = board.rows.findIndex(r => (id && r.player_id === id) || (!id && r.username === me));
   return `<div class="pf-top-head"><span>${mine >= 0 ? `You are <b>#${mine + 1}</b> of ${board.rows.length}` : `Not on the board yet — the top ${LEADERBOARD.top} by typing XP`}</span></div>
       <div class="pf-top">${board.rows.map((r, i) => { const t = typingLeagueOf(r.xp); return `<div class="pf-trow${i === mine ? ' me' : ''}"><span class="hd">${i + 1}</span>${typingBadge(t.i, 1)}<b>${esc(r.username)}</b><span>${t.name}</span><span>${Math.round(r.best_wpm)} wpm</span><span class="hd">${r.xp.toLocaleString()}</span></div>`; }).join('')}</div>`;

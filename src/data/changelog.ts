@@ -26,6 +26,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.19.1', date: '2026-10-22', title: 'The Top 500 goes online',
+    added: [
+      'The Top 500 typing leaderboard is online: every Typing Race you finish adds your XP to the board (Profile ▸ Top 500). Everyone starts from zero today.',
+    ],
+    fixed: [
+      'The Top 500 tab says Loading… while the board loads, instead of saying the leaderboard did not answer.',
+    ],
+  },
+  {
     version: '0.19.0', date: '2026-10-22', title: 'Typing gets harder: Expert, the Rival Ladder and typing leagues', header: 'Typing Update',
     added: [
       'Expert typing level: passages full of symbols, prices, plates and sums — @ # $ % & * ( ) / : ; — and rivals set from your recent Expert best, so to win you have to beat your own record.',

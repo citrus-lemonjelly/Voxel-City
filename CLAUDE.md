@@ -101,8 +101,8 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
   (`src/game/textGen.ts`), Rival Ladder (15 fixed-speed rivals, `TYPING_LADDER`), usernames for typing rivals + the player
   (`src/game/usernames.ts`, Profile), typing XP + 8 typing leagues with keycap badges (`TYPING_LEAGUES`, `src/ui/typingBadge.ts`),
   Profile Drag / Typing tabs, RACE (Drag menu) + TYPE button under it (Typing menu), title-only menu buttons (S100); Q212–Q216 answered (S101): usernames for all rivals, name filter, ranks ×2.5 with
-  divisions 1–4 + Crowns per rank up, Supabase Top 500 (`src/game/leaderboard.ts` + `docs/leaderboard.sql`) — **off until the
-  owner creates the Supabase project** and the URL + anon key go into `LEADERBOARD`; `?lbmock` shows a made-up board.
+  divisions 1–4 + Crowns per rank up, Supabase Top 500 (`src/game/leaderboard.ts` + `docs/leaderboard.sql`) — **online since V0.19.1**
+  (owner's project `kaabvohiyrbnmhgabsto`, publishable key in `LEADERBOARD`; S102). Autoplay races never post; `?lbmock` = made-up board.
 - **Next:** District map / "City Update" (owner Q199 B). The owner is getting a reference 3D voxel map from ChatGPT first; then
   answer Q200–Q205 (Race opens the map? names/modes per district, unlock by league, diorama look, district modifiers, first scope). Run heavy checks one at a time.
 - Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
