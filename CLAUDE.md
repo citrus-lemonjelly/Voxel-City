@@ -29,16 +29,20 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - `npm run collide` — collision check, every car × every part + part pairs (seconds)
 - `npm run smoke` — browser smoke test (~2–3 min): every screen, a drag race, a Typing Race, a Drift run, Body Shop, Car Lab
 - `npm run drift-lab [-- course | pace]` — Drift bench (seconds): score / drag–drift–drag times / spins per car × AI skill; `pace` =
-  average part times per league (owner target 5–7 · 10–12 · 5–7 s; feeds `PACING.driftSec`).
+  average part times per league (owner target 5–7 · 10–12 · 5–7 s; feeds `PACING.driftSec`). `npm run drift-feel` — human-like players
+  (flat gas / let go / reacting 0.2 s late) through the first turn: when they spin, straighten or finish clean.
+- `node tools/probe.mjs "?query" "start code" "wait-until code" "expression"` — opens the test build and prints what an expression
+  returns at a moment (element boxes, game state) — quicker than a screenshot for "is it there / why is it hidden".
 - `npm run layout` (~3.5 min; `-- pc|small|phone|large` for one size) — every garage screen on PC + 3 phone sizes: fails on anything
   off screen, the fixed buttons overlapping, or text spilling out of its box; warns on text drawn under 10 px. Run it after UI work.
 - `npm run release` — version check → package.json sync → sim → collision check → build → list of changed files.
   It refuses if the version wasn't raised. Only use `--same` if that version has never shipped.
 - `npm run shot -- OUT.png "Title" "click:SEL; wait:MS; cap:TEXT"` — screenshot sheet for review (1–2 per feature).
   **Presets:** `npm run shot -- OUT.png --preset pc|phone|race` (every main screen / every screen on a phone / a whole race).
-  Steps: `size:844x390`, `touch` (touch-screen phone page), `url:?dev&phone`, `hover:SEL`, `waitfor:green|launch|results|nitro|perfect|typing|drift|sliding`,
+  Steps: `size:844x390`, `touch` (touch-screen phone page), `url:?dev&phone`, `hover:SEL`, `waitfor:green|launch|results|nitro|perfect|typing|drift|sliding|cue|cuego`,
   `js:CODE` (no `;` inside — use commas) or `jsfile:PATH` for longer page code. `click:[data-panel=…]` opens the Menu by itself.
-  Page/console errors are printed after the shots. Drift shots: `url:?dev&autoplay&weather=clear&course=harbour; js:__vc.startDrift(); waitfor:sliding`.
+  Page/console errors are printed after the shots. Drift shots: `url:?dev&autoplay&weather=clear&course=harbour; js:__vc.startDrift(); waitfor:sliding`; freeze a fleeting
+  moment with `js:__vc.setPaused(true)` right after the waitfor.
 - **Test builds go to `build-test/`** (git-ignored): smoke, layout and shot build it themselves, so the live `build/` folder and its
   version stamp only change when shipping. `node tools/build.mjs --out build-test` builds it by hand.
 - **Code edits on this PC: `node tools/edit.mjs edits.json [--check]`** — a JSON list of {file, find, replace, all?}; checks every edit

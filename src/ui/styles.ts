@@ -464,4 +464,10 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .hud2.dhud .d-phdrift .d-btn{position:relative}
 .hud2.dhud .d-phzone{left:0;width:30%}
 .hud2.dhud.swap .d-phzone{left:auto;right:0}
+/* drift cue (owner, V0.18.1): a small 3-2-1 light just above the gauge — steady, no blinking; green = tap Drift now */
+.dhud .d-cue{position:absolute;top:-42px;transform:translateX(-50%);display:flex;gap:6px;padding:6px 8px;opacity:0;transition:opacity .15s;pointer-events:none}
+.dhud .d-cue.on{opacity:1}
+.dhud .d-cue i{width:18px;height:18px;background:#1e2129;box-shadow:inset 2px 2px 0 #121418,inset -2px -2px 0 #2c313d}
+.dhud .d-cue i.lit{background:#f2a43a;box-shadow:inset 2px 2px 0 #ffd08a,inset -2px -2px 0 #a8661a}
+.dhud .d-cue i.go{background:#4ade80;box-shadow:inset 2px 2px 0 #a6f5c2,inset -2px -2px 0 #23874a}
 `;

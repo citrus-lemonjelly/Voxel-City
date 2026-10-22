@@ -38,7 +38,7 @@ import { dailyEvent } from './game/daily';
 import { partFits } from './render/bodies';
 import { garageActions } from './game/garageActions';
 import { BEVEL_CSS } from './ui/themeBevel';
-import { renderEngine, volOf, startSound, setSoundLevel, raceSound, raceReset, engineStop, keyClick, nitroSound, uiTick, winSound, driftReset, driftSound } from './game/sound';
+import { renderEngine, volOf, startSound, setSoundLevel, raceSound, raceReset, engineStop, keyClick, nitroSound, uiTick, winSound, driftReset, driftSound, driftCue } from './game/sound';
 
 const params = new URLSearchParams(location.search);
 const AUTOPLAY = params.has('autoplay');          // test hook: the player car drives itself
@@ -529,7 +529,7 @@ function startDrift() {
   const hud = new DriftHud(ui, run, { rivalName: rival.name, rivalScore: t => ghostAt(rival.trace, t).score, rivalS: t => ghostAt(rival.trace, t).s,
     keys: { gas: keyName(K.gas), drift: keyName(K.drift), up: keyName(K.up), down: keyName(K.down) }, phone: PHONE, swap: save.settings.pedalSide === 'left', button: params.get('dbtn') || save.settings.dbtn || 'brake', pedal: (params.get('pedal') as any) || save.pedals.equipped,
     paddle: save.paddles.equipped, paddleShape: save.paddles.shape, paint: playerLook().paint,
-    icons: { me: world.thumbnail(playerLook(), 124, 56, 'strip', 'clear'), them: world.thumbnail(rivalLook, 124, 56, 'strip', 'clear') }, wet, showKeyHint: (save.driftRuns ?? 0) < 3 && !PHONE });
+    icons: { me: world.thumbnail(playerLook(), 124, 56, 'strip', 'clear'), them: world.thumbnail(rivalLook, 124, 56, 'strip', 'clear') }, wet, showKeyHint: (save.driftRuns ?? 0) < 3 && !PHONE, onCue: driftCue });
   const hold = (el: HTMLElement, down: () => void, up: () => void) => { el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); down(); }); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); };
   hold(hud.gasBtn, () => { dIn.gas = true; hud.setGas(true); }, () => { dIn.gas = false; hud.setGas(false); });
   hold(hud.driftBtn, () => { dIn.tap = true; hud.setDrift(true); }, () => hud.setDrift(false));

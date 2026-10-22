@@ -454,6 +454,19 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   const sharp = simDrift(p, st, new DriftAI(1, 3));
   check(flat.spins >= 1 && sharp.run.launchGrade === 'Perfect' && sharp.run.shifts.filter(s => s === 'Perfect').length >= 2 && sharp.run.dragPts >= D.dragPts.launch.Perfect + 2 * D.dragPts.shift.Perfect,
     `drift controls: holding the gas flat through a drift spins (${flat.spins}); a sharp run launches Perfect and shifts Perfect (${sharp.run.shifts.join(', ')}) for ${sharp.run.dragPts} drag pts`);
+  // feel (owner V0.18.1: "tap drift and spin out within 1 second"): flat-out gas takes well over a second to spin, letting go
+  // takes about a second to straighten, and a person reacting 0.2 s late to the needle holds every first turn clean
+  const feel = (gas: (r: DriftRun, seen: number) => boolean) => { const res: number[] = [], kinds: string[] = [];
+    for (const [car, lg] of [['panda_civix', 'D'], ['muscle', 'C']] as [string, string][]) for (let v = 0; v < 4; v++) {
+      const path = driftPath('downtown', v, lg), t0 = path.turns[0], hist: number[] = []; let fired = false, start = -1;
+      const r = new DriftRun(path, carStats(car, allAt(3)), { gas: (q: DriftRun) => !q.launched ? false : q.drifting ? gas(q, hist[Math.max(0, hist.length - 13)] ?? 0.7) : true,
+        drift: (q: DriftRun) => { if (!fired && q.s >= t0.s0) { fired = true; return true; } return false; }, shift: (q: DriftRun) => !q.drifting && q.rpm / q.stats.redline > 0.9 });
+      for (let i = 0; i < 60 * 60; i++) { r.step(1 / 60); hist.push(r.rpm / r.stats.redline); if (r.drifting && start < 0) start = r.t; const e = r.lastEvent?.text ?? '';
+        if (start >= 0 && /Spin|Straight|Clean|Linked/.test(e)) { res.push(r.t - start); kinds.push(e); break; } } }
+    return { t: Math.min(...res), kinds }; };
+  const flatOut = feel(() => true), letGo = feel(() => false), human = feel((q, f) => { const [lo, hi] = q.band(); return f < (lo + hi) / 2; });
+  check(flatOut.kinds.every(k => /Spin/.test(k)) && flatOut.t >= 1.2 && letGo.t >= 0.8 && human.kinds.every(k => /Clean|Linked/.test(k)),
+    `drift feel: flat-out gas spins after ${flatOut.t.toFixed(2)} s (≥ 1.2), letting go straightens after ${letGo.t.toFixed(2)} s, a player reacting 0.2 s late keeps all ${human.kinds.length} drifts clean`);
   // the ghost rival: below your perfect score by the difficulty's window; the ghost replays its own run exactly
   const ok = (['easy', 'medium', 'hard'] as const).map(d => { const r = makeDriftRival('panda_civix', STOCK_TUNE, p, d, stage, 41); return { d, k: r.score / r.yours, end: ghostAt(r.trace, 999).score === r.score }; });
   check(ok.every(o => o.k < 1 && o.end) && ok[0].k < ok[1].k && ok[1].k <= ok[2].k + 0.03, `drift ghost rival: Easy ${ok[0].k.toFixed(2)} · Medium ${ok[1].k.toFixed(2)} · Hard ${ok[2].k.toFixed(2)} of your perfect score; the ghost ends on its score`);

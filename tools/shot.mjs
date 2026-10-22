@@ -8,7 +8,7 @@
 //   jsfile:PATH     run a file of page code (anything too long or with ; for a js: step)
 //   hover:SELECTOR  move the mouse over an element                            touch             a touch-screen phone page (pointer:coarse)
 //   waitfor:WHAT    wait for a race moment: green · launch · results · nitro · perfect (a Perfect shift) · typing (Typing Race running)
-//                   · drift (a Drift run under way) · sliding (your car mid-drift)
+//                   · drift (a Drift run under way) · sliding (your car mid-drift) · cue / cuego (the drift cue at 2 lights / green)
 // Page errors and console errors are printed after the shots (V0.18.0), so a broken screen shows up without opening a browser.
 // Presets (T4, V0.16.0) — whole review sheets in one word instead of a list of steps:
 //   node tools/shot.mjs OUT.png --preset phone   every main screen on a 844 × 390 touch phone (+ race, Typing Race)
@@ -33,7 +33,7 @@ const PRESETS = { pc: SCREENS, phone: [...SCREENS, ...RACE.slice(1, 3), RACE[4]]
 if (preset && !PRESETS[preset]) { console.log(`unknown preset "${preset}" — use ${Object.keys(PRESETS).join(' / ')}`); process.exit(1); }
 const [outArg, title = preset ? `Preset: ${preset}` : 'Voxel City', ...shots] = preset ? [argv[0], argv[1], ...PRESETS[preset]] : argv;
 /** waitfor:WHAT — page conditions for race moments */
-const WAITS = { drift: '__vc.drift && __vc.drift.run.green', sliding: '__vc.drift && __vc.drift.run.drifting && __vc.drift.run.angle > 22', green: '__vc.race && __vc.race.green', launch: '__vc.race && __vc.race.racers[0].launched', results: "__vc.screen === 'results'", nitro: '__vc.race && __vc.race.racers[0].nitro > 0.5',
+const WAITS = { cue: '__vc.drift && __vc.drift.run.cue() === 2', cuego: '__vc.drift && __vc.drift.run.cue() === 4', drift: '__vc.drift && __vc.drift.run.green', sliding: '__vc.drift && __vc.drift.run.drifting && __vc.drift.run.angle > 22', green: '__vc.race && __vc.race.green', launch: '__vc.race && __vc.race.racers[0].launched', results: "__vc.screen === 'results'", nitro: '__vc.race && __vc.race.racers[0].nitro > 0.5',
   perfect: "__vc.race && /Perfect/.test((__vc.race.racers[0].lastEvent || {}).text || '') && __vc.race.t - __vc.race.racers[0].lastEvent.t > 0.05", typing: '__vc.typing && performance.now() - __vc.typing.start > 4000' };
 if (!outArg || !shots.length) { console.log('usage: node tools/shot.mjs OUT.png "Title" "step; step" …'); process.exit(1); }
 const out = resolve(outArg); mkdirSync(dirname(out), { recursive: true });

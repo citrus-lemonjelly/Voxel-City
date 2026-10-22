@@ -17,13 +17,16 @@ import { makeRng } from './ai';
 export const DRIFT = {
   countdown: 3,
   /** the green rev band, as shares of the redline (drift tyres widen it); `perfect` = the middle share of it that counts as Perfect */
-  band: { centre: 0.74, width: 0.17, perfect: 0.5 },
+  // V0.18.1 (owner: "tap drift and spin out within 1 second"): wider band (0.17 → 0.26), slower revs, gentler angle, and the
+  // turn-in puts the needle in the middle of the band instead of above it — holding the gas flat now spins after ~2 s, not 0.3 s
+  band: { centre: 0.74, width: 0.26, perfect: 0.5 },
   /** turn-in window (m): how early before the turn you may tap, how close counts as Perfect / Good, how late (share of the turn) */
   entry: { before: 16, perfect: 4.5, good: 10, lateShare: 0.4 },
-  /** revs while sliding (rpm per second up on the gas / down off it); the clutch kick at the turn-in */
-  rev: { up: 4300, down: 3900, kick: 900 },
-  /** drift angle (deg): low end of the band → min, top → max; past max + spinOver = spin; under lostBelow = straightened */
-  angle: { min: 14, max: 40, spinOver: 14, rate: 3.0, lostBelow: 7 },
+  /** revs while sliding (rpm per second up on the gas / down off it) */
+  rev: { up: 2200, down: 2000 },
+  /** drift angle (deg): low end of the band → min, top → max; past max + spinOver = spin; under lostBelow = straightened;
+   *  `over` = how fast the angle target climbs per band-width of revs above the band */
+  angle: { min: 14, max: 40, spinOver: 22, rate: 1.6, lostBelow: 5, over: 70 },
   /** speed in a drift: × the turn's grip speed, eased at `rate`; `scrub` = speed lost past the max angle */
   speed: { keep: 1.1, rate: 1.4, scrub: 0.3 },
   /** points per second = k × angle × speed (m/s) × zone bonus — that is angle × distance slid: a turn is worth the same in any car */
@@ -38,6 +41,8 @@ export const DRIFT = {
    *  whenever the revs fall under `downAt` × redline */
   brake: 7.5, overGrip: 1.12, downAt: 0.5,
 };
+/** drift cue timing: the three lights come on this many seconds before the turn-in (green = the Perfect window) */
+export const CUE = { at: [1.5, 1.0, 0.5] };
 export type EntryGrade = 'Perfect' | 'Good' | 'Early' | 'Late';
 export type Zone = 'perfect' | 'band' | 'out' | '';
 export const chainMult = (c: number) => 1 + Math.min(c, DRIFT.chain.max) * DRIFT.chain.step;
@@ -92,6 +97,15 @@ export class DriftRun {
   /** the turn containing s, or the next one ahead (index), or −1 */
   nextTurn(s = this.s) { return this.path.turns.findIndex(t => t.s1 > s); }
   get maxAngle() { return DRIFT.angle.max + this.kit.angle; }
+  /** The drift cue (owner, V0.18.1: a small 3-2-1 light above the gauge): 0 = off, 1–3 = lights counting down to the next turn-in
+   *  (≤ CUE.at seconds away each), 4 = green — you're in the Perfect window, tap Drift now. */
+  cue(): number {
+    if (!this.launched || this.drifting || this.spinT > 0 || this.finish !== undefined) return 0;
+    const i = this.path.turns.findIndex((t, j) => !this.done[j] && t.s0 + DRIFT.entry.perfect >= this.s); if (i < 0) return 0;
+    const d = this.path.turns[i].s0 - this.s; if (Math.abs(d) <= DRIFT.entry.perfect) return 4;
+    const sec = d / Math.max(4, this.v);
+    return sec <= CUE.at[2] ? 3 : sec <= CUE.at[1] ? 2 : sec <= CUE.at[0] ? 1 : 0;
+  }
 
   private event(text: string, pts?: number) { this.lastEvent = { text, t: this.t, pts }; }
   private bank(share = 1, grow = true) {
@@ -105,7 +119,7 @@ export class DriftRun {
     const tr = this.path.turns[i];
     this.drifting = true; this.turn = i; this.dir = tr.dir; this.done[i] = true; this.entry = grade; this.runPts = 0; this.shifting = 0;
     this.angle = DRIFT.angle.min + 4;
-    this.rpm = Math.min(this.stats.redline * 0.97, Math.max(this.rpm, this.stats.redline * 0.55) + DRIFT.rev.kick);   // clutch kick
+    this.rpm = this.stats.redline * DRIFT.band.centre;                     // the clutch kick lands the needle in the middle of the band
     if (grade === 'Perfect') this.perfectEntries++;
   }
 
@@ -174,7 +188,7 @@ export class DriftRun {
     if (this.rpm >= red) this.rpm = red - 350;                             // limiter
     this.rpm = Math.max(st.idleRpm, this.rpm);
     const [lo, hi, plo, phi] = this.band(), f = this.rpm / red, u = (f - lo) / (hi - lo), max = this.maxAngle;
-    const target = u < 0 ? A.min + u * 45 : u > 1 ? max + (u - 1) * 75 : A.min + u * (max - A.min);
+    const target = u < 0 ? A.min + u * 45 : u > 1 ? max + (u - 1) * A.over : A.min + u * (max - A.min);
     this.angle += (target - this.angle) * (1 - Math.exp(-A.rate * dt));
     this.zone = f >= plo && f <= phi ? 'perfect' : u >= 0 && u <= 1 ? 'band' : 'out';
     const want = this.gripSpeed(tr) * DRIFT.speed.keep * this.kit.keep * (1 - DRIFT.speed.scrub * Math.max(0, this.angle - max) / A.spinOver);

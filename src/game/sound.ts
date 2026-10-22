@@ -193,6 +193,8 @@ export const nitroSound = () => { noise(0.9, 5000, 0.6, 0.1, 'highpass'); tone(1
 export const uiTick = () => noise(0.025, 2200, 3, 0.05);
 export const winSound = (won: boolean) => won ? [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.18, 'triangle', 0.08, undefined, i * 0.09)) : [392, 330, 262].forEach((f, i) => tone(f, 0.22, 'triangle', 0.06, undefined, i * 0.12));
 
+/** Drift cue beep (V0.18.1): a short tick per light, a higher one on green */
+export const driftCue = (level: number) => level === 4 ? tone(988, 0.12, 'square', 0.06) : tone(587, 0.07, 'square', 0.05);
 // ---- Drift (owner, V0.18.0): your engine, a tyre squeal while sliding (louder with the angle), chimes for clean drifts ----
 const dseen = { ev: -1, lights: -1, squeal: 0 };
 export function driftReset(me: Body = 'hatch') { voices[0] = me; dseen.ev = -1; dseen.lights = -1; dseen.squeal = 0; }

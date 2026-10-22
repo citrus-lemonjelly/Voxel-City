@@ -26,6 +26,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.1', date: '2026-10-22', title: 'Easier drifts and a turn-in light',
+    added: [
+      'Drift cue: a small 3-2-1 light just above the gauge counts down to each turn-in, then goes green — that is the moment to tap Drift. A soft beep with each light.',
+    ],
+    changed: [
+      'Drifts are much easier to hold: the green rev band is half as wide again, the revs move slower and the angle reacts more gently.',
+      'Tapping Drift puts the needle in the middle of the band (it used to throw it above the band, so holding the gas spun you out in a third of a second). Holding the gas flat now takes almost two seconds to spin.',
+    ],
+  },
+  {
     version: '0.18.0', date: '2026-10-22', title: 'Drift: drag, slide, drag', header: 'Drift Update',
     added: [
       'Drift — a new mode in the Race menu. Launch and shift up like a drag race, drift through 3–5 turns, then drag to the finish again.',

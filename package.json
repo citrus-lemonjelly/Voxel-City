@@ -1,6 +1,6 @@
 {
   "name": "voxel-city",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "private": true,
   "description": "Voxel City — voxel drag racing (Step 1: playable race slice)",
   "type": "module",
@@ -19,7 +19,9 @@
     "sync": "node tools/sync.mjs",
     "layout": "node tests/layout.mjs",
     "edit": "node tools/edit.mjs",
-    "drift-lab": "tsx tools/drift-lab.mts"
+    "drift-lab": "tsx tools/drift-lab.mts",
+    "drift-feel": "tsx tools/drift-feel.mts",
+    "probe": "node tools/probe.mjs"
   },
   "dependencies": {
     "three": "0.170.0"
