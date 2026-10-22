@@ -90,7 +90,7 @@ export const HARD_PASSAGES: string[] = [
   "Tuning tip #42: change one thing at a time. If you alter the gearing, tyre pressure and ride height in one go, you'll never know which change helped - or which one cost you 0.3 s.",
   "On the night of the 2019 city final, the power failed at 21:07. Two hundred people held up their phones; the racers lined up anyway, lit only by headlights and a sea of tiny screens.",
   "Sable's checklist, taped to the dash: fuel (half), tyres (warm), belts (tight), mirrors (set), mind (clear). She has used the same list for 9 years and lost only 3 races in that time.",
-  "Downtown isn't a real grid at all; it's a tangle of one-way streets, two roundabouts and a tunnel. Newcomers get lost; locals take the shortcut behind the old cinema.",
+  "The streets of Downtown aren't a real grid at all; it's a tangle of one-way streets, two roundabouts and a tunnel. Newcomers get lost; locals take the shortcut behind the old cinema.",
   "Can a 120 hp hatchback beat a 400 hp coupe? Over 400 m, rarely. Over a twisty kilometre in the rain? Often! Power matters, but grip, weight and nerve matter just as much, if not more.",
   "Halden's first car cost 650 pounds, needed a new clutch, two tyres and a door, and leaked oil onto every driveway it visited. He still calls it \"the best car I'll ever own.\"",
   "By 23:30 the car park had emptied: a few last engines ticking as they cooled, a lone food truck closing its shutters, and Tamsin, still under her car, chasing one stubborn rattle.",
