@@ -14,6 +14,7 @@ _2026-10-22_
 
 **Changed**
 - Race screen: the progress bar is now a dotted line across the top centre, with your car and your rival drawn from above in their own paint.
+- The start lights fade away a second after green, so the top of the race screen stays clear.
 - PC: Profile, Garage, Catalog and the small buttons sit up the left side again, always shown (phones keep the Menu button).
 - The Garage buttons (Drive, Body Shop, Upgrade, Sell) run along the bottom beside Settings, on the home screen too, for the car you drive.
 - Phones: everything is drawn a little bigger, and the smallest labels a size up.
