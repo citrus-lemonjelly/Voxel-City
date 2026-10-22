@@ -285,7 +285,8 @@ export function simDrift(path: DriftPath, stats: CarStats, ctl: DriftControl, tr
 // ---------------------------------------------------------------- the ghost rival (E7)
 import { carStats } from './stats';
 import { CARS, CATALOG_ORDER } from '../data/cars';
-import { NAMES, PAINTS } from './rivals';
+import { PAINTS } from './rivals';
+import { rivalName } from './usernames';
 import { Tier, Tune, PERF_KINDS, DRIFT_KINDS, fullTune } from '../data/parts';
 import type { StageDef } from '../data/stages';
 import type { Difficulty } from '../data/economy';
@@ -308,9 +309,9 @@ export function makeDriftRival(carId: string, tune: Partial<Tune>, path: DriftPa
     const c = pick(pool), rt = Object.fromEntries([...PERF_KINDS, ...DRIFT_KINDS].map(k => [k, pick(tiers)])) as unknown as Tune, s = (rng() * 0x7fffffff) | 1;
     const skill = 0.3 + rng() * 0.68, score = simDrift(path, carStats(c, rt, stage), new DriftAI(skill, s)).score;
     if (score > ceiling) continue;
-    if (!best || Math.abs(score - target) < Math.abs(best.score - target)) best = { name: pick(NAMES), carId: c, tune: rt, paint: pick(PAINTS), skill, seed: s, score };
+    if (!best || Math.abs(score - target) < Math.abs(best.score - target)) best = { name: (rng(), rivalName(s)), carId: c, tune: rt, paint: pick(PAINTS), skill, seed: s, score };
   }
-  best ??= { name: pick(NAMES), carId: pool[0] ?? carId, tune: fullTune({}), paint: pick(PAINTS), skill: 0.4, seed: 3, score: 0 };
+  best ??= { name: (rng(), rivalName(3)), carId: pool[0] ?? carId, tune: fullTune({}), paint: pick(PAINTS), skill: 0.4, seed: 3, score: 0 };
   const ghost = simDrift(path, carStats(best.carId, best.tune, stage), new DriftAI(best.skill, best.seed), true);
   return { ...best, score: ghost.score, trace: ghost.trace, yours };
 }

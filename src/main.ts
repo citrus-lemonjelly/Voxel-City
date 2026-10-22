@@ -27,13 +27,15 @@ import { Race, Racer, Controller } from './game/race';
 import { AIController, makeRng } from './game/ai';
 import { carStats } from './game/stats';
 import { DEV, devOppSkill, devTime, initDevConsole } from './ui/devConsole';
-import { freshSave, typingStats } from './save/save';
-import { TypingRun, TypingRival, makeTypingRace, averageFor, typedBy, placeOf, wpmOf, glide } from './game/typing';
+import { freshSave, typingStats, playerName, typingLevelOf } from './save/save';
+import { typingBadge } from './ui/typingBadge';
+import { submitTypingRace, LB_MOCK } from './game/leaderboard';
+import { TypingRun, TypingRival, makeTypingRace, makeLadderRace, rivalRef, typedBy, placeOf, wpmOf, glide } from './game/typing';
 import { TypingHud, renderTypingResults } from './ui/typingHud';
 import { openCarLab } from './ui/carLab';
 import { keysOf, keyMatches, keyName, KEY_MODE_LABEL } from './game/keys';
 import { TYPE_TRACK, laneZ } from './render/typingView';
-import { typingPay, TYPING, perfectShiftPay, driftPay } from './data/economy';
+import { typingPay, TYPING, perfectShiftPay, driftPay, TypingLevel, TYPING_LEVELS, TYPING_LADDER, typingXp, typingLeagueOf, typingRankCrowns } from './data/economy';
 import { dailyEvent } from './game/daily';
 import { partFits } from './render/bodies';
 import { garageActions } from './game/garageActions';
@@ -41,6 +43,7 @@ import { BEVEL_CSS } from './ui/themeBevel';
 import { renderEngine, volOf, startSound, setSoundLevel, raceSound, raceReset, engineStop, keyClick, nitroSound, uiTick, winSound, driftReset, driftSound, driftCue } from './game/sound';
 
 const params = new URLSearchParams(location.search);
+LB_MOCK.on = params.has('lbmock');                                   // test hook: a made-up Top 500 board
 const AUTOPLAY = params.has('autoplay');          // test hook: the player car drives itself
 const MAX_DT = +(params.get('maxdt') || 0.25);
 const FAST = Math.max(1, +(params.get('fast') || 1));   // test hook: run the game clock N× faster (smoke tests)     // test hook: let slow (software-rendered) frames advance the clock fully
@@ -171,7 +174,7 @@ function showGarage(toast?: string) {
       const cur = keysOf(save.settings)[mode] as Record<string, string>, other = Object.keys(cur).find(a => a !== action && keyMatches(code, cur[a]));
       const next = { ...cur, [action]: code } as any; if (other) next[other] = cur[action];      // taken? swap the two
       (k as any)[mode] = next; writeSave(save); showGarage(`${keyName(code)} set${other ? ` (swapped with ${keyName(cur[action])})` : ''}`);
-    }, onTyping: () => startTyping(), onDrift: () => startDrift(), onDriftCourse: (id: string) => { save.driftCourse = id; writeSave(save); showGarage(); },
+    }, onTyping: (ladder?: boolean) => startTyping(ladder), onDrift: () => startDrift(), onDriftCourse: (id: string) => { save.driftCourse = id; writeSave(save); showGarage(); },
     onClaimDaily: claimDailyTask, onClaimCal: claimCal, onSellCar: sellCar, onBuySlot: buySlot }, toast);
 }
 // buying, selling, claiming, fitting, painting, equipping: src/game/garageActions.ts
@@ -372,20 +375,23 @@ const dev = initDevConsole({
 // Five lanes seen from above, the camera follows your car. 3 s of start lamps, then type: each correct key moves you on,
 // a wrong key turns the letter red until you type the right one. Rivals are seeded typists matched to your average.
 const COUNT = 3, TYPE_LANE = 2;                                      // you race in the middle lane
-let ty: { run: TypingRun; rivals: TypingRival[]; hud: TypingHud; start: number; vis: number[]; vel: number[]; doneAt: number; diff: Difficulty; seed: number } | null = null;
+let ty: { run: TypingRun; rivals: TypingRival[]; hud: TypingHud; start: number; vis: number[]; vel: number[]; doneAt: number; diff: TypingLevel; seed: number; /** Rival Ladder rung (0-based), -1 = a normal race */ ladder: number; boss: string } | null = null;
 const typingClock = (now = performance.now()) => ty ? (now - ty.start) / 1000 * FAST - COUNT : 0;   // seconds since GO
-function startTyping() {
+function startTyping(ladder = false) {
   screen = 'typing'; document.getElementById('vc-update')?.remove();
   const seed = params.get('tseed') ? +params.get('tseed')! : ((Date.now() & 0x7fffffff) || 1);
-  const stats = typingStats(save), diff = save.raceDiff, league = CARS[save.carId].league;
-  const { text, rivals } = makeTypingRace(seed, averageFor(stats, diff), diff, league);
+  const stats = typingStats(save), league = CARS[save.carId].league, me = playerName(save), lv = typingLevelOf(save);
+  const rung = Math.min(stats.ladder ?? 0, TYPING_LADDER.rungs.length - 1);
+  const lr = ladder ? makeLadderRace(seed, rung, league, me) : null;
+  const { text, rivals } = lr ?? makeTypingRace(seed, rivalRef(stats, lv), lv, league, me), diff = lr ? lr.level : lv;
   // lanes: you in the middle, the four rivals around you
   const lanes: (TypingRival | null)[] = [rivals[0], rivals[1], null, rivals[2], rivals[3]];
   const looks = lanes.map(r => r ? { ...STOCK_LOOK, body: carBody(r.carId).profile ?? 'civix', paint: r.paint, parts: rivalParts(r.carId, r.seed) } : playerLook());
   world.setupTyping(looks);
-  const hudEl = ui; const names = lanes.map(r => r ? r.name : 'YOU');
-  ty = { run: new TypingRun(text), rivals, start: performance.now(), vis: [0, 0, 0, 0, 0], vel: [0, 0, 0, 0, 0], doneAt: 0, diff, seed,
-    hud: new TypingHud(hudEl, { text, names, you: TYPE_LANE, caption: `Typing Race · ${stage.name} · League ${league} · ${DIFFICULTY[diff].label}`, nitros: TYPING.nitros,
+  const hudEl = ui; const names = lanes.map(r => r ? r.name : me);
+  const caption = lr ? `Rival Ladder · rung ${rung + 1}/${TYPING_LADDER.rungs.length} · vs ${lr.boss} · ${lr.wpm} wpm · ${TYPING_LEVELS[diff].label} text` : `Typing Race · ${stage.name} · League ${league} · ${TYPING_LEVELS[diff].label}`;
+  ty = { run: new TypingRun(text), rivals, start: performance.now(), vis: [0, 0, 0, 0, 0], vel: [0, 0, 0, 0, 0], doneAt: 0, diff, seed, ladder: lr ? rung : -1, boss: lr?.boss ?? '',
+    hud: new TypingHud(hudEl, { text, names, you: TYPE_LANE, caption, nitros: TYPING.nitros, youBadge: typingBadge(typingLeagueOf(stats.xp ?? 0).i, 1),
       nitroKey: PHONE ? 'button top-right' : keyName(keysOf(save.settings).typing.nitro), leaveKey: PHONE ? 'the Leave button' : keyName(keysOf(save.settings).typing.leave) }) };
   (ty as any).lanes = lanes;
   if (PHONE) { const root = hudEl.querySelector<HTMLElement>('#typing'); if (root) phoneTyping(root); }
@@ -466,31 +472,46 @@ function typingFrame(dt: number, now: number) {
 }
 function finishTyping() {
   if (!ty) return;
-  const { run, rivals, diff } = ty, lanes = (ty as any).lanes as (TypingRival | null)[];
+  const { run, rivals, diff, ladder, boss } = ty, lanes = (ty as any).lanes as (TypingRival | null)[];
   screen = 'results';
   const stats = typingStats(save), league = CARS[save.carId].league;
   const place = placeOf(run.finish, rivals), wpm = run.wpm(run.finish ?? typingClock()), acc = run.accuracy;
   const newBest = wpm > stats.best;
   const pay = typingPay(league, diff, place, newBest, acc);
-  const earnings: [string, number][] = [[place === 1 ? 'Typing Race win' : `${['1st', '2nd', '3rd', '4th', '5th'][place - 1]} place`, pay.result]];
+  // Rival Ladder (V0.19.0): winning the rung you're on clears it — a one-off bonus and the next rival unlocks
+  const cleared = ladder >= 0 && place === 1 && ladder >= (stats.ladder ?? 0);
+  const earnings: [string, number][] = [[place === 1 ? (ladder >= 0 ? `Beat ${boss}` : 'Typing Race win') : `${['1st', '2nd', '3rd', '4th', '5th'][place - 1]} place`, pay.result]];
+  if (cleared) earnings.push([`Ladder rung ${ladder + 1} cleared`, Math.round(typingPay(league, diff, 1, false, 0).result * TYPING_LADDER.clearBonus)]);
   if (pay.newBest) earnings.push(['New best WPM', pay.newBest]);
   if (pay.accuracy) earnings.push([`Accuracy ${Math.round(TYPING.accuracyAt * 100)}%+`, pay.accuracy]);
+  // typing XP (V0.19.0) → your typing league
+  const xp = typingXp(diff, run.pos, place, acc, cleared), was = typingLeagueOf(stats.xp ?? 0);
+  stats.xp = (stats.xp ?? 0) + xp;
+  const tl = typingLeagueOf(stats.xp), rankCrowns = typingRankCrowns(was.rank, tl.rank);   // owner Q213: Crowns for each new division / league
+  save.crowns += rankCrowns;
+  if (cleared) stats.ladder = ladder + 1;
+  if (place === 1) (stats.winsBy ??= {})[diff] = (stats.winsBy[diff] ?? 0) + 1;
   const total = earnings.reduce((a, [, v]) => a + v, 0);
   save.voxels += total; stats.races++; if (place === 1) stats.wins++; if (newBest) stats.best = wpm;
   dailyEvent(save, 'race'); if (place === 1) dailyEvent(save, 'typingWin'); if (acc >= TYPING.accuracyAt) dailyEvent(save, 'typingAcc');
   stats.recent = [...stats.recent, wpm].slice(-TYPING.recentRaces); stats.keys += run.keys; stats.errors += run.errors;
   stats.recentBy = { ...(stats.recentBy || {}), [diff]: [...(stats.recentBy?.[diff] ?? []), wpm].slice(-TYPING.recentRaces) };
   writeSave(save);
+  if (!AUTOPLAY) void submitTypingRace(playerName(save), xp, run.pos, run.finish ?? typingClock(), acc);   // online top 500 (Q215); offline until set up
   const rows = [
-    { place, name: 'YOU', car: carName(save.carId), wpm, acc, you: true, fin: run.finish! },
+    { place, name: playerName(save), car: carName(save.carId), wpm, acc, you: true, fin: run.finish! },
     ...rivals.map(r => ({ place: 0, name: r.name, car: carName(r.carId), wpm: r.wpm, fin: r.finish })),
   ].sort((a, b) => a.fin - b.fin).map((r, i) => ({ ...r, place: i + 1 }));
   void lanes;
-  const data = { rows, place, wpm, acc, earnings, total, newBest, caption: `Typing Race · ${stage.name} · ${DIFFICULTY[diff].label}`, best: stats.best, avg: averageFor(stats, diff) };
+  const R = TYPING_LADDER.rungs, next = stats.ladder ?? 0;
+  const ladderNote = ladder < 0 ? '' : cleared ? (next >= R.length ? 'Every Ladder rung cleared!' : `Rung ${ladder + 1} cleared · next: rung ${next + 1}, ${R[next].wpm} wpm, ${TYPING_LEVELS[R[next].text].label} text`) : place === 1 ? 'Rung already cleared' : `Beat ${boss} (${R[ladder].wpm} wpm) to clear rung ${ladder + 1}`;
+  const data = { rows, place, wpm, acc, earnings, total, newBest, caption: ladder >= 0 ? `Rival Ladder · rung ${ladder + 1} · ${TYPING_LEVELS[diff].label} text` : `Typing Race · ${stage.name} · ${TYPING_LEVELS[diff].label}`, best: stats.best,
+    avg: rivalRef(stats, diff), avgLabel: diff === 'expert' ? 'your recent Expert best' : `your ${TYPING_LEVELS[diff].label} average`,
+    xp, xpTotal: stats.xp, league: tl.i, rankName: tl.name, leagueUp: tl.i > was.i, rankUp: tl.rank > was.rank, crowns: rankCrowns, ladderNote };
   (window as any).__vc.lastTyping = data;
   ty = null;
   setTimeout(showUpdate, 0);
-  renderTypingResults(ui, data, { again: () => startTyping(), garage: () => showGarage() });
+  renderTypingResults(ui, data, { again: () => startTyping(ladder >= 0), garage: () => showGarage() });
 }
 
 // ---------------- Drift (owner, V0.18.0, ROADMAP E4.6) ----------------

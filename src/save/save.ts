@@ -3,6 +3,7 @@ import { ECONOMY, GARAGE } from '../data/economy';
 import { STARTER_CAR, CARS } from '../data/cars';
 import { Tier, PerfKind, PERF_KINDS, Tune, STOCK_TUNE, DriftKind } from '../data/parts';
 import { PaddleShape, PedalStyle, STANDARD_PADDLE, STANDARD_PEDAL, STANDARD_SHAPES } from '../data/cosmetics';
+import { makeUsername } from '../game/usernames';
 
 export interface SaveV1 {
   version: 1;
@@ -22,6 +23,10 @@ export interface SaveV1 {
   stripClaimed: Record<string, number[]>;
   /** Street Race difficulty picked in the race menu (owner 2026-10-19). */
   raceDiff: 'easy' | 'medium' | 'hard';
+  /** Typing Race level, picked on its own card (V0.19.0; Expert is typing only). Missing = the Street Race difficulty. */
+  typingLevel?: 'easy' | 'medium' | 'hard' | 'expert';
+  /** the player's username (V0.19.0, owner): shown on your car's tag and in results; made up on first play, changed in Profile */
+  username?: string;
   /** Visual parts owned — bought once, fit every car (owner Q110). Factory parts are always owned. */
   partsOwned: string[];
   /** premium paints bought with Crowns (Body Shop; free on every car once bought) */
@@ -172,10 +177,17 @@ export function writeSave(s: SaveV1) {
 }
 
 /** Typing Race stats: races, wins, best WPM, the last few WPMs (rival matching uses their average), keys and errors. */
-export interface TypingStats { races: number; wins: number; best: number; recent: number[]; keys: number; errors: number; /** recent WPMs per difficulty */ recentBy?: Partial<Record<'easy' | 'medium' | 'hard', number[]>> }
+export interface TypingStats { races: number; wins: number; best: number; recent: number[]; keys: number; errors: number; /** recent WPMs per level */ recentBy?: Partial<Record<'easy' | 'medium' | 'hard' | 'expert', number[]>>;
+  /** V0.19.0: total typing XP (sets your typing league), Rival Ladder rungs cleared, wins per level */ xp?: number; ladder?: number; winsBy?: Partial<Record<'easy' | 'medium' | 'hard' | 'expert', number>> }
 export function typingStats(s: SaveV1): TypingStats {
   return (s.typing ??= { races: 0, wins: 0, best: 0, recent: [], keys: 0, errors: 0 });
 }
+/** Your username — made up the first time it's needed (V0.19.0) and kept in the save. */
+export function playerName(s: SaveV1): string {
+  return (s.username ??= makeUsername(() => Math.random()));
+}
+/** The Typing Race level (its own picker since V0.19.0; until picked it follows the Street Race difficulty). */
+export const typingLevelOf = (s: SaveV1) => s.typingLevel ?? s.raceDiff;
 
 /** A car's upgrade tiers: the car in use keeps them at the top level of the save, the others in their own entry. */
 export function carTiers(s: SaveV1, id: string): { owned: CarState['owned']; equipped: CarState['equipped'] } {

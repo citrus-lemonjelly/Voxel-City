@@ -10,14 +10,18 @@ import { makeRival, simTime, MATCH } from '../src/game/rivals';
 import { CHANGELOG, VERSION } from '../src/data/changelog';
 import { isNewer } from '../src/game/updates';
 import { keysOf, keyMatches, keyName } from '../src/game/keys';
-import { TypingRun, typistSchedule, makeTypingRace, placeOf, averageWpm, averageFor, wpmOf, typedBy, glide } from '../src/game/typing';
+import { TypingRun, typistSchedule, makeTypingRace, makeLadderRace, ladderRival, rivalRef, placeOf, averageWpm, averageFor, wpmOf, typedBy, glide } from '../src/game/typing';
+import { makePassage, TEXT_LEN } from '../src/game/textGen';
+import { makeUsername, usernames, cleanUsername, isBlockedName } from '../src/game/usernames';
+import { racePayload } from '../src/game/leaderboard';
+import { makeRng } from '../src/game/ai';
 import { PASSAGES, PASSAGES_BY_DIFFICULTY } from '../src/data/passages';
-import { typingPay, TYPING } from '../src/data/economy';
+import { typingPay, TYPING, TYPING_LADDER, TYPING_LEAGUES, TYPING_RANKS, typingXp, typingLeagueOf, typingRankCrowns } from '../src/data/economy';
 import { VISUAL_PARTS, isFactory, randomParts, ownsPart, PART_SLOTS } from '../src/data/visualParts';
 import { COSMETIC_PRICES } from '../src/data/economy';
 // @ts-ignore — node built-in (no @types/node in this repo)
 import { readFileSync } from 'node:fs';
-import { stripRung, stripBand, STRIP, levelReward } from '../src/game/strip';
+import { stripRung, stripBand, STRIP, levelReward, levelInfo } from '../src/game/strip';
 import { dyno } from '../src/game/dyno';
 import { wetStage } from '../src/data/stages';
 import { PART_LEAGUE, DIST_PAY, racePay as racePayD } from '../src/data/economy';
@@ -243,11 +247,29 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   const len = (a: string[]) => [Math.min(...a.map(p => p.length)), Math.max(...a.map(p => p.length))];
   const avgWord = (a: string[]) => a.join(' ').split(' ').reduce((x, w) => x + w.length, 0) / a.join(' ').split(' ').length;
   const hardMarks = T.hard.every(p => /[0-9]/.test(p) || /["():;]/.test(p));
-  check(PASSAGES.every(kb) && T.easy.length >= 20 && T.medium.length >= 40 && T.hard.length >= 20 && len(T.easy)[1] <= 160 && len(T.medium)[0] >= 150 && len(T.hard)[0] >= 170
+  const kbX = (p: string) => /^[ -~]+$/.test(p) && !/  /.test(p) && !/^ | $/.test(p), symbols = (p: string) => /[@#$%&*()/;]/.test(p) && /[0-9]/.test(p);
+  check([...T.easy, ...T.medium, ...T.hard].every(kb) && T.expert.every(kbX) && T.expert.length >= 15 && T.expert.every(symbols) && len(T.expert)[0] >= TEXT_LEN.expert[0] && len(T.expert)[1] <= TEXT_LEN.expert[1],
+    `typing Expert passages (V0.19.0): ${T.expert.length}, ${len(T.expert).join('–')} chars, every one with numbers and symbols (@ # $ % & * ( ) / ;), only normal keyboard keys`);
+  check(T.easy.length >= 20 && T.medium.length >= 40 && T.hard.length >= 20 && len(T.easy)[1] <= 160 && len(T.medium)[0] >= 150 && len(T.hard)[0] >= 170
     && avgWord(T.easy) < avgWord(T.medium) && hardMarks && new Set(PASSAGES).size === PASSAGES.length,
     `typing passages by difficulty: Easy ${T.easy.length} (${len(T.easy).join('–')} chars, words ${avgWord(T.easy).toFixed(1)}), Medium ${T.medium.length} (${len(T.medium).join('–')}, ${avgWord(T.medium).toFixed(1)}), Hard ${T.hard.length} (${len(T.hard).join('–')}, numbers / quotes / colons)`);
-  const tierOk = (['easy', 'medium', 'hard'] as const).every(d => [1, 2, 3, 4, 5].every(seed => T[d].includes(makeTypingRace(seed, 50, d, 'D').text)));
-  check(tierOk, 'typing: each difficulty races its own passages');
+  // made-up passages (V0.19.0, owner B6): right length for the level, normal keys only, seeded, rarely the same twice
+  const levels = ['easy', 'medium', 'hard', 'expert'] as const;
+  const gen = Object.fromEntries(levels.map(l => [l, Array.from({ length: 300 }, (_, i) => makePassage(l, i + 1))])) as Record<typeof levels[number], string[]>;
+  const genOk = levels.every(l => gen[l].every(p => p.length >= TEXT_LEN[l][0] && p.length <= TEXT_LEN[l][1] && (l === 'expert' ? kbX(p) : kb(p))) && makePassage(l, 77) === makePassage(l, 77));
+  const distinct = levels.map(l => new Set(gen[l]).size);
+  check(genOk && distinct.every(n => n >= 270) && gen.expert.every(p => /[@#$%&*()/:;]/.test(p)) && gen.hard.every(p => /[0-9"]/.test(p)) && avgWord(gen.easy) < avgWord(gen.medium),
+    `typing made-up passages: 300 per level all fit (${levels.map(l => `${l} ${Math.min(...gen[l].map(p => p.length))}–${Math.max(...gen[l].map(p => p.length))}`).join(', ')}), ${distinct.join(' / ')} of 300 different, Expert all with symbols`);
+  const races = levels.map(d => Array.from({ length: 40 }, (_, i) => makeTypingRace(i + 1, 50, d, 'D').text));
+  const tierOk = levels.every((d, k) => races[k].every(t => T[d].includes(t) || (t.length >= TEXT_LEN[d][0] && t.length <= TEXT_LEN[d][1])) && races[k].some(t => T[d].includes(t)) && races[k].some(t => !T[d].includes(t)));
+  check(tierOk, 'typing: each level races its own passages — handwritten or made up (both turn up)');
+  // usernames (V0.19.0, owner): online-style handles for every racer, players choose their own
+  const un = usernames(42, 400), ur = makeRng(5);
+  check(un.every(u => /^[A-Za-z0-9_.]{3,16}$/.test(u)) && new Set(un.map(u => u.toLowerCase())).size === 400 && makeUsername(makeRng(9)) === makeUsername(makeRng(9)) && makeUsername(ur) !== makeUsername(ur)
+    && usernames(1, 4, ['x']).length === 4 && cleanUsername('  Turbo Toast!! ') === 'Turbo_Toast' && cleanUsername('ab') === null && cleanUsername('_.hi_there._') === 'hi_there' && (cleanUsername('a'.repeat(30)) ?? '').length === 16,
+    `usernames: 400 different, 3–16 letters / digits / _ / . (e.g. ${un.slice(0, 6).join(', ')}); a player's own name is cleaned`);
+  const field4 = makeTypingRace(3, 50, 'medium', 'D', un[0]).rivals;
+  check(field4.every(r => /^[A-Za-z0-9_.]{3,16}$/.test(r.name) && r.name !== un[0]) && new Set(field4.map(r => r.name)).size === 4, `typing rivals have usernames: ${field4.map(r => r.name).join(', ')}`);
   // nitro (owner 2026-10-19): two uses; Space mid-word finishes the word (and its space); clears a typo; no accuracy cost
   const nr = new TypingRun('one two three four');
   const n1 = [nr.key('o', 1), nr.nitro(1.2), nr.pos, nr.nitros, nr.key('t', 2), nr.key('x', 2.1), nr.typo, nr.nitro(2.2), nr.pos, nr.typo, nr.nitros, nr.key(' ', 3), nr.errors, nr.pos];
@@ -279,6 +301,38 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   const p = [1, 2, 3, 4, 5].map(pl => typingPay('D', 'medium', pl, false, 0.9).result);
   check(p.every((v, i) => i === 0 || v < p[i - 1]) && typingPay('B', 'hard', 1, true, 0.99).result > typingPay('D', 'hard', 1, true, 0.99).result && typingPay('D', 'medium', 1, true, 0.99).newBest > 0 && typingPay('D', 'medium', 1, false, 0.97).accuracy === 0,
     `typing pay: places ${p.join(' / ')} VX (League D Medium), scales with league, best-WPM and 98%+ accuracy bonuses`);
+  // Expert (V0.19.0, owner B1): rivals follow your recent Expert BEST — your average no longer wins, you must beat your best
+  const ex = { recent: [60], recentBy: { expert: [40, 52, 46] } };
+  const exField = [1, 2, 3, 4, 5, 6].map(seed => makeTypingRace(seed, rivalRef(ex, 'expert'), 'expert', 'D'));
+  check(rivalRef(ex, 'expert') === 52 && Math.abs(rivalRef({ recent: [60] }, 'expert') - 60 * TYPING.textSpeed.expert) < 1e-9 && rivalRef(ex, 'medium') === averageFor(ex, 'medium')
+    && exField.every(r => placeOf(yourTime(r.text, 52), r.rivals) > 1 && placeOf(yourTime(r.text, 52 * 1.07), r.rivals) === 1),
+    'typing Expert: rivals set from your recent Expert best (52 wpm) — typing at your best loses, 7 % over it wins');
+  // Rival Ladder (owner B4): fixed speeds, one named rival per rung, harder each rung
+  const lad = TYPING_LADDER.rungs.map((_, i) => makeLadderRace(11, i, 'D'));
+  const harder = TYPING_LADDER.rungs.every((r, i) => i === 0 || r.wpm > TYPING_LADDER.rungs[i - 1].wpm || ['easy', 'medium', 'hard', 'expert'].indexOf(r.text) > ['easy', 'medium', 'hard', 'expert'].indexOf(TYPING_LADDER.rungs[i - 1].text));
+  check(lad.every((r, i) => Math.max(...r.rivals.map(x => x.wpm)) === TYPING_LADDER.rungs[i].wpm && r.rivals.some(x => x.name === ladderRival(i))) && harder && ladderRival(4) === ladderRival(4) && new Set(TYPING_LADDER.rungs.map((_, i) => ladderRival(i))).size === TYPING_LADDER.rungs.length
+    && JSON.stringify(makeLadderRace(11, 3, 'D').rivals.map(r => r.wpm).sort()) === JSON.stringify(makeLadderRace(99, 3, 'D').rivals.map(r => r.wpm).sort()),
+    `typing Rival Ladder: ${TYPING_LADDER.rungs.length} rungs at fixed speeds (${TYPING_LADDER.rungs.map(r => r.wpm).join(' · ')} wpm), each harder than the last by speed or text, one rival name per rung (1st: ${ladderRival(0)})`);
+  // typing XP + leagues (owner: separate from the car league)
+  const xpMed = typingXp('medium', 190, 1, 0.99), xpEx = typingXp('expert', 190, 1, 0.99), xpLose = typingXp('medium', 190, 5, 0.9);
+  const R = TYPING_RANKS, legend = TYPING_LEAGUES[TYPING_LEAGUES.length - 1].xp;
+  check(xpEx > xpMed && xpMed > xpLose && typingXp('easy', 190, 1, 0.99, true) === typingXp('easy', 190, 1, 0.99) + 150 && typingLeagueOf(0).i === 0 && typingLeagueOf(5_000).i === 1 && typingLeagueOf(4_999).progress < 1
+    && typingLeagueOf(10_000_000).i === TYPING_LEAGUES.length - 1 && typingLeagueOf(10_000_000).next === null && legend === 200_000,
+    `typing XP: Medium win ${xpMed}, Expert win ${xpEx}, Medium 5th ${xpLose}; leagues ${TYPING_LEAGUES.map(l => l.name).join(' → ')} (Legend at ${legend.toLocaleString()} XP ≈ ${Math.round(legend / ((xpMed + xpLose) / 2))} races, owner Q216 ×2.5)`);
+  // divisions 1–4 per league (owner Q216) and Crowns for moving up (Q213)
+  const s3 = typingLeagueOf(15_000 + 7_500);
+  check(R.length === (TYPING_LEAGUES.length - 1) * 4 + 1 && R.every((r, i) => i === 0 || r.xp > R[i - 1].xp) && s3.name === 'Silver 3' && typingLeagueOf(0).name === 'Wood 1' && typingLeagueOf(legend).name === 'Legend'
+    && typingRankCrowns(0, 1) === 2 && typingRankCrowns(3, 4) === 10 && typingRankCrowns(0, 4) === 16 && typingRankCrowns(5, 5) === 0,
+    `typing ranks: ${R.length} (Wood 1 … Neon 4, Legend), ${R.slice(4, 8).map(r => `${r.name} ${r.xp.toLocaleString()}`).join(' · ')}; Crowns: +2 a division, +10 a league (${R.reduce((a, _, i) => a + (i ? typingRankCrowns(i - 1, i) : 0), 0)} to reach Legend)`);
+  // name filter (owner Q214) and usernames for every rival (Q212)
+  const bad = ['Sh1tLord', 'd1ck69', 'xX_fuk_Xx', 'ass_kicker', 'N4zi', 'TwatWaffle'], ok = ['glass_cannon', 'canal_rat', 'bass_drop', 'PeacockRevs', 'sussex_dan', 'saltwater9'];
+  const strip = [1, 2, 3, 4].map(n => levelInfo('D', n).name), street = makeRival('panda_civix', {}, stage, 5).name;
+  check(bad.every(isBlockedName) && !ok.some(isBlockedName) && !usernames(3, 3000).some(isBlockedName) && [...strip, street].every(n => /^[A-Za-z0-9_.]{3,16}$/.test(n)) && levelInfo('D', 2).name === levelInfo('D', 2).name,
+    `usernames: rude names blocked (${bad.join(', ')}), lookalikes pass (${ok.join(', ')}); Strip + Street rivals have usernames (${[...strip, street].join(', ')})`);
+  // online leaderboard (Q215): what a race sends; offline until the Supabase keys are set
+  const pl = racePayload('orangecanoe224', 342, 190, 30, 0.987);
+  check(pl.p_wpm === 76 && pl.p_chars === 190 && pl.p_xp_gain === 342 && Math.abs(pl.p_wpm - (pl.p_chars / 5) / (pl.p_seconds / 60)) < 2 && pl.p_xp_gain <= pl.p_chars * 3 + 200,
+    `leaderboard: a race sends ${JSON.stringify(pl)} — inside the server's checks (WPM matches letters ÷ time, XP ≤ 3 × letters + 200)`);
   const r0 = makeTypingRace(5, 60, 'medium', 'D').rivals[0];
   check(typedBy(r0, 0) === 0 && typedBy(r0, r0.finish) === r0.schedule.length && JSON.stringify(makeTypingRace(5, 60, 'medium', 'D')) === JSON.stringify(makeTypingRace(5, 60, 'medium', 'D')), 'typing: rivals are seeded — the same race replays exactly');
 }

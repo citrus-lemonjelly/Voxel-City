@@ -8,12 +8,14 @@ import { CARS, CATALOG_ORDER } from '../data/cars';
 import { OpponentDef } from '../data/economy';
 import { StageDef } from '../data/stages';
 import { Tier, Tune, PERF_KINDS, GEARINGS, STOCK_TUNE, fullTune } from '../data/parts';
+import { rivalName } from './usernames';
 
 export interface Rival extends OpponentDef { seed: number; /** the rival's finish time (s), known ahead */ expect: number; /** your perfect-run time (s) */ yours: number }
 
 /** How close races are (seconds the rival finishes behind YOUR perfect run). Tune here. */
 export const MATCH = { minGap: 0.04, maxGap: 0.21, candidates: 64, /** your reference reaction off the green (s) — a good human incl. a little input delay (0.25 → 0.30 in V0.16.1) */ reaction: 0.30 };
 
+/** The city's people — used in passages and for the Strip bosses' story. Rivals use usernames (V0.19.0, Q212). */
 export const NAMES = ['Rico', 'Marisol', 'Kenji', 'Vee', 'Halden', 'Juno', 'Dax', 'Priya', 'Mateo', 'Sable', 'Oren', 'Lux', 'Tamsin', 'Bodie', 'Nia', 'Kaito',
   'Rhea', 'Cruz', 'Ines', 'Wren', 'Zeke', 'Amara', 'Fitz', 'Noor', 'Ozzie', 'Lena', 'Rafe', 'Suki', 'Teo', 'Yara'];
 export const PAINTS = ['#d23a2a', '#f2a43a', '#f2c230', '#2f9a5a', '#1f8a8a', '#3b6fa8', '#1f4fa8', '#6a3ad2', '#b83a7a', '#eeeae0', '#8e9bb3', '#5a5e66', '#1a1a1e'];
@@ -33,6 +35,7 @@ export const reactionFor = (skill: number): [number, number] => { const a = 0.36
 export function rivalNear(league: string, target: number, floor: number, stage: StageDef, distanceM: number, rng: () => number, yours = 0,
   opts: { skill?: [number, number]; minTier?: number; maxTier?: number; candidates?: number } = {}): Rival {
   const pick = <T>(a: T[]) => a[Math.floor(rng() * a.length) % a.length];
+  const named = (s: number) => (rng(), rivalName(s));               // the draw the old first-name pick used, so matching is unchanged
   const pool = CATALOG_ORDER.filter(id => CARS[id].league === league);
   let best: Rival | null = null;
   for (let i = 0; i < (opts.candidates ?? MATCH.candidates); i++) {
@@ -46,11 +49,11 @@ export function rivalNear(league: string, target: number, floor: number, stage: 
       const time = simTime(c, tune, stage, skill, reaction, s, distanceM);
       if (time < floor) continue;                                                // never faster than your perfect run (owner Q92)
       if (!best || Math.abs(time - target) < Math.abs(best.expect - target))
-        best = { id: 'rival', name: pick(NAMES), carId: c, tune, skill, reaction, paint: pick(PAINTS), seed: s, expect: time, yours };
+        best = { id: 'rival', name: named(s), carId: c, tune, skill, reaction, paint: pick(PAINTS), seed: s, expect: time, yours };
     }
   }
   // fallback (should not happen): the slowest stock car of the league with a middling driver
-  return best ?? { id: 'rival', name: pick(NAMES), carId: pool[0], tune: { ...STOCK_TUNE }, skill: 0.55, reaction: reactionFor(0.55), paint: pick(PAINTS), seed: 1, expect: simTime(pool[0], STOCK_TUNE, stage, 0.55, reactionFor(0.55), 1, distanceM), yours };
+  return best ?? { id: 'rival', name: named(1), carId: pool[0], tune: { ...STOCK_TUNE }, skill: 0.55, reaction: reactionFor(0.55), paint: pick(PAINTS), seed: 1, expect: simTime(pool[0], STOCK_TUNE, stage, 0.55, reactionFor(0.55), 1, distanceM), yours };
 }
 
 /** Street Race rival: close to YOUR perfect run with the car + upgrades you have now. */

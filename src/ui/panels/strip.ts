@@ -9,9 +9,8 @@ import { ui, scroll, resetGarageUI, crownIcon, GarageHandlers, Wire } from './sh
 /** Race-menu card for the Strip: opens the Strip screen. */
 export function stripCard(save: SaveV1): string {
   const lg = CARS[save.carId].league, done = save.strip[lg] ?? 0, total = STRIP.rungs;
-  const bar = `<i class="g-strip-bar"><u style="width:${Math.round(done / total * 100)}%"></u></i>`;
-  return `<button class="g-mode blk" id="stripOpen"><span class="hd">The Strip</span>
-    <span class="g-mode-sub">League ${lg} · ${done >= total ? 'complete' : `Level ${done + 1} of ${total}`}</span>${bar}<span class="g-go">Open ▸</span></button>`;
+  // V0.19.0 (owner): the name only — the level and league show on the Strip screen itself
+  return `<button class="g-mode blk" id="stripOpen" title="League ${lg} · ${done >= total ? 'complete' : `Level ${done + 1} of ${total}`}"><span class="hd">The Strip</span><span class="g-go">Open ▸</span></button>`;
 }
 
 /** The Strip screen. */

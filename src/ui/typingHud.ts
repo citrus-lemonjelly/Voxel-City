@@ -1,11 +1,14 @@
 // Typing Race screens (owner 2026-10-19): progress bar, name tags over the road, the passage panel (typed letters dimmed,
 // current letter yellow, a typo red), live WPM / accuracy / place / time, static start lamps (A22–A23: no blinking), and
-// the results list.
+// the results list (V0.19.0: typing XP, the league-up badge, the Rival Ladder line).
+import { TYPING_LEAGUES } from '../data/economy';
+import { typingBadge } from './typingBadge';
 const h = (html: string) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild as HTMLElement; };
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const ORD = ['1st', '2nd', '3rd', '4th', '5th'];
 
-export interface TypingHudOpts { text: string; names: string[]; you: number; caption: string; nitros: number; nitroKey: string; leaveKey: string }
+export interface TypingHudOpts { text: string; names: string[]; you: number; caption: string; nitros: number; nitroKey: string; leaveKey: string;
+  /** your typing league badge (SVG) in front of your name tag (owner Q213) */ youBadge?: string }
 
 export class TypingHud {
   el: HTMLElement;
@@ -23,7 +26,7 @@ export class TypingHud {
     const passage = o.text.split(' ').map((w, wi, all) => `<span class="tw">${[...w].map(c => `<span data-i="${i++}">${esc(c)}</span>`).join('')}</span>${wi < all.length - 1 ? `<span data-i="${i++}"> </span>` : ''}`).join('');
     this.el = h(`<div id="typing">
       <div class="ty-prog"><i></i>${o.names.map((_, k) => `<u class="${k === o.you ? 'me' : ''}"></u>`).join('')}<b class="ty-flag"></b></div>
-      ${o.names.map((n, k) => `<div class="ty-tag ${k === o.you ? 'me' : ''}">${esc(n)}<span></span></div>`).join('')}
+      ${o.names.map((n, k) => `<div class="ty-tag ${k === o.you ? 'me' : ''}">${k === o.you && o.youBadge ? o.youBadge : ''}${esc(n)}<span></span></div>`).join('')}
       <div class="ty-lights blk"><i></i><i></i><i></i></div><div class="ty-go hd"></div>
       <div class="ty-cap">${esc(o.caption)}</div>
       <div class="ty-panel blk"><div class="ty-text">${passage}</div>
@@ -81,15 +84,21 @@ export class TypingHud {
 export interface TypingResult {
   rows: { place: number; name: string; car: string; wpm: number; acc?: number; you?: boolean }[];
   place: number; wpm: number; acc: number; earnings: [string, number][]; total: number; newBest: boolean; caption: string; best: number; avg: number;
+  /** what `avg` is ("your Medium average" / "your recent Expert best") */ avgLabel?: string;
+  /** typing XP this race, your total, your typing league (index) and whether this race moved you up */ xp?: number; xpTotal?: number; league?: number; leagueUp?: boolean;
+  /** your rank ("Silver 3"), whether this race moved you up a division, and the Crowns that paid (owner Q213, Q216) */ rankName?: string; rankUp?: boolean; crowns?: number;
+  ladderNote?: string;
 }
 export function renderTypingResults(root: HTMLElement, d: TypingResult, on: { again(): void; garage(): void }) {
   root.innerHTML = '';
   const el = h(`<div id="typing-res" class="blk">
     <div class="hd ty-rcap">${esc(d.caption)}</div>
     <h2 class="hd ty-rhead ${d.place === 1 ? 'win' : ''}">${d.place === 1 ? '1st place!' : `${ORD[d.place - 1] ?? '5th'} place`}</h2>
-    <div class="ty-rows">${d.rows.map(r => `<div class="ty-row ${r.you ? 'me' : ''}"><span class="pl hd">${ORD[r.place - 1]}</span><span><b>${esc(r.name)}</b> · <span class="dim">${esc(r.car)}</span></span><span><b>${Math.round(r.wpm)}</b> wpm</span><span>${r.acc === undefined ? '' : `${Math.floor(r.acc * 100)}%`}</span></div>`).join('')}</div>
+    <div class="ty-rows">${d.rows.map(r => `<div class="ty-row ${r.you ? 'me' : ''}"><span class="pl hd">${ORD[r.place - 1]}</span><span>${r.you && d.league !== undefined ? typingBadge(d.league, 1) : ''}<b>${esc(r.name)}</b> · <span class="dim">${esc(r.car)}</span></span><span><b>${Math.round(r.wpm)}</b> wpm</span><span>${r.acc === undefined ? '' : `${Math.floor(r.acc * 100)}%`}</span></div>`).join('')}</div>
     <div class="ty-earn">${d.earnings.map(([k, v]) => `<span>${esc(k)} <b>+${v.toLocaleString()} VX</b></span>`).join('')}<span class="tot">Total <b>+${d.total.toLocaleString()} VX</b></span></div>
-    <div class="g-note">${d.newBest ? `New best: ${Math.round(d.wpm)} wpm! · ` : `Best ${Math.round(d.best)} wpm · `}your average at this difficulty ${Math.round(d.avg)} wpm</div>
+    ${d.xp === undefined ? '' : `<div class="ty-xp ${d.rankUp ? 'up' : ''}">${typingBadge(d.league ?? 0, d.leagueUp ? 3 : 1.5)}<span>${d.leagueUp ? `<b class="hd">League up! ${esc(d.rankName ?? '')}</b>` : d.rankUp ? `<b class="hd">Rank up! ${esc(d.rankName ?? '')}</b>` : `${esc(d.rankName ?? TYPING_LEAGUES[d.league ?? 0].name)} typist`} · <b>+${d.xp.toLocaleString()} XP</b>${d.crowns ? ` · <b>+${d.crowns} Crowns</b>` : ''} · ${(d.xpTotal ?? 0).toLocaleString()} XP total</span></div>`}
+    ${d.ladderNote ? `<div class="ty-ladder">${esc(d.ladderNote)}</div>` : ''}
+    <div class="g-note">${d.newBest ? `New best: ${Math.round(d.wpm)} wpm! · ` : `Best ${Math.round(d.best)} wpm · `}${esc(d.avgLabel ?? 'your average at this difficulty')} ${Math.round(d.avg)} wpm</div>
     <div class="ty-btns"><button class="btn ghost" id="tyGarage">Garage</button><button class="btn race" id="tyAgain">Race again ▸</button></div>
   </div>`);
   root.appendChild(el);

@@ -188,17 +188,80 @@ export const TYPING = {
   newBestBonus: 0.25, accuracyBonus: 0.25, accuracyAt: 0.98,
   /** typing speed assumed before your first race, and how many recent races make your average */
   defaultWpm: 35, recentRaces: 10,
-  /** how fast each difficulty's text types compared with Medium (starting point for its average) */
-  textSpeed: { easy: 1.08, medium: 1, hard: 0.85 } as Record<Difficulty, number>,
+  /** how fast each level's text types compared with Medium (starting point for its average) */
+  textSpeed: { easy: 1.08, medium: 1, hard: 0.85, expert: 0.75 } as Record<TypingLevel, number>,
   /** nitro bars per race (owner 2026-10-19): Space mid-word finishes the word */
   nitros: 2,
-  /** the 4 rivals' speeds as × your average WPM (Q125): typing at your average just wins on Medium */
-  rivals: { easy: [0.62, 0.70, 0.76, 0.82], medium: [0.80, 0.88, 0.94, 0.99], hard: [0.92, 0.99, 1.04, 1.09] } as Record<Difficulty, number[]>,
+  /** the 4 rivals' speeds as × your average WPM (Q125): typing at your average just wins on Medium. Expert (V0.19.0, owner B1)
+   *  is × your recent BEST at Expert instead — to win you have to beat your best by a few percent */
+  rivals: { easy: [0.62, 0.70, 0.76, 0.82], medium: [0.80, 0.88, 0.94, 0.99], hard: [0.92, 0.99, 1.04, 1.09], expert: [0.90, 0.96, 1.01, 1.05] } as Record<TypingLevel, number[]>,
+  /** share of races that get a made-up passage (textGen.ts, owner B6) instead of a handwritten one */
+  generatedShare: 0.5,
+};
+/** Typing levels (V0.19.0): the Street Race three plus Expert (symbols), picked on the Typing Race card itself. */
+export type TypingLevel = Difficulty | 'expert';
+export const TYPING_LEVELS: Record<TypingLevel, { label: string; pay: number }> = {
+  easy: { label: 'Easy', pay: DIFFICULTY.easy.pay }, medium: { label: 'Medium', pay: DIFFICULTY.medium.pay }, hard: { label: 'Hard', pay: DIFFICULTY.hard.pay },
+  expert: { label: 'Expert', pay: 1.5 },
 };
 /** VX for a Typing Race result (place 1–5). */
-export function typingPay(league: EcoLeague, diff: Difficulty, place: number, newBest: boolean, accuracy: number) {
-  const win = TYPING.winPayout * LEAGUE_SCALE[league] * TYPING.leagueBoost[league] * DIFFICULTY[diff].pay;
+export function typingPay(league: EcoLeague, level: TypingLevel, place: number, newBest: boolean, accuracy: number) {
+  const win = TYPING.winPayout * LEAGUE_SCALE[league] * TYPING.leagueBoost[league] * TYPING_LEVELS[level].pay;
   return { result: round(win * (TYPING.place[place - 1] ?? 0)), newBest: newBest ? round(win * TYPING.newBestBonus) : 0, accuracy: accuracy >= TYPING.accuracyAt ? round(win * TYPING.accuracyBonus) : 0 };
+}
+
+/** Rival Ladder (V0.19.0, owner B4): 15 rivals at FIXED speeds — they don't follow yours. Win (1st) to clear a rung and unlock
+ *  the next; each rung's text level is set. The first clear pays a bonus of one win (`clearBonus` × win pay). */
+export const TYPING_LADDER = {
+  rungs: [
+    { wpm: 25, text: 'easy' }, { wpm: 30, text: 'easy' }, { wpm: 35, text: 'easy' },
+    { wpm: 40, text: 'medium' }, { wpm: 45, text: 'medium' }, { wpm: 50, text: 'medium' },
+    { wpm: 50, text: 'hard' }, { wpm: 55, text: 'hard' }, { wpm: 60, text: 'hard' },
+    { wpm: 55, text: 'expert' }, { wpm: 60, text: 'expert' }, { wpm: 70, text: 'expert' },
+    { wpm: 80, text: 'expert' }, { wpm: 90, text: 'expert' }, { wpm: 100, text: 'expert' },
+  ] as { wpm: number; text: TypingLevel }[],
+  /** the other three racers as × the rung's speed */
+  pack: [0.80, 0.88, 0.94],
+  clearBonus: 1,
+};
+
+/** Typing XP and typing leagues (V0.19.0, owner: "your typing league should be different" from your car's league). XP per
+ *  race = letters typed × the level's factor × a place bonus, +20 % at 98 %+ accuracy; a Ladder clear adds a flat bonus. */
+export const TYPING_XP = {
+  perChar: 1, level: { easy: 0.8, medium: 1, hard: 1.25, expert: 1.5 } as Record<TypingLevel, number>,
+  place: [1.5, 1.25, 1.1, 1, 1], accuracy: 0.2, ladderClear: 150,
+  /** Crowns when you move up (owner Q213): a new division, a new league */ crowns: { division: 2, league: 10 },
+};
+/** The typing leagues and the total XP each starts at. Owner Q216: "should be hard to get" — ×2.5 (Legend 80k → 200k XP,
+ *  about 750 races) and each league split into divisions 1–4 (Silver 1 … Silver 4); Legend is the top, no divisions. */
+export const TYPING_LEAGUES = [
+  { id: 'wood', name: 'Wood', xp: 0 }, { id: 'bronze', name: 'Bronze', xp: 5_000 }, { id: 'silver', name: 'Silver', xp: 15_000 },
+  { id: 'gold', name: 'Gold', xp: 30_000 }, { id: 'platinum', name: 'Platinum', xp: 55_000 }, { id: 'diamond', name: 'Diamond', xp: 90_000 },
+  { id: 'neon', name: 'Neon', xp: 140_000 }, { id: 'legend', name: 'Legend', xp: 200_000 },
+];
+export const TYPING_DIVISIONS = 4;
+/** Every typing rank in order — each league's divisions 1–4 evenly across its XP, then Legend — and the XP each starts at. */
+export const TYPING_RANKS = TYPING_LEAGUES.flatMap((l, i) => {
+  const next = TYPING_LEAGUES[i + 1];
+  if (!next) return [{ i, div: 0, xp: l.xp, name: l.name }];
+  return Array.from({ length: TYPING_DIVISIONS }, (_, k) => ({ i, div: k + 1, xp: Math.round(l.xp + (next.xp - l.xp) * k / TYPING_DIVISIONS), name: `${l.name} ${k + 1}` }));
+});
+/** Typing XP for one race. */
+export function typingXp(level: TypingLevel, chars: number, place: number, accuracy: number, ladderClear = false) {
+  const X = TYPING_XP;
+  return Math.round(chars * X.perChar * X.level[level] * (X.place[place - 1] ?? 1) * (accuracy >= TYPING.accuracyAt ? 1 + X.accuracy : 1)) + (ladderClear ? X.ladderClear : 0);
+}
+/** Your typing rank for a total XP: `rank` (index into TYPING_RANKS), league `i`, division (0 = Legend), its name ("Silver 3"),
+ *  the next rank and the progress to it (0–1; 1 at the top). */
+export function typingLeagueOf(xp: number) {
+  let r = 0; while (r + 1 < TYPING_RANKS.length && xp >= TYPING_RANKS[r + 1].xp) r++;
+  const cur = TYPING_RANKS[r], next = TYPING_RANKS[r + 1] ?? null;
+  return { rank: r, i: cur.i, div: cur.div, name: cur.name, league: TYPING_LEAGUES[cur.i], next, progress: next ? (xp - cur.xp) / (next.xp - cur.xp) : 1 };
+}
+/** Crowns for moving from rank `from` to rank `to` (owner Q213): each new division pays a little, a new league more. */
+export function typingRankCrowns(from: number, to: number) {
+  let c = 0; for (let r = from + 1; r <= to; r++) c += TYPING_RANKS[r].div <= 1 ? TYPING_XP.crowns.league : TYPING_XP.crowns.division;
+  return c;
 }
 
 // ---------------- Pacing (owner 2026-10-19): a typical player, for `npm run economy` and the test console ----------------

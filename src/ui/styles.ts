@@ -77,7 +77,7 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .pn-kind{font:800 11px system-ui;letter-spacing:.08em;text-transform:uppercase;margin:8px 0 2px}
 .pn-added{color:var(--good)}.pn-changed{color:var(--blue)}.pn-fixed{color:var(--amber)}.pn-removed{color:var(--bad)}
 .pn-ver ul{margin:0;padding-left:18px;font-size:12.5px;color:#cfd3dc}.pn-ver li{margin:2px 0}
-.g-racemenu{position:absolute;right:28px;bottom:104px;display:flex;flex-direction:column;gap:10px;width:330px}
+.g-racemenu{position:absolute;right:28px;bottom:116px;display:flex;flex-direction:column;gap:8px;width:330px}
 .g-mode{border:0;text-align:left;cursor:pointer;color:var(--text);padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center}
 .g-mode .hd{font-size:20px;color:var(--accent)}
 .g-mode-sub{grid-column:1;font-size:12px;color:var(--dim)}

@@ -15,7 +15,7 @@ const only = process.argv.slice(2).find(a => SIZES[a]);
 const SCREENS = [['Home', []], ['Menu open', ['#rail']], ['Profile', ['#rail', '[data-panel=profile]']], ['My cars', ['#rail', '[data-panel=garage]']],
   ['Body Shop', ['#rail', '[data-panel=garage]', '#gParts']], ['Upgrades', ['#rail', '[data-panel=garage]', '#gUpg']], ['Upgrades + test run', ['#rail', '[data-panel=garage]', '#gUpg', '#dynoBtn']],
   ['Catalog', ['#rail', '[data-panel=catalog]', 900]], ['Settings', ['#rail', '[data-panel=settings]']], ['Daily', ['#rail', '[data-panel=daily]']], ['Calendar', ['#rail', '[data-panel=calendar]']],
-  ['Patch notes', ['#notesBtn']], ['Race menu', ['#raceBtn']], ['The Strip', ['#raceBtn', '#stripOpen', 900]]];
+  ['Patch notes', ['#notesBtn']], ['Race menu', ['#raceBtn']], ['Typing menu', ['#typingBtn']], ['The Strip', ['#raceBtn', '#stripOpen', 900]]];
 
 /** Runs in the page: returns [kind, text] problems for what is on screen now. */
 function check() {

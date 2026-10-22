@@ -26,6 +26,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.19.0', date: '2026-10-22', title: 'Typing gets harder: Expert, the Rival Ladder and typing leagues', header: 'Typing Update',
+    added: [
+      'Expert typing level: passages full of symbols, prices, plates and sums — @ # $ % & * ( ) / : ; — and rivals set from your recent Expert best, so to win you have to beat your own record.',
+      'Rival Ladder: 15 rivals at fixed speeds, from 25 wpm up to 100 wpm. They never speed up or slow down to match you. Win to clear a rung and unlock the next one; the first win on each rung pays a bonus.',
+      'New passages every race: half the races now use text made up from sentences, names and numbers about the city, so you will rarely see the same passage twice.',
+      'Usernames: every rival now has an online-style name (like orangecanoe224 or TurboToast) — in Street Races, the Strip and Typing Races — and so do you. Pick your own in Profile or roll a random one; rude names are not allowed.',
+      'Typing XP and typing ranks: every Typing Race earns XP (more for harder text, a better place and 98%+ accuracy). Climb eight typing leagues, Wood to Legend, each split into divisions 1 to 4 (Silver 1, Silver 2 …). Legend takes a long time to reach.',
+      'Typing league badges: a keycap badge that gets more detailed each league. It shows on your name tag in Typing Races, on the TYPE button and in Profile.',
+      'Crowns for moving up: +2 Crowns for each new division and +10 Crowns for each new league.',
+      'Profile has three tabs: Drag, Typing (your rank, XP bar, every league badge, averages per level, Ladder progress) and Top 500.',
+      'Top 500: an online leaderboard of the best typers by typing XP. It switches on once the leaderboard server is set up; until then the tab says it is coming soon.',
+    ],
+    changed: [
+      'A new TYPE button sits under RACE (with your typing league badge and keys that tap away while you wait). RACE opens the racing menu, TYPE opens the Typing Race and the Rival Ladder.',
+      'The race menus are much smaller: each button just shows its name (like Downtown Dash or The Strip). Who you race, the pay and the rest show on the race screen.',
+      'The RACE button is a little smaller.',
+      'The Typing Race has its own level picker (Easy, Medium, Hard, Expert), separate from the Street Race difficulty.',
+      'The Typing Race results show the XP you earned, and a League up! badge when you move up.',
+    ],
+  },
+  {
     version: '0.18.3', date: '2026-10-22', title: 'The districts get their names',
     changed: [
       'Downtown Grid is now just Downtown. The city\'s six districts have their names: the Harbor, Downtown, Neon Highrise, Daluda Forest, Oil Fields and Rooftop Skyway — the city map that connects them is on the way.',

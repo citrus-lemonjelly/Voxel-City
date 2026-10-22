@@ -4,9 +4,10 @@
 // My cars put a list on the left.
 // This file is the screen shell: layout, which panel shows, and the shared buttons. Each panel has its own file in
 // src/ui/panels/ (owner 2026-10-20: one file per feature) — its HTML and its event wiring.
-import { SaveV1 } from '../save/save';
+import { SaveV1, typingStats } from '../save/save';
+import { typingBadge } from './typingBadge';
 import { CARS, carName } from '../data/cars';
-import { OpponentDef } from '../data/economy';
+import { OpponentDef, typingLeagueOf } from '../data/economy';
 import { StageDef } from '../data/stages';
 import { GARAGE_CAMS, GarageCam } from '../render/scene';
 import { VERSION } from '../data/changelog';
@@ -20,7 +21,7 @@ import { garageHtml, subTabsHtml, wireMyCars } from './panels/myCars';
 import { catalogHtml, wireCatalog } from './panels/catalog';
 import { upgradesHtml, wireUpgrades } from './panels/upgrades';
 import { settingsHtml, wireSettings } from './panels/settings';
-import { profileHtml } from './panels/profile';
+import { profileHtml, wireProfile } from './panels/profile';
 import { dailyHtml, calendarHtml, wireDaily } from './panels/daily';
 import { notesHtml } from './panels/notes';
 
@@ -29,7 +30,7 @@ export { resetGarageUI, garageInCatalog, garageOpenStrip } from './panels/shared
 export { factoryTwin } from './panels/bodyShop';
 
 /** Every panel's wiring, run on each render (each only finds its own buttons). Order kept from the single-file version. */
-const WIRES: Wire[] = [wireMiniHud, wireRaceMenu, wireStrip, wireUpgrades, wireMyCars, wireSettings, wireDaily, wireBodyShop, wireCatalog];
+const WIRES: Wire[] = [wireMiniHud, wireRaceMenu, wireStrip, wireUpgrades, wireMyCars, wireSettings, wireDaily, wireBodyShop, wireCatalog, wireProfile];
 
 export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, stage: StageDef, on: GarageHandlers, toast?: string) {
   if (!ui.work || !save.cars[ui.work]) ui.work = save.carId;
@@ -44,7 +45,8 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
     <div class="g-bar">${miniHud(save)}${(['profile', 'garage', 'catalog', 'settings'] as const).map(k => `<div class="g-tabwrap"><button class="g-tab ${ui.panel === k ? 'on' : ''}" data-panel="${k}">${icon(k)}<span>${k[0].toUpperCase() + k.slice(1)}</span></button>${k === 'garage' ? subTabsHtml(save) : ''}</div>`).join('')}</div>
     <button class="g-notesbtn ${ui.panel === 'notes' ? 'on' : ''}" id="notesBtn" title="Patch notes" aria-label="Patch notes">${icon('notes', 2)}<span>V${VERSION}</span>${save.seenVersion !== VERSION ? '<em class="g-new">New</em>' : ''}</button>
     <button class="g-cambtn" id="camBtn" title="Camera angle ${gcam.toUpperCase()} (${GARAGE_CAMS[gcam].label}) — click for the next angle" aria-label="Camera angle">${icon('camera', 2)}<span>Cam ${gcam.toUpperCase()}</span></button>
-    <button class="g-racebtn" id="raceBtn" aria-label="Race"><span class="rb-face"><i class="rb-ic rb-wheel">${icon('parts', 2)}</i><span>Race</span><i class="rb-ic rb-gear">${icon('settings', 2)}</i></span></button>
+    <button class="g-racebtn ${ui.raceMenu === 'drag' ? 'on' : ''}" id="raceBtn" aria-label="Race"><span class="rb-face"><i class="rb-ic rb-wheel">${icon('parts', 2)}</i><span>Race</span><i class="rb-ic rb-gear">${icon('settings', 2)}</i></span></button>
+    <button class="g-typebtn ${ui.raceMenu === 'typing' ? 'on' : ''}" id="typingBtn" aria-label="Type"><span class="tb-face">${typingBadge(typingLeagueOf(typingStats(save).xp ?? 0).i, 1.25)}<span class="tb-label">Type</span><span class="tb-keys" aria-hidden="true"><i>A</i><i>S</i><i>D</i></span></span></button>
     ${raceMenuHtml(save, opp, stage)}
     ${ui.panel === 'strip' ? stripHtml(save, on) : ui.panel === 'parts' ? partsHtml(save, on) : ui.panel === 'garage' ? garageHtml(save, on) : panelHtml(save, on)}
   </div>`);
@@ -73,13 +75,16 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   });
   el.querySelector('#camBtn')?.addEventListener('click', () => { const ids = Object.keys(GARAGE_CAMS) as GarageCam[]; on.onSetting('gcam', ids[(ids.indexOf(save.settings.gcam ?? 'd') + 1) % ids.length]); });
   // Race overrides everything (owner V0.1.2): close any open panel / Catalog / Parts / Strip / notes, then toggle the race menu
-  el.querySelector('#raceBtn')!.addEventListener('click', () => {
+  // V0.19.0: Race opens the Drag menu, Typing (under it) the Typing menu; the same button again closes it
+  const openMenu = (m: 'drag' | 'typing') => {
     if (ui.panel) {
       if (ui.panel === 'catalog' || ui.panel === 'parts' || ui.panel === 'garage' || ui.back) on.onPreview(null);
-      ui.panel = null; ui.back = null; ui.dial = false; on.onView('home'); ui.raceMenu = true;
-    } else ui.raceMenu = !ui.raceMenu;
+      ui.panel = null; ui.back = null; ui.dial = false; on.onView('home'); ui.raceMenu = m;
+    } else ui.raceMenu = ui.raceMenu === m ? false : m;
     redraw();
-  });
+  };
+  el.querySelector('#raceBtn')!.addEventListener('click', () => openMenu('drag'));
+  el.querySelector('#typingBtn')!.addEventListener('click', () => openMenu('typing'));
   el.querySelectorAll<HTMLButtonElement>('.g-close').forEach(b => b.addEventListener('click', () => {
     if (ui.back) { ui.panel = ui.back; ui.back = null; ui.work = save.carId; on.onPreview(lookOf(save, ui.gsel)); on.onView('mycars'); return redraw(); }
     if (ui.panel === 'catalog' || ui.panel === 'parts' || ui.panel === 'garage') on.onPreview(null); on.onView('home'); ui.panel = null; ui.dial = false; redraw();
@@ -125,8 +130,9 @@ function menuLayout(el: HTMLElement) {
   for (const b of [el.querySelector('#notesBtn'), set]) if (b) util.appendChild(b);
   setWrap?.remove();
   // the camera is a small icon just left of Race (owner 2026-10-21)
-  const raceSide = h(`<div class="g-raceside"></div>`);
-  for (const b of [el.querySelector('#camBtn'), el.querySelector('#raceBtn')]) if (b) raceSide.appendChild(b);
+  const raceSide = h(`<div class="g-raceside"><div class="g-racestack"></div></div>`), stack = raceSide.firstElementChild!;
+  const cam = el.querySelector('#camBtn'); if (cam) raceSide.insertBefore(cam, stack);
+  for (const b of [el.querySelector('#raceBtn'), el.querySelector('#typingBtn')]) if (b) stack.appendChild(b);   // Typing sits under Race (V0.19.0)
   el.appendChild(raceSide);
   el.appendChild(util);
   const t = el.querySelector('.g-panel>h2.hd'), k = ui.panel && PANEL_ICON[ui.panel];

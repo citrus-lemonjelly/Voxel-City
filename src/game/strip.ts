@@ -7,6 +7,7 @@
 import { CARS, CATALOG_ORDER, League } from '../data/cars';
 import { StageDef } from '../data/stages';
 import { makeRng } from './ai';
+import { rivalName } from './usernames';
 import { Rival, rivalNear, simTime, MATCH } from './rivals';
 import { allAt, GEARINGS, STOCK_TUNE, Tune } from '../data/parts';
 import { STRIP_REWARDS, LEAGUE_SCALE } from '../data/economy';
@@ -35,12 +36,12 @@ export function levelReward(league: League, n: number): StripReward {
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 /** Name of a boss decal (decal_D_3 → "Rook III"). */
 export const decalName = (id: string) => { const [, lg, b] = id.split('_'); return `${BOSSES[lg as League].name} ${ROMAN[+b - 1] ?? b}`; };
-const NAMES = ['Lux', 'Juno', 'Dax', 'Priya', 'Mateo', 'Sable', 'Oren', 'Tamsin', 'Bodie', 'Nia', 'Kaito', 'Rhea', 'Cruz', 'Ines', 'Wren', 'Zeke', 'Amara', 'Fitz', 'Noor', 'Ozzie', 'Lena', 'Rafe', 'Suki', 'Teo', 'Yara', 'Halden', 'Vee', 'Kenji', 'Marisol', 'Rico'];
 /** Cheap facts about a level (no simulation): for the scroller cards. */
 export interface LevelInfo { n: number; league: League; dist: number; boss: boolean; reward: StripReward; name: string }
 export function levelInfo(league: League, n: number): LevelInfo {
-  const boss = n % STRIP.bossEvery === 0, rng = makeRng(0x9a11 + n * 31337 + league.charCodeAt(0) * 7);
-  return { n, league, dist: STRIP.dists[(n - 1) % STRIP.dists.length], boss, reward: levelReward(league, n), name: boss ? BOSSES[league].name : NAMES[Math.floor(rng() * NAMES.length) % NAMES.length] };
+  // each level's rival has its own username (V0.19.0, Q212); bosses keep their names
+  const boss = n % STRIP.bossEvery === 0;
+  return { n, league, dist: STRIP.dists[(n - 1) % STRIP.dists.length], boss, reward: levelReward(league, n), name: boss ? BOSSES[league].name : rivalName(0x9a11 + n * 31337 + league.charCodeAt(0) * 7) };
 }
 
 const BOSSES: Record<League, { name: string; paint: string }> = {

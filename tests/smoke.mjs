@@ -56,7 +56,7 @@ await pg.waitForFunction(() => window.__vc.screen === 'results');
 ok('drag race finishes with a result', await ev(() => window.__vc.lastResult && window.__vc.lastResult.total > 0));
 await pg.click('#toGarage'); await pg.waitForFunction(() => window.__vc.screen === 'garage');
 // one Typing Race (auto-typed), with a nitro
-await pg.click('#raceBtn'); await pg.click('#typingRace');
+await pg.click('#typingBtn'); await pg.click('#typingRace');
 await pg.waitForFunction(() => window.__vc.screen === 'typing' && window.__vc.typing && window.__vc.typing.run.pos > 3);
 await pg.keyboard.press('Enter');                                   // nitro
 await pg.waitForFunction(() => window.__vc.screen === 'results' && window.__vc.lastTyping);

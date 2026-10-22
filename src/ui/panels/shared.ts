@@ -52,8 +52,8 @@ export interface GarageHandlers {
   onFitPart(id: string, carId: string): void;
   /** the car in use as it looks now (Parts preview starts from it) */
   playerLook(): CarLook;
-  /** Typing Race (owner 2026-10-19). */
-  onTyping(): void;
+  /** Typing Race (owner 2026-10-19); ladder = the Rival Ladder's next rung (V0.19.0). */
+  onTyping(ladder?: boolean): void;
   /** Drift (owner, V0.18.0): start a run / pick the course */
   onDrift(): void;
   onDriftCourse(id: string): void;
@@ -76,7 +76,7 @@ export type Panel = 'profile' | 'garage' | 'upgrades' | 'parts' | 'catalog' | 'd
 // work = the car Parts / Upgrades act on (the one in use, or the one picked in the Garage); back = panel to return to
 /** Last test run in Upgrades (C11): which car + set-up it was for, its rows, and the run before it (for the before → after). */
 export const dynoState: { car: string; key: string; rows: DynoRow[]; prev?: { key: string; rows: DynoRow[] } } = { car: '', key: '', rows: [] };
-export const ui = { kmode: 'drag' as 'drag' | 'typing' | 'drift', capture: '' as string, kmsg: '', panel: null as Panel, back: null as Panel, work: '', gsel: '', dial: false, favOnly: false, gtab: 'cars' as 'cars' | 'boss', sellArm: '', raceMenu: false, part: { slot: 'paint' as PartSlot | 'paint', sel: '' }, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
+export const ui = { kmode: 'drag' as 'drag' | 'typing' | 'drift', /** Profile header tab (V0.19.0) */ ptab: 'drag' as 'drag' | 'typing' | 'top', pmsg: '', capture: '' as string, kmsg: '', panel: null as Panel, back: null as Panel, work: '', gsel: '', dial: false, favOnly: false, gtab: 'cars' as 'cars' | 'boss', sellArm: '', /** which race menu is open (V0.19.0): Race → 'drag', Typing → 'typing' */ raceMenu: false as false | 'drag' | 'typing', part: { slot: 'paint' as PartSlot | 'paint', sel: '' }, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
 /** Scroll positions kept between re-renders (strip: -1 = not set yet; stripFocus = centre on your level next time). */
 export const scroll = { cat: 0, part: 0, gar: 0, strip: -1, stripFocus: false };
 export function resetGarageUI() { ui.panel = null; ui.back = null; ui.dial = false; ui.raceMenu = false; }

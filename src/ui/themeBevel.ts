@@ -62,6 +62,45 @@ export const BEVEL_CSS = [
   B('.g-pcar>.hd', 'font-size:20px'),
   B('.g-stats', 'display:flex;gap:14px;font-size:12px;color:var(--dim)'),
   B('.g-stats b', 'font-size:14px'),
+  // ---- Profile (V0.19.0): username + edit box, Drag / Typing header tabs, typing league badge, XP bar, all leagues ----
+  B('.pf-id', 'min-width:0;flex:1'),
+  B('.pf-name', 'font-size:20px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'),
+  B('.pf-leagues', 'display:flex;align-items:center;gap:8px;flex-wrap:wrap'),
+  B('.pf-tl', 'display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#cfd3dc'),
+  B('.pf-edit', 'display:flex;gap:6px;margin-top:4px'),
+  B('.pf-edit input', `${SUNK};border:0;color:#e9ecf2;font:600 13px system-ui;padding:0 8px;height:28px;width:150px;min-width:0;outline:none`),
+  B('.pf-edit input:focus', PICKED),
+  B('.pf-edit .btn', 'height:28px;padding:0 10px;font-size:12px'),
+  B('.pf-tabs', 'display:flex'), B('.pf-tabs button', 'flex:1;height:30px;font:700 13px system-ui'),
+  B('.pf-tleague', `${WELL};display:flex;align-items:center;gap:14px;padding:10px 12px`),
+  B('.pf-tleague>div', 'display:flex;flex-direction:column;gap:3px;flex:1;min-width:0'),
+  B('.pf-tleague .hd', 'font-size:20px'), B('.pf-tleague span', 'font-size:12px;color:var(--dim)'),
+  B('.pf-xpbar', `${SUNK};height:12px;position:relative;margin:2px 0`),
+  B('.pf-xpbar>i', 'position:absolute;left:2px;top:2px;bottom:2px;max-width:calc(100% - 4px);background:#f2c230;box-shadow:inset -2px -2px 0 #b8901c'),
+  B('.pf-ladder', 'display:flex;justify-content:space-between;gap:2px'),
+  B('.pf-ladder>span', 'display:flex;flex-direction:column;align-items:center;gap:2px'),
+  B('.pf-ladder i', 'font:600 11px system-ui;font-style:normal;color:var(--dim)'),
+  B('.tbadge', 'display:inline-block;vertical-align:middle;flex:none'),
+  // Profile ▸ Top 500 (V0.19.0, Q215): one sunken row per typer — place, badge, name, rank, best WPM, XP; yours outlined yellow
+  B('.pf-top-msg', `${WELL};display:flex;flex-direction:column;gap:6px;padding:12px;font-size:13px;color:#cfd3dc`),
+  B('.pf-top-head', 'font-size:13px;color:var(--dim)'), B('.pf-top-head b', 'color:#f2c230'),
+  B('.pf-top', 'display:flex;flex-direction:column;gap:3px'),
+  B('.pf-trow', `${WELL};display:grid;grid-template-columns:34px 16px minmax(0,1fr) 78px 56px 74px;align-items:center;gap:6px;padding:4px 8px;font-size:12px;color:var(--dim)`),
+  B('.pf-trow b', 'color:#e9ecf2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'),
+  B('.pf-trow .hd', 'color:#e9ecf2;font-size:12px'), B('.pf-trow .hd:last-child', 'text-align:right;color:#f2c230'),
+  B('.pf-trow.me', PICKED),
+  B('.tbadge.dim', 'opacity:.3;filter:grayscale(1)'),
+  B('.ty-tag .tbadge,.ty-row .tbadge', 'margin:-2px 5px 0 0'),
+  B('.g-mode .hd .tbadge', 'margin:-3px 4px 0 0'),
+  // the Race menu scrolls if it would reach above the panels' top line (only with dev mode's Drift card on small phones); the
+  // padding keeps the block shadows visible
+  B('.g-racemenu', 'max-height:calc(100% - 207px);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;padding:2px 7px 7px 2px;margin:0 -7px -7px 0'),
+  // ---- Typing results (V0.19.0): XP + league line, the Ladder line; a league up slides in once ----
+  B('.ty-xp', `${WELL};display:flex;align-items:center;gap:10px;padding:6px 10px;font-size:13px`),
+  B('.ty-xp b', 'color:#f2c230'), B('.ty-xp .hd', 'font-size:16px'),
+  B('.ty-xp.up', `${PICKED};animation:tyUp .35s ease-out`),
+  '@keyframes tyUp{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}',
+  B('.ty-ladder', 'font-size:13px;color:#cfd3dc'),
   // ---- wallet (top-right): VX and Crowns as two blocks; best time lives in Profile and the race results ----
   B('.g-wallet', 'position:absolute;right:28px;top:24px;display:flex;align-items:center;gap:10px'),
   B('.g-wallet .voxels,.g-wallet .crowns', `${PANEL};padding:9px 12px;font-size:19px`),
@@ -119,17 +158,36 @@ export const BEVEL_CSS = [
   B('.g-sub-stem', 'display:none'),
   // ---- Race (bottom-right): one yellow block, a wheel and a gear that turn while the mouse is over it ----
   // Race + the small camera icon to its left share one corner box (garage.ts); the camera cycles the angles A–D
-  B('.g-raceside', 'position:absolute;right:28px;bottom:22px;display:flex;align-items:center;gap:10px;z-index:2'),
+  B('.g-raceside', 'position:absolute;right:28px;bottom:16px;display:flex;align-items:center;gap:10px;z-index:2'),
+  B('.g-racestack', 'display:flex;flex-direction:column;align-items:stretch;gap:7px'),
   B('.g-raceside>.g-cambtn', 'position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border:0;cursor:pointer;padding:0'),
   B('.g-raceside>.g-cambtn svg', 'width:22px;height:22px'),
   B('.g-raceside>.g-cambtn span', 'display:none'),
   B('.g-racebtn', 'position:relative;padding:0;border:0;background:none;cursor:pointer;filter:drop-shadow(5px 5px 0 #0b0c1099)'),
-  B('.g-racebtn .rb-face', `display:flex;align-items:center;gap:12px;height:62px;padding:0 16px 3px;background:var(--accent);color:#14161c;${PX};font-size:20px;letter-spacing:.08em;text-transform:uppercase;box-shadow:inset 3px 3px 0 #ffe27a,inset -3px -4px 0 #b8901c,0 0 0 2px #0b0c10`),
+  B('.g-racebtn .rb-face', `display:flex;align-items:center;justify-content:center;gap:12px;height:46px;padding:0 16px 3px;background:var(--accent);color:#14161c;${PX};font-size:18px;letter-spacing:.08em;text-transform:uppercase;box-shadow:inset 3px 3px 0 #ffe27a,inset -3px -4px 0 #b8901c,0 0 0 2px #0b0c10`),
   B('.g-racebtn .rb-ic', 'display:flex'),
   B('.g-racebtn:hover .rb-face', 'background:#f7d04a'),
   B('.g-racebtn:active', 'transform:translateY(2px)'),
   B('.g-racebtn:active .rb-face', 'box-shadow:inset 3px 3px 0 #b8901c,inset -3px -3px 0 #ffe27a,0 0 0 2px #0b0c10'),
   B('.g-racebtn:focus-visible .rb-face', 'outline:3px solid #fff;outline-offset:-8px'),
+  B('.g-racebtn.on .rb-face', 'background:#e0b228;box-shadow:inset 3px 3px 0 #b8901c,inset -3px -3px 0 #ffe27a,0 0 0 2px #0b0c10'),
+  // ---- Typing (V0.19.0, owner: "a Typing button below Race with little animations"): a dark block with your typing league
+  //      badge, TYPING in yellow and three keycaps that press down one after another, like someone typing (faster on hover).
+  //      A slow press, never a blink or flash. ----
+  B('.g-typebtn', 'position:relative;padding:0;border:0;background:none;cursor:pointer;filter:drop-shadow(5px 5px 0 #0b0c1099)'),
+  B('.g-typebtn .tb-face', `display:flex;align-items:center;justify-content:center;gap:9px;height:34px;padding:0 12px;${RAISED};color:#f2c230`),
+  B('.g-typebtn:hover .tb-face', 'background:#3a4050'),
+  B('.g-typebtn:active,.g-typebtn.on', 'transform:translateY(2px)'),
+  B('.g-typebtn:active .tb-face,.g-typebtn.on .tb-face', PICKED),
+  B('.g-typebtn:focus-visible .tb-face', 'outline:3px solid #fff;outline-offset:-6px'),
+  B('.tb-label', `${PX};font-size:15px;letter-spacing:.08em;text-transform:uppercase`),
+  B('.tb-keys', 'display:flex;gap:3px'),
+  B('.tb-keys i', 'width:17px;height:17px;display:flex;align-items:center;justify-content:center;font:700 11px system-ui;font-style:normal;color:#14161c;background:#cfd3dc;box-shadow:inset 2px 2px 0 #f2f4f8,inset -2px -2px 0 #8a909c,0 0 0 1px #0b0c10;animation:tbKey 2.4s steps(1) infinite'),
+  B('.tb-keys i:nth-child(2)', 'animation-delay:.3s'), B('.tb-keys i:nth-child(3)', 'animation-delay:.6s'),
+  B('.g-typebtn:hover .tb-keys i', 'animation-duration:1.2s'),
+  B('.g-typebtn:hover .tb-keys i:nth-child(2)', 'animation-delay:.15s'), B('.g-typebtn:hover .tb-keys i:nth-child(3)', 'animation-delay:.3s'),
+  '@keyframes tbKey{0%{transform:translateY(2px);background:#a9aeb8;box-shadow:inset 2px 2px 0 #7a808c,inset -2px -2px 0 #d8dce4,0 0 0 1px #0b0c10}10%,100%{transform:none}}',
+  '@media (prefers-reduced-motion:reduce){html.ui-bevel .tb-keys i{animation:none}}',
   // ---- the Strip, compact (owner 2026-10-21, V0.14.0): a narrow centred strip of small cards — level + money only; the next
   //      level is the yellow card you tap to race; cleared levels get a green tick; boss levels a red edge ----
   B('.strip-wrap', 'left:50%;right:auto;transform:translateX(-50%);width:min(700px,calc(100% - 56px));bottom:104px;padding:7px 9px 8px;gap:5px'),
@@ -162,11 +220,12 @@ export const BEVEL_CSS = [
   B('#lights i.green', 'background:#4ade80;box-shadow:inset 3px 3px 0 #a6f5c2,inset -3px -3px 0 #23874a'),
   // ---- race menu cards ----
   B('.g-mode .hd', 'font-size:16px'),
+  B('.g-mode', 'padding:10px 14px'),
   B('.g-go', 'color:#f2c230'),
   // ---- touch screens (owner E4, V0.13.1): a little bigger to tap. On phones the whole layer is also scaled to fit
   //      (styles.ts, V0.14.0), so these end up ~45 × 39 px on a sideways phone, and the side rail fits as on a PC. ----
   // ---- phones (owner E2, V0.15.0): the smallest labels a size up, on top of the bigger phone scale (main.ts FIT) ----
-  ...['.setrow,.g-note,.seg button,.g-util>button,.g-tab,.sl-rw,.sl-card .hd,.g-grid span,.stat span,.g-league,.gr-rec,.pt-group,.cal-day,.g-mode-sub,.pn-kind,.g-pick button,.g-panel>h2 .g-sub,.g-new'].map(sel =>
+  ...['.setrow,.g-note,.seg button,.g-util>button,.g-tab,.sl-rw,.sl-card .hd,.g-grid span,.stat span,.g-league,.gr-rec,.pt-group,.cal-day,.g-mode-sub,.pn-kind,.g-pick button,.g-panel>h2 .g-sub,.g-new,.tb-keys i'].map(sel =>
     sel.split(',').map(x => `html.vc-phone.ui-bevel ${x}`).join(',') + '{font-size:12.5px}'),
   `@media (pointer:coarse){${[
     B('.g-util>button', 'width:64px;height:56px'),

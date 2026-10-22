@@ -2,11 +2,15 @@
 // that letter red and you must type the right letter to go on (no backspace, Q126). Rivals are seeded "typists" whose
 // speed is matched to your recent average WPM by difficulty (Q125), so their finish times are known before the race.
 // Typing only — the car is looks (Q124). Pure logic, no DOM: tests drive it directly.
+// V0.19.0: an Expert level (rivals follow your recent best), made-up passages (textGen.ts), usernames for every racer, and
+// the Rival Ladder — rivals at fixed speeds.
 import { makeRng } from './ai';
 import { PASSAGES_BY_DIFFICULTY } from '../data/passages';
-import { TYPING, Difficulty } from '../data/economy';
-import { NAMES, PAINTS } from './rivals';
+import { TYPING, TYPING_LADDER, TypingLevel } from '../data/economy';
+import { PAINTS } from './rivals';
 import { CARS, CATALOG_ORDER } from '../data/cars';
+import { makePassage } from './textGen';
+import { makeUsername, usernames } from './usernames';
 
 export const wpmOf = (chars: number, seconds: number) => (seconds > 0 ? (chars / 5) / (seconds / 60) : 0);
 
@@ -84,25 +88,50 @@ export function averageWpm(recent: number[] = []) {
 }
 /** Your average for one difficulty's passages (each has its own text, so its own speed). Until you have a few races at
  *  that difficulty it starts from your overall average, adjusted for how hard the text is. */
-export function averageFor(stats: { recent: number[]; recentBy?: Partial<Record<Difficulty, number[]>> }, diff: Difficulty) {
+type Stats = { best?: number; recent: number[]; recentBy?: Partial<Record<TypingLevel, number[]>> };
+export function averageFor(stats: Stats, diff: TypingLevel) {
   const own = stats.recentBy?.[diff] ?? [];
   return own.length >= 3 ? averageWpm(own) : averageWpm(stats.recent) * TYPING.textSpeed[diff];
 }
+/** The speed rivals are set from: your average for that level — or at Expert your best of the recent Expert races (owner B1:
+ *  "you have to beat your record to win"; until 3 Expert races it starts from your average × the text's speed). */
+export function rivalRef(stats: Stats, level: TypingLevel) {
+  const own = (stats.recentBy?.expert ?? []).slice(-TYPING.recentRaces);
+  return level !== 'expert' ? averageFor(stats, level) : own.length >= 3 ? Math.max(...own) : averageFor(stats, 'expert');
+}
 
-/** Pick a passage and four rivals for a race (seeded: the same seed gives the same race). */
-export function makeTypingRace(seed: number, avgWpm: number, diff: Difficulty, league: string) {
+/** The race's text: a handwritten passage or (TYPING.generatedShare of the time) a made-up one for that level. */
+export function pickPassage(level: TypingLevel, rng: () => number) {
+  if (rng() < TYPING.generatedShare) return makePassage(level, (rng() * 0x7fffffff) | 1);
+  const pool = PASSAGES_BY_DIFFICULTY[level];
+  return pool[Math.floor(rng() * pool.length) % pool.length];
+}
+function rivalOf(text: string, wpm: number, name: string, cars: string[], rng: () => number): TypingRival {
+  const s = (rng() * 0x7fffffff) | 1, schedule = typistSchedule(text, wpm, s);
+  return { name, carId: cars[Math.floor(rng() * cars.length) % cars.length], paint: PAINTS[Math.floor(rng() * PAINTS.length) % PAINTS.length], seed: s, wpm, schedule, finish: schedule[schedule.length - 1] };
+}
+const leagueCars = (league: string) => CATALOG_ORDER.filter(id => CARS[id].league === league && !CARS[id].unique);
+
+/** Pick a passage and four rivals for a race (seeded: the same seed gives the same race). `refWpm` = rivalRef(…). */
+export function makeTypingRace(seed: number, refWpm: number, level: TypingLevel, league: string, you = '') {
   const rng = makeRng(seed);
-  const pool = PASSAGES_BY_DIFFICULTY[diff];                       // Easy / Medium / Hard each have their own passages
-  const text = pool[Math.floor(rng() * pool.length) % pool.length];
-  const cars = CATALOG_ORDER.filter(id => CARS[id].league === league && !CARS[id].unique);
-  const names = [...NAMES].sort(() => rng() - 0.5);
-  const rivals: TypingRival[] = TYPING.rivals[diff].map((f, i) => {
-    const wpm = Math.max(8, avgWpm * f * (0.97 + rng() * 0.03)), s = (rng() * 0x7fffffff) | 1;   // never above f × your average
-    const schedule = typistSchedule(text, wpm, s);
-    return { name: names[i], carId: cars[Math.floor(rng() * cars.length) % cars.length], paint: PAINTS[Math.floor(rng() * PAINTS.length) % PAINTS.length], seed: s, wpm, schedule, finish: schedule[schedule.length - 1] };
-  });
+  const text = pickPassage(level, rng);
+  const cars = leagueCars(league), names = usernames((rng() * 0x7fffffff) | 1, 4, [you]);
+  const rivals = TYPING.rivals[level].map((f, i) => rivalOf(text, Math.max(8, refWpm * f * (0.97 + rng() * 0.03)), names[i], cars, rng));   // never above f × your reference
   rivals.sort(() => rng() - 0.5);                                 // lanes in random order
   return { text, rivals };
+}
+
+/** A Ladder rung's rival: always the same username for that rung (so you know who you're chasing). */
+export const ladderRival = (rung: number) => makeUsername(makeRng(7919 * (rung + 1)));
+/** Rival Ladder race (owner B4): rung `rung` (0-based) — its rival at the rung's fixed speed, three more just behind. */
+export function makeLadderRace(seed: number, rung: number, league: string, you = '') {
+  const R = TYPING_LADDER.rungs[Math.min(rung, TYPING_LADDER.rungs.length - 1)], rng = makeRng(seed);
+  const text = pickPassage(R.text, rng), cars = leagueCars(league), boss = ladderRival(rung);
+  const names = usernames((rng() * 0x7fffffff) | 1, 3, [you, boss]);
+  const rivals = [rivalOf(text, R.wpm, boss, cars, rng), ...TYPING_LADDER.pack.map((f, i) => rivalOf(text, R.wpm * f, names[i], cars, rng))];
+  rivals.sort(() => rng() - 0.5);
+  return { text, rivals, boss, level: R.text, wpm: R.wpm };
 }
 
 /** Car motion (owner Q131): a critically damped spring towards the typed distance. While you type, the car runs a little

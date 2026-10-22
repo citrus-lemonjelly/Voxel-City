@@ -98,6 +98,26 @@ export const HARD_PASSAGES: string[] = [
   "The museum's newest exhibit is a battered rally sedan, still caked in mud from its last event. A small sign reads: \"Please don't clean it - the dirt is part of the story.\"",
 ];
 
-export const PASSAGES_BY_DIFFICULTY = { easy: EASY_PASSAGES, medium: MEDIUM_PASSAGES, hard: HARD_PASSAGES };
+/** Expert (V0.19.0, owner idea B2): Hard plus symbols — @ # $ % & * ( ) / : ; — plates, prices and sums, 150–240 characters
+ *  (symbols type slower, so a little shorter than Hard). */
+export const EXPERT_PASSAGES: string[] = [
+  "Invoice #2291 (Quay St. Tyres): 4 x semi-slicks @ $139.00 = $556.00; valve caps x4 = $6.00; labour (1.5 h) = $45.00. Total due: $607.00 - cash or card, *no* IOUs.",
+  "Race control, 21:47: plate KX-7710 & plate RB-0392 both jumped the lights (0.04 s / 0.06 s early). Penalty: +0.5 s each; appeals to pitlane@voxelcity.net by 23:00.",
+  "Halden's tune sheet: boost 1.2 bar (+18%), timing +4 deg, fuel map #3; result = 312 hp / 401 Nm @ 5,900 rpm. Note to self: \"Do NOT touch map #4 again!!\"",
+  "Crew rules (#SkywayCrew): 1) no racing on Rooftop Skyway after 01:00; 2) clean up your tyre marks; 3) whoever loses buys the noodles (yes, *all* of them).",
+  "The 1/4 mile board read: lane A 11.482 s @ 192 km/h; lane B 11.479 s @ 189 km/h. Margin: 0.003 s - about 16 cm, or 1/2 of a wheel. Lane B's crew went wild.",
+  "Shopping list (Sat 14/06): oil 5W-30 x2 ($38), filters (oil & air) $24, brake fluid DOT 4 $11, zip ties (100 pack) $6. Budget: $80. Spent: $79. Close call!",
+  "Gear ratios for the 6-speed: 3.36 / 2.08 / 1.47 / 1.12 / 0.89 / 0.74, final drive 4.10:1. At 7,200 rpm that's roughly 64 / 104 / 147 / 193 / 243 / 292 km/h.",
+  "Weight & power check: 1,180 kg / 236 hp = 5.0 kg per hp; after the diet (-64 kg) & the turbo (+52 hp) it's 1,116 kg / 288 hp = 3.9 kg per hp. That's 22% better!",
+  "Text from Marisol @ 06:12: \"Car's on the trailer, spares in the boot, coffee in the flask (x2). Meet at Daluda Forest gate 3 by 07:30; if you're late, I'm leaving :)\"",
+  "Neon Highrise parking: levels 1-3 = $2/h; levels 4-9 = $3.50/h; the roof (level 10) = $5/h & worth every cent. Pay at the machine (coins only) or text PARK to 7744.",
+  "Results (heat 4/6): 1st Sable 12.03 s; 2nd Dax 12.11 s (+0.08); 3rd Kenji 12.40 s (+0.37); 4th Juno DNF (clutch). Points: 10 / 8 / 6 / 0. Next heat: 20:15 sharp.",
+  "The sign at the Oil Fields gate says: SPEED LIMIT 30 (km/h); NO SMOKING; NO DRIFTING (*seriously*); VISITORS SIGN IN @ OFFICE #2. Somebody has drawn a tiny car on it.",
+  "Dyno day #7: run 1 = 248 hp; run 2 = 251 hp; run 3 = 247 hp (heat soak?). Average: 248.7 hp, +3.1% on last month. Cost of the session: $90 / 3 runs = $30 each.",
+  "Ferry timetable (Harbor -> Downtown): 06:40, 07:10, 07:40 & every 20 min until 19:00; then 19:30, 20:30, 22:00 (last). Cars $12, bikes $4, walkers free (Sun only).",
+  "Kenji's to-do list: [x] new spark plugs; [x] tyre pressures (29/31 psi); [ ] fix the rattle (dash? door? *ghost?*); [ ] call Priya re: the $250 alloy wheels.",
+];
+
+export const PASSAGES_BY_DIFFICULTY = { easy: EASY_PASSAGES, medium: MEDIUM_PASSAGES, hard: HARD_PASSAGES, expert: EXPERT_PASSAGES };
 /** Every passage (all difficulties). */
-export const PASSAGES: string[] = [...EASY_PASSAGES, ...MEDIUM_PASSAGES, ...HARD_PASSAGES];
+export const PASSAGES: string[] = [...EASY_PASSAGES, ...MEDIUM_PASSAGES, ...HARD_PASSAGES, ...EXPERT_PASSAGES];
