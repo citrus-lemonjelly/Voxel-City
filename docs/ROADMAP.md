@@ -126,7 +126,7 @@ Proposed pieces:
 ### E4 Modes and world
 | # | Idea | Effort |
 |---|---|---|
-| E4.1 | District map: 6 districts, each mode in its own district (Milestone 4) | Big |
+| E4.1 | **District map** (owner pick Q199, 2026-10-22): a 3D voxel city with 6 districts — **the Harbor, Downtown, Neon Highrise, Daluda Forest, Oil Fields, Rooftop Skyway** (S94) — each mode in its own district (Milestone 4). Plan drafted (Race opens the map, districts open by league, V0.19.0 = map + 3 districts); waiting on the owner's ChatGPT reference map and Q200–Q205 | Big |
 | E4.2 | Strip completion rewards (Q104) | Small |
 | E4.3 | Typing Race: more passages per tier, nitro upgrades, its own district | Medium |
 | E4.4 | Crowns sources: weekly events, achievements | Medium |
@@ -142,7 +142,7 @@ What exists (S87–S92): drag → 3–5 turns → drag, automatic gears, tap Dri
 | D2 | **Visual drift**: car body roll and weight shift, front wheels counter-steering, skid marks left on the road, a wider camera swing in long drifts, smoke that reads at speed | Medium |
 | D3 | **Scoring**: judge the line (clipping points on the inside, outer zones near the wall), proximity bonus, clearer score pop-ups; decide whether speed counts at all | Medium |
 | D4 | **HUD**: GO! call-out on green, cue lights polish, the run's turns on the progress strip, results chips per turn | Small |
-| D5 | **Scenes**: district names (Q196), a landmark per district, more prop variety, a frame-rate check on slower PCs | Medium |
+| D5 | **Scenes**: names settled (S94: Downtown, the Harbor, Daluda Forest, Neon Highrise), a landmark per district, more prop variety, a frame-rate check on slower PCs | Medium |
 | D6 | **Ghost rival**: ghost look (trail / colour), names and cars that fit each district, tandem bonus for drifting beside it | Medium |
 | D7 | **Sound**: a proper tyre squeal that follows the angle, a clutch-kick blip at the turn-in | Small |
 | D8 | **Phones**: Drift button opposite the gas pedal for two thumbs; check every phone size | Medium |

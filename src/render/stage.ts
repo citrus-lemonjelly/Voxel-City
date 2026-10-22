@@ -1,4 +1,4 @@
-// Downtown Grid — a lived-in voxel street seen from the side (CSR-style race camera).
+// Downtown — a lived-in voxel street seen from the side (CSR-style race camera).
 // World units = voxel blocks, the same resolution as the cars. Cars drive toward −x (left → right on screen).
 // REAL SCALE (owner decision S17): the car is real-car size (1 block ≈ 6.9 cm) and so is the city around it.
 // Layout (z, real blocks): near side (camera) < −16 | road −14…92 (player lane 0–28, rival lane 52–80, 3.6 m lanes) |

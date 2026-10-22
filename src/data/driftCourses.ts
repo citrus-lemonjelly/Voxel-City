@@ -16,10 +16,11 @@ export interface DriftCourseDef {
   blurb: string;
 }
 export const DRIFT_COURSES: DriftCourseDef[] = [
+  // districts renamed by the owner (V0.18.3, S94): the Harbor, Downtown, Neon Highrise, Daluda Forest, Oil Fields, Rooftop Skyway
   { id: 'downtown', name: 'Downtown Switchbacks', district: 'Downtown', theme: 'city', seed: 1201, mix: [2, 3, 1, 2], groups: 9, width: 13, blurb: 'Tight city blocks, neon shops and towers' },
-  { id: 'harbour', name: 'Harbour Hairpins', district: 'Harbour', theme: 'harbour', seed: 2203, mix: [1, 2, 3, 1], groups: 8, width: 14, blurb: 'Container stacks, cranes and the dark water' },
-  { id: 'ridge', name: 'Ridge Pass', district: 'The Ridge', theme: 'ridge', seed: 3307, mix: [3, 1, 1, 3], groups: 9, width: 12, blurb: 'Pines, rock walls and guardrails up the hill' },
-  { id: 'neon', name: 'Neon Row', district: 'Neon Row', theme: 'neon', seed: 4409, mix: [2, 2, 2, 2], groups: 9, width: 13, blurb: 'Arcades, signs and warehouses that never sleep' },
+  { id: 'harbour', name: 'Harbor Hairpins', district: 'The Harbor', theme: 'harbour', seed: 2203, mix: [1, 2, 3, 1], groups: 8, width: 14, blurb: 'Container stacks, cranes and the dark water' },
+  { id: 'ridge', name: 'Daluda Forest Pass', district: 'Daluda Forest', theme: 'ridge', seed: 3307, mix: [3, 1, 1, 3], groups: 9, width: 12, blurb: 'Pines, rock walls and guardrails up the hill' },
+  { id: 'neon', name: 'Neon Highrise Run', district: 'Neon Highrise', theme: 'neon', seed: 4409, mix: [2, 2, 2, 2], groups: 9, width: 13, blurb: 'Arcades, signs and warehouses that never sleep' },
 ];
 export const DRIFT_BY_ID = Object.fromEntries(DRIFT_COURSES.map(c => [c.id, c])) as Record<string, DriftCourseDef>;
 

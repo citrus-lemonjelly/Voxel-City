@@ -26,6 +26,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.3', date: '2026-10-22', title: 'The districts get their names',
+    changed: [
+      'Downtown Grid is now just Downtown. The city\'s six districts have their names: the Harbor, Downtown, Neon Highrise, Daluda Forest, Oil Fields and Rooftop Skyway — the city map that connects them is on the way.',
+    ],
+  },
+  {
     version: '0.18.2', date: '2026-10-22', title: 'Drift goes back to the workshop',
     removed: [
       'Drift is hidden for now while it gets a lot more work — the Race menu card, the drift parts in Upgrades and the Drift keys in Settings. It will come back in a later update.',

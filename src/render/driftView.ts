@@ -245,7 +245,7 @@ export class DriftView {
     for (let i = 0; i < 3; i++) k.mbox(k.rand(0.5, 4), 0, k.rand(1, 7), 1.1, 1.2, 0.9, k.pick(['#2f5a3e', '#3d4046', '#5a5f6b']));
     k.mbox(0.5, 3, 2, 0.12, 0.12, 6, '#ffcf8a', 'lit'); k.pool(2.5 * M, 4 * M, 3 * M, '#ffcf8a');
   }
-  /** Neon Row: low buildings with neon outlines and signs, blade signs, vending machines, fences between lots. */
+  /** Neon Highrise: low buildings with neon outlines and signs, blade signs, vending machines, fences between lots. */
   private neonFront(k: Kit, s: number, sg: number, half: number, r: number) {
     const d = half + 4; this.side(k, s, sg, d);
     if (r < 0.15) { if (this.free(k, 0, 0, 10, 2)) { this.claim(k, 0, 0, 10, 2); fence(k, 10); for (let i = 0; i < 3; i++) k.mbox(k.rand(1, 9), 0, k.rand(0.8, 1.6), 0.6, 0.9, 0.6, '#f26a1c'); } return 11; }
@@ -258,7 +258,7 @@ export class DriftView {
     if (k.rng() < 0.3 && !this.path.turns.some(t => s > t.s0 - 15 && s < t.s1 + 15)) { this.side(k, s + 1, sg, half + 2.6); k.car(0, 0, sg > 0 ? -Math.PI / 2 : Math.PI / 2, Math.floor(k.rng() * PARKED.length)); }
     return w + k.rand(0.5, 2);
   }
-  /** Harbour: container stacks and sheds on their own quays, mooring bollards, K-rails. */
+  /** The Harbor: container stacks and sheds on their own quays, mooring bollards, K-rails. */
   private harbourFront(k: Kit, s: number, sg: number, half: number, r: number) {
     const d = half + 4.5; this.side(k, s, sg, d);
     if (r < 0.5) {
@@ -277,7 +277,7 @@ export class DriftView {
     this.side(k, s, sg, half + 9); if (k.rng() < 0.6) boat(k, k.rand(8, 14));
     return 9;
   }
-  /** The Ridge: rock cuttings, dense pines, cabins, fences, power poles. */
+  /** Daluda Forest: rock cuttings, dense pines, cabins, fences, power poles. */
   private ridgeFront(k: Kit, s: number, sg: number, half: number, r: number) {
     const inside = this.path.turns.find(t => s > t.s0 - 5 && s < t.s1 + 5);
     if (inside && inside.dir === sg) {                                                        // inside of a turn: a rock cutting

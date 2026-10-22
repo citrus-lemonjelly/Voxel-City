@@ -1,4 +1,4 @@
-// Stages. Step 1 ships Downtown Grid only (W2a). Modifiers stay neutral (W2b — optional, may be removed).
+// Stages. Step 1 ships Downtown only (W2a; called Downtown Grid until V0.18.3 — owner renamed the districts, S94). Modifiers stay neutral (W2b — optional, may be removed).
 export interface StageDef {
   id: string;
   name: string;
@@ -15,7 +15,7 @@ export interface StageDef {
 export const STAGES: Record<string, StageDef> = {
   downtown_grid: {
     id: 'downtown_grid',
-    name: 'Downtown Grid',
+    name: 'Downtown',
     league: 'D',
     distanceM: 800,
     modifiers: { gripMult: 1, dragMult: 1 },
