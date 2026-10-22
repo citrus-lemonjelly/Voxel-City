@@ -95,7 +95,7 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Live: **V0.18.0 "Drift Update"** (shipped 2026-10-22, S87–S90; Q194 A button beside the gas pedal, Q195 Handbrake default): Drift mode (drag → 3–5 drifts → drag, four night districts, ghost rival,
   drift parts, four Drift button looks), Settings header bars Display · Audio · Keybinds. Phone Drift layout: later (owner).
 - Live: **V0.18.1** (shipped 2026-10-22): easier drifts (S91), 3-2-1 drift cue above the gauge, automatic gears in Drift (S92).
-- Built: **V0.18.2** — Drift hidden behind dev mode (S93); its work list is ROADMAP §E4.6 (D1–D9).
+- Live: **V0.18.2** (shipped 2026-10-22) — Drift hidden behind dev mode (S93); its work list is ROADMAP §E4.6 (D1–D9).
 - **Next:** the owner picks what to work on next (Q199). Open: Q196 district names (for Drift, later). Run heavy checks one at a time.
 - Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
   weighted time of day (Small) · garage decor shop with Crowns (Big) · Body Shop "undo" (Small) · saved looks per car (Medium) ·
