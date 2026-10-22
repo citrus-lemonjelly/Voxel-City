@@ -21,6 +21,18 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Every reply ends with recommendations / other paths / ideas, each labelled with effort (Small, Medium, Big).
 - Always look for faster ways to work and reduce load: use the project tools first; if a step is slow, fix the tool.
 
+## Working with the owner (every session)
+- **Prompt feedback:** every reply has a short "Prompt feedback" note (1–3 lines): what was clear, what was missing or could be
+  read two ways, and a tighter way to word the same ask next time.
+- **Unclear = don't build yet:** if an instruction is unclear, could mean two different things, or clashes with an earlier rule or
+  decision (`docs/DECISIONS.md`), don't guess and build. Push back: say exactly what is unclear and ask Q# questions, with the
+  options in a table and a recommended pick. Build once the owner answers.
+- **Skills & tools:** always look for chances to make a new skill (`.claude/skills/`) or tool (`tools/`, `npm run …`) that makes the
+  work faster or more reliable, or answers the owner's kind of requests better. Small tool fixes ride along with the work; new
+  skills/tools go in the ideas list with an effort label and are built once the owner agrees. Keep CLAUDE.md and skills current.
+- **Steady ideas:** every reply's ideas list carries 2–4 fresh ideas (game features, polish, tools, workflow) — not repeats of
+  earlier replies. Ideas the owner likes but doesn't start yet go in the Idea backlog at the bottom of this file.
+
 ## Commands (run them yourself here — this is the owner's PC)
 - **Start every session with `npm run sync`**: shows what GitHub has that this PC doesn't (another session may have shipped),
   files both sides changed, the live version and the next free version / S-row / Q-number. `-- --pull` fast-forwards when safe.
