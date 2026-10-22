@@ -27,6 +27,11 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .stat span{font-size:12px;color:var(--dim)}
 .upg h3{margin:4px 0 6px;font-size:14px}
 .upg .desc{font-size:12px;color:var(--dim);margin-bottom:6px;min-height:16px}
+.g-panel.g-upg{gap:9px}.g-upg h2{margin:0}
+.upg-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:5px}.upg-hd h3{margin:0;font-size:13px;flex:none;width:104px}
+.upg-hd .desc{margin:0;min-height:0;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.g-upg .tier{padding:4px 2px;font-size:11px;gap:0}.g-upg .tier b{font-size:14px}
+.tiers.g3{grid-template-columns:repeat(3,1fr)}.g-upg .tier.gear{padding:7px 2px}.g-upg .tier.gear b{font-size:13px;text-transform:uppercase}
 .tiers{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .tier{border:0;padding:8px 2px;cursor:pointer;background:var(--panel2);color:var(--text);box-shadow:0 0 0 2px var(--edge);font:700 12px system-ui;display:flex;flex-direction:column;align-items:center;gap:2px}
 .tier b{font:900 16px "Courier New",monospace}
@@ -362,7 +367,7 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .cal-sw{display:block;width:16px;height:12px;box-shadow:0 0 0 2px #0b0c10}
 .cal-cr{color:#e8c46a;display:inline-flex;align-items:center}
 .cal-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.cal-foot .btn{font-size:14px;padding:8px 14px}
-/* ---- every screen fits (owner 2026-10-21, V0.13.0): on small windows (phones) main.ts fitUI() scales the menu layer, the
+/* ---- every screen fits (owner 2026-10-21, V0.14.0): on small windows (phones) main.ts fitUI() scales the menu layer, the
    results and the Typing Race screen down by --ui-s inside a box the size of the window, so each screen shows in full and
    long panels scroll inside themselves. PCs: --ui-s = 1, nothing changes. ---- */
 #garage,#typing{inset:auto;left:0;top:0;width:var(--ui-w,100vw);height:var(--ui-h,100vh);transform:scale(var(--ui-s,1));transform-origin:0 0}

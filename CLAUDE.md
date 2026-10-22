@@ -8,7 +8,7 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Every update raises the version in `src/data/changelog.ts` (newest first). Patch 0.x.Y = fixes/tweaks; minor 0.X.0 = features, with a
   `header` named after the biggest feature (e.g. "Garage Update"). **V1.0 is the owner's call** — keep counting V0.X.X until he says so.
 - Every changelog entry has Added / Changed / Fixed / Removed lines in plain words (they show in-game in Patch notes).
-- New UI follows the game's theme, **Bevel+** (S69, `src/ui/themeBevel.ts`): every panel/button is a lit block (light top-left,
+- New UI follows the game's theme, **Bevel+** (S75, `src/ui/themeBevel.ts`): every panel/button is a lit block (light top-left,
   dark bottom-right), pressed/chosen = sunk in, grouped info in sunken trays; yellow `--accent` only for what you act on (Race,
   the chosen option, panel titles); Silkscreen pixel font (built in) for titles and big numbers, system-ui for the rest; text
   11 px or bigger; no default browser styling, no blinking/pulsing (one short slide is fine). Sleek, but true to the voxel style.
@@ -59,19 +59,19 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Decisions log: `docs/DECISIONS.md` (S-numbered rows). Patch notes doc is generated: `docs/CHANGELOG.md`.
 - Test URL flags: `?dev` (test console), `?fast=N` (clock ×N), `?autoplay`, `?lab` (Car Lab), `?phone` (phone race screen on a PC).
 - Garage tabs sit in the side rail behind the **Menu** button (`#menuBtn`); `tests/smoke.mjs` and `tools/shot.mjs` open it themselves.
-- Drive modes (Classic / Pedal, S66): `Controller.pedal` in `src/game/race.ts`; phone race HUD (S67): `Hud.buildPhone` in `src/ui/hud.ts`.
+- Drive modes (Classic / Pedal, S72): `Controller.pedal` in `src/game/race.ts`; phone race HUD (S73): `Hud.buildPhone` in `src/ui/hud.ts`.
 
-## Where we left off (V0.13.0 "Phone Update" + V0.12.1 + V0.12.0 "Style Update" + V0.11.0 "Pedal Update", 2026-10-21 — built, NOT shipped; V0.10.1 live)
-- V0.13.0: every screen fits phones (fitUI shrink-to-fit, `--ui-s`), panels sit over buttons, Settings beside Notes, camera icon
-  beside Race, car card moved into Profile, compact Strip (level + money) with automatic rewards (S71). Check phones with the shot tool's `touch; size:844x390`
-  (also 667x375 and 932x430). Not done: typing with a phone keyboard in the Typing Race.
-- V0.11.0: Pedal mode (S66), phone race screen + Pedal side + sideways notice + Perfect-shift buzz (S67), voxel Race button (S68).
-- V0.12.0: Bevel+ look as default with the Menu button + side rail, built-in Silkscreen font, pass 2 over every screen (S69).
-- V0.12.1: race dash plate / strip / lights in the bevel style (Q175), click outside or Esc closes the menu (Q185), styles merged
-  into themeBevel.ts (old look removed), phones: menu opens as a row + bigger buttons (S70).
-  All four ship together when the owner says ship (release goes 0.10.1 → 0.13.0).
-- **Next:** phone keyboard for the Typing Race; owner feedback on phones.
-  Q159 trophy shelf (later). Run heavy checks one at a time (owner: don't max the CPU).
+## Where we left off (2026-10-21)
+- Live before this push: V0.11.0 "Tuning Update" (shipped from another session — tyres, weight, turbo, gearing; S66; read
+  `docs/ROADMAP.md` for its open questions). This PC's unshipped work was merged on top and renumbered after it:
+  V0.12.0 "Pedal Update" (Pedal mode S72, phone race screen S73, voxel Race button S74) · V0.13.0 "Style Update" (Bevel+ look,
+  Menu + side rail, built-in pixel font, S75) · V0.13.1 (race screen look, menu closes on outside click, S76) · V0.14.0 "Phone
+  Update" (every screen fits phones via fitUI / `--ui-s`, panels over buttons, Settings by Notes, camera by Race, car info in
+  Profile, compact Strip with automatic rewards, S77). Check phones with the shot tool's `touch; size:844x390` (also 667x375, 932x430).
+- Note: the two sessions' Q numbers overlap (both used Q164–Q181) and ROADMAP's planned version numbers (V0.11.1, V0.11.2,
+  V0.12.0 "Build & Tune") are now taken — give those plans new numbers after V0.14.0.
+- **Next (owner):** E1 phone keyboard for the Typing Race · E2 bigger text on phones · E3 add to home screen · E4 lighter graphics
+  on phones · E5 pop-up when a Strip reward includes a car or decal. Then ROADMAP items. Run heavy checks one at a time.
 - Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
   weighted time of day (Small) · garage decor shop with Crowns (Big) · Body Shop "undo" (Small) · saved looks per car (Medium) ·
   rival plate text (Small) · split main.ts further (Typing Race, race setup) (Medium).

@@ -145,6 +145,7 @@ export class Race {
       if (r.boost > 0) { tq *= 1 + s.trans.perfectBoost; r.boost -= dt; }
       drive = throttle * tq * s.trans.ratios[r.gear] * s.finalDrive * DRIVELINE / s.wheelRadiusM;
       let traction = s.tractionN;
+      if (r.gear <= 1) { drive *= s.pull; traction *= s.pull; }       // gearing: Short pulls harder in 1st and 2nd, Long softer
       if (r.launchGrade === 'Wheelspin' && r.launchTimer < LAUNCH.spinSeconds && !r.gripBack) traction *= LAUNCH.spinGrip;
       if (r.launchGrade === 'Bog' && r.launchTimer < 1.0) drive *= LAUNCH.bogPenalty;
       drive = Math.min(drive, traction);

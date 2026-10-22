@@ -39,14 +39,14 @@ const FAST = Math.max(1, +(params.get('fast') || 1));   // test hook: run the ga
 let NO_RENDER = params.has('norender');           // test hook: skip 3D drawing during races (input-timing tests)
 let paused = false;                               // preview hook: freeze physics while posing cars
 
-// layout (styles.ts) + the "Bevel+" look on top (themeBevel.ts, owner 2026-10-21, S69)
+// layout (styles.ts) + the "Bevel+" look on top (themeBevel.ts, owner 2026-10-21, S75)
 document.documentElement.classList.add('ui-bevel');
 document.head.appendChild(Object.assign(document.createElement('style'), { textContent: CSS + BEVEL_CSS }));
 document.body.innerHTML = '<div id="stage"></div><div id="ui" class="overlay"></div>';
 /** Phones/tablets (owner 2026-10-21): thumb-sized race screen, sideways only (Q168). ?phone forces it on a PC for testing. */
 const PHONE = params.has('phone') || matchMedia('(pointer: coarse)').matches;
 document.documentElement.classList.toggle('vc-phone', PHONE);
-/** Shrink-to-fit (owner 2026-10-21, V0.13.0): the menus, results and Typing Race screen are laid out for a window at least
+/** Shrink-to-fit (owner 2026-10-21, V0.14.0): the menus, results and Typing Race screen are laid out for a window at least
  *  FIT.h tall and FIT.w wide; on anything smaller (a phone held sideways is ~390 px tall) the whole layer is scaled down to
  *  fit, so every screen shows in full. PCs stay at 1. styles: #garage / #results / #typing / #typing-res use --ui-s. */
 const FIT = { w: 1060, h: 560, min: 0.55 };
@@ -76,11 +76,11 @@ if (params.get('dmin')) { world.camFrame.dMin = +params.get('dmin')!; world.camF
 const stage = STAGES[START_STAGE];
 /** A new random rival for the car + upgrades in use (owner Q87); rolled again after every race or when the car/parts change. */
 let opp: Rival, oppKey = '';
-const rivalKey = () => `${save.carId}:${save.equipped.engine}:${save.equipped.trans}:${save.raceDist}:${save.raceDiff}`;
+const rivalKey = () => `${save.carId}:${JSON.stringify(save.equipped)}:${save.raceDist}:${save.raceDiff}`;
 function rollRival(force = false) {
   if (!force && oppKey === rivalKey() && opp) return;
   const seed = params.get('rseed') ? +params.get('rseed')! : undefined;                 // test hook: fixed rival
-  opp = makeRival(save.carId, save.equipped.engine, save.equipped.trans, stage, seed, save.raceDist, DIFFICULTY[save.raceDiff].gap); oppKey = rivalKey();
+  opp = makeRival(save.carId, save.equipped, stage, seed, save.raceDist, DIFFICULTY[save.raceDiff].gap); oppKey = rivalKey();
 }
 rollRival();
 /** The car in use, as the player has painted and optioned it (Q79). */
@@ -137,7 +137,7 @@ let race: Race | null = null, hud: Hud | null = null, oppRacer: Racer | null = n
 
 function showGarage(toast?: string) {
   screen = 'garage'; world.mode = 'garage'; setTimeout(showUpdate, 0); rollRival(); if (!garageInCatalog()) world.setGarageCar(playerLook());
-  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onRace: () => startRace(), onStrip: startStrip, stripNext, onSetting: setSetting, onRepaint: repaint, onPlateText: setPlateText,
+  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onGearing: setGearing, onRace: () => startRace(), onStrip: startStrip, stripNext, onSetting: setSetting, onRepaint: repaint, onPlateText: setPlateText,
     onPreview: look => world.setGarageCar(look ?? playerLook()), onView: v => world.setGarageView(v), onFace: d => world.faceGarage(d),
     onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, onBuyPart: buyPart, onFitPart: (id: string, carId: string) => fitPart(id, undefined, carId),
     onFav: (id: string) => { const f = save.favs ??= []; const i = f.indexOf(id); if (i >= 0) f.splice(i, 1); else f.push(id); writeSave(save); showGarage(); }, onDistance: setDistance, onDifficulty: setDifficulty, thumb: (look, view) => world.thumbnail(look, undefined, undefined, view), playerLook,
@@ -152,7 +152,7 @@ function showGarage(toast?: string) {
     onClaimDaily: claimDailyTask, onClaimCal: claimCal, onSellCar: sellCar, onBuySlot: buySlot }, toast);
 }
 // buying, selling, claiming, fitting, painting, equipping: src/game/garageActions.ts
-const { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip } =
+const { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setGearing } =
   garageActions({ save: () => save, world, show: msg => showGarage(msg), lookFor, playerLook });
 
 /** Time of day for a race (owner 2026-10-20): random every race, unless ?time= or the test console forces one. */
@@ -181,7 +181,7 @@ function stripNext(): Rung | null {
   return n > STRIP.rungs ? null : stripRung(lg, n, stage);
 }
 /** Claim a cleared Strip level's one-time reward (owner: L1 100 VX, every 10th level +5 Crowns). */
-/** A cleared Strip level's one-time reward (owner: L1 100 VX, every 10th level +5 Crowns, decals, boss cars). Since V0.13.0 it
+/** A cleared Strip level's one-time reward (owner: L1 100 VX, every 10th level +5 Crowns, decals, boss cars). Since V0.14.0 it
  *  is added automatically when the level is cleared (owner 2026-10-21) — no Claim button. Grants the Crowns / decal / car and
  *  marks the level claimed; the caller adds the VX (the race results add it with the race pay). */
 function grantLevel(lg: League, n: number) {
@@ -192,7 +192,7 @@ function grantLevel(lg: League, n: number) {
   return r;
 }
 const rewardExtras = (r: ReturnType<typeof levelReward>) => `${r.crowns ? ` · +${r.crowns} Crowns` : ''}${r.decal ? ` · ${decalName(r.decal)} decal` : ''}${r.car ? ` · ${carName(r.car)} (League ${CARS[r.car].league}) — it's in your Catalog` : ''}`;
-/** Saves from before V0.13.0 may hold cleared levels that were never claimed: add those rewards once, on load. */
+/** Saves from before V0.14.0 may hold cleared levels that were never claimed: add those rewards once, on load. */
 (function claimPendingStrip() {
   let vx = 0, n = 0;
   for (const lg of Object.keys(save.strip) as League[]) for (let k = 1; k <= (save.strip[lg] ?? 0); k++)
@@ -208,8 +208,8 @@ function startRace(kind: 'street' | 'strip' = 'street', stripR?: Rung) {
   input.held = false; input.shiftQueued = false; input.downQueued = false;
   const dist = rung ? rung.dist : save.raceDist;
   race = new Race(dist);
-  playerRacer = race.add('player', carStats(save.carId, save.equipped.engine, save.equipped.trans, stage), AUTOPLAY || (DEV.enabled && DEV.autoDrive) ? new AIController(1, [0.15, 0.15], 3) : new PlayerController(pedalMode()));
-  oppRacer = race.add(opp.id, carStats(opp.carId, opp.engineTier as Tier, opp.transTier as Tier, stage), new AIController(devOppSkill() ?? opp.skill, opp.reaction, opp.seed));
+  playerRacer = race.add('player', carStats(save.carId, save.equipped, stage), AUTOPLAY || (DEV.enabled && DEV.autoDrive) ? new AIController(1, [0.15, 0.15], 3) : new PlayerController(pedalMode()));
+  oppRacer = race.add(opp.id, carStats(opp.carId, opp.tune, stage), new AIController(devOppSkill() ?? opp.skill, opp.reaction, opp.seed));
   world.setupRace(stage, dist, playerLook(), oppLook(), { time: raceTime(), near: save.settings.nearSide });
   // the "Space or click" hint shows for the player's first 3 races (owner Q29)
   const DK = keysOf(save.settings).drag;

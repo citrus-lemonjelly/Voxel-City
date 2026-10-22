@@ -1,4 +1,4 @@
-// Garage HUD (owner, 2026-10-18): the car on its turntable in the middle, voxels top-right (car info is in Profile since V0.13.0),
+// Garage HUD (owner, 2026-10-18): the car on its turntable in the middle, voxels top-right (car info is in Profile since V0.14.0),
 // a bottom bar of icon buttons (mini HUD · Profile · Garage · Catalog · Settings), Patch notes + camera angle
 // bottom-left, and a RACE button bottom-right that opens the race menu. Panels open on the right; Catalog, Body Shop and
 // My cars put a list on the left.
@@ -87,7 +87,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   for (const wire of WIRES) wire(el, save, on, redraw);
 }
 
-/** Garage layout (V0.12.0, owner 2026-10-21): Menu · Notes · Cam in the bottom-left; Menu opens the side rail (tabs + the
+/** Garage layout (V0.13.0, owner 2026-10-21): Menu · Notes · Cam in the bottom-left; Menu opens the side rail (tabs + the
  *  2×2 mini square: Spin · Daily · Calendar · Door); the Garage sub-tabs sit beside Menu · Notes · Cam; each panel title
  *  gets its icon. Runs before the wiring, so the moved buttons keep working. Looks: ui/themeBevel.ts. */
 const PANEL_ICON: Record<string, string> = { profile: 'profile', upgrades: 'upgrades', settings: 'settings', daily: 'tasks', calendar: 'daily', notes: 'notes' };

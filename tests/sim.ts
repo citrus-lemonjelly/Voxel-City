@@ -4,7 +4,7 @@ import { Race, Racer, Controller } from '../src/game/race';
 import { AIController, makeRng as makeRngT } from '../src/game/ai';
 import { carStats } from '../src/game/stats';
 import { STAGES } from '../src/data/stages';
-import { Tier } from '../src/data/parts';
+import { Tier, Tune, STOCK_TUNE, MAX_TUNE, allAt, GEARINGS, Gearing } from '../src/data/parts';
 import { CARS, CATALOG_ORDER, LEAGUES } from '../src/data/cars';
 import { makeRival, simTime, MATCH } from '../src/game/rivals';
 import { CHANGELOG, VERSION } from '../src/data/changelog';
@@ -29,7 +29,7 @@ function run(engine: Tier, trans: Tier, skill: number, seed = 7) {
 }
 function run1(engine: Tier, trans: Tier, skill: number, seed: number) {
   const race = new Race(stage.distanceM);
-  const r = race.add('p', carStats('panda_civix', engine, trans, stage), new AIController(skill, [0.2, 0.2], seed));
+  const r = race.add('p', carStats('panda_civix', { engine, trans }, stage), new AIController(skill, [0.2, 0.2], seed));
   for (let i = 0; i < 120 * 60 && !race.done; i++) race.step(1 / 120);
   return { time: r.finish!, shifts: r.shifts.length, grades: r.shifts.map(s => s.grade[0]).join(''), launch: r.launchGrade, top: Math.round(r.v * 2.237) };
 }
@@ -70,7 +70,7 @@ function fumble(recover: boolean, downAt?: (r: Racer) => boolean) {
       return false;
     },
   };
-  const r = race.add('p', carStats('panda_civix', 1, 1, stage), ctl);
+  const r = race.add('p', carStats('panda_civix', STOCK_TUNE, stage), ctl);
   for (let i = 0; i < 120 * 60 && !race.done; i++) race.step(1 / 120);
   return r;
 }
@@ -91,7 +91,7 @@ check(fast.downshifts === 1 && said === 'Over-rev' && vMin < vBefore, `downshift
 check(fast.finish! > stay.finish!, `over-revving costs time (${fast.finish!.toFixed(2)} s)`);
 // catalog cars (owner Q79): every car finishes, the starter is the slowest, the hypercar the quickest
 const carTime = (id: string) => {
-  const race = new Race(stage.distanceM); const r = race.add('p', carStats(id, 1, 1, stage), new AIController(1, [0.2, 0.2], 7));
+  const race = new Race(stage.distanceM); const r = race.add('p', carStats(id, STOCK_TUNE, stage), new AIController(1, [0.2, 0.2], 7));
   for (let i = 0; i < 120 * 60 && !race.done; i++) race.step(1 / 120);
   return r.finish ?? 99;
 };
@@ -106,43 +106,50 @@ const used = LEAGUES.filter(l => CATALOG_ORDER.some(id => CARS[id].league === l)
 const band = (l: string) => CATALOG_ORDER.filter(id => CARS[id].league === l).map(id => times[id]);
 check(used.every((l, i) => i === 0 || Math.max(...band(l)) < Math.min(...band(used[i - 1]))), `each league is clearly quicker than the one below (${used.map(l => `${l} ${Math.min(...band(l)).toFixed(1)}–${Math.max(...band(l)).toFixed(1)}`).join(' · ')})`);
 // per-car tuning (owner 2026-10-18): small stock edge, fully upgraded cars converge, dash vs long-run character
-const tAt = (id: string, e: Tier, t: Tier, d: number) => { const race = new Race(d); const r = race.add('p', carStats(id, e, t, stage), new AIController(1, [0.25, 0.25], 7)); for (let i = 0; i < 120 * 60 && !race.done; i++) race.step(1 / 120); return r.finish!; };
+const tAt = (id: string, tune: Partial<Tune>, d: number) => { const race = new Race(d); const r = race.add('p', carStats(id, tune, stage), new AIController(1, [0.25, 0.25], 7)); for (let i = 0; i < 120 * 60 && !race.done; i++) race.step(1 / 120); return r.finish!; };
+/** quickest of the three gearings (the player picks it freely) */
+const bestAt = (id: string, tune: Partial<Tune>, d: number) => Math.min(...GEARINGS.map(g => tAt(id, { ...tune, gearing: g.id }, d)));
 let converge = true, stockSmall = true, character = true; const notes: string[] = [];
 for (const l of used) {
   const ids = CATALOG_ORDER.filter(id => CARS[id].league === l); if (ids.length < 2) continue;
-  const t5 = ids.map(id => tAt(id, 5, 5, 800)), t1 = ids.map(id => tAt(id, 1, 1, 800)), d6 = ids.map(id => tAt(id, 5, 5, 600));
+  // fully upgraded = every part at T5 on the car's best gearing; character = engine + gearbox maxed on factory gearing
+  const t5 = ids.map(id => bestAt(id, MAX_TUNE, 800)), t1 = ids.map(id => tAt(id, STOCK_TUNE, 800)), d6 = ids.map(id => tAt(id, { engine: 5, trans: 5 }, 600)), c8 = ids.map(id => tAt(id, { engine: 5, trans: 5 }, 800));
   const spread5 = Math.max(...t5) - Math.min(...t5), spread1 = Math.max(...t1) - Math.min(...t1);
   converge &&= spread5 <= 0.2; stockSmall &&= spread1 <= 0.6;
-  const best800 = ids[t5.indexOf(Math.min(...t5))], best600 = ids[d6.indexOf(Math.min(...d6))];
+  const best800 = ids[c8.indexOf(Math.min(...c8))], best600 = ids[d6.indexOf(Math.min(...d6))];
   character &&= best800 !== best600 && CARS[best600].character === 'dash' && CARS[best800].character === 'long';
   notes.push(`${l}: stock ±${spread1.toFixed(2)} → T5 ±${spread5.toFixed(2)} · 600 m ${best600} · 800 m ${best800}`);
 }
 check(stockSmall, `pricier cars start only slightly quicker (${notes.map(n => n.split(' → ')[0]).join(' | ')})`);
-check(converge, `fully upgraded cars in a league finish 800 m within 0.2 s of each other`);
-check(character, `dash cars win 600 m, long-run cars win 800 m when fully upgraded (${notes.map(n => n.split(' · ').slice(1).join(' / ')).join(' | ')})`);
+check(converge, `fully upgraded cars in a league (every part T5, best gearing) finish 800 m within 0.2 s of each other`);
+check(character, `dash cars win 600 m, long-run cars win 800 m with engine + gearbox maxed (${notes.map(n => n.split(' · ').slice(1).join(' / ')).join(' | ')})`);
 check(times.hyper <= 12, `hypercar clears 800 m in 12 s or less on stock parts (${times.hyper.toFixed(2)} s, owner Q89)`);
 // random rivals (owner Q87): same league, never faster than your perfect run, close enough that mistakes lose
-const configs: [string, Tier, Tier][] = [['panda_civix', 1, 1], ['classic', 3, 2], ['muscle', 1, 1], ['rally', 4, 5], ['tuner', 5, 5], ['hyper', 2, 4]];
+const configs: [string, Tune][] = [['panda_civix', STOCK_TUNE], ['classic', { engine: 3, trans: 2, tires: 2, weight: 1, turbo: 3, gearing: 'short' }], ['muscle', STOCK_TUNE],
+  ['rally', { engine: 4, trans: 5, tires: 3, weight: 4, turbo: 2 }], ['tuner', { ...MAX_TUNE, gearing: 'long' }], ['hyper', { engine: 2, trans: 4, tires: 1, weight: 5, turbo: 1 }]];
 let sameLeague = true, inWindow = true, perfectWins = 0, sloppyWins = 0, n = 0; const gaps: number[] = [];
-for (const [id, e, t] of configs) for (let k = 1; k <= 8; k++) {
-  const rv = makeRival(id, e, t, stage, k * 7919);
+const rivalTunes = new Set<string>();
+for (const [id, tune] of configs) for (let k = 1; k <= 8; k++) {
+  const rv = makeRival(id, tune, stage, k * 7919); rivalTunes.add(JSON.stringify(rv.tune));
   sameLeague &&= CARS[rv.carId].league === CARS[id].league;
   const gap = rv.expect - rv.yours; gaps.push(gap); inWindow &&= gap >= MATCH.minGap && gap <= MATCH.maxGap + 0.15;
   const race = new Race(stage.distanceM);
-  const me = race.add('p', carStats(id, e, t, stage), new AIController(1, [MATCH.reaction, MATCH.reaction], 7));
-  const them = race.add('r', carStats(rv.carId, rv.engineTier as Tier, rv.transTier as Tier, stage), new AIController(rv.skill, rv.reaction, rv.seed));
+  const me = race.add('p', carStats(id, tune, stage), new AIController(1, [MATCH.reaction, MATCH.reaction], 7));
+  const them = race.add('r', carStats(rv.carId, rv.tune, stage), new AIController(rv.skill, rv.reaction, rv.seed));
   for (let i = 0; i < 120 * 90 && !race.done; i++) race.step(1 / 120);
   if (me.finish! < them.finish!) perfectWins++;
-  if (simTime(id, e, t, stage, 0.7, [MATCH.reaction, MATCH.reaction + 0.1], k) < rv.expect) sloppyWins++;
+  if (simTime(id, tune, stage, 0.7, [MATCH.reaction, MATCH.reaction + 0.1], k) < rv.expect) sloppyWins++;
   n++;
 }
 check(sameLeague, 'rivals always drive a car from your league');
+check(rivalTunes.size >= n * 0.75, `rivals carry random parts and gearing for variety (${rivalTunes.size} different set-ups in ${n} rivals, owner Q173)`);
 check(inWindow, `rivals finish just behind your perfect run (gaps ${Math.min(...gaps).toFixed(2)}–${Math.max(...gaps).toFixed(2)} s)`);
 check(perfectWins === n, `a perfect run beats every rival (${perfectWins}/${n})`);
 check(sloppyWins < n * 0.4, `a sloppy run (skill 0.7) mostly loses — races are a challenge (${sloppyWins}/${n} wins)`);
 // the Strip (owner Q100): a stock starter clears the first rungs, mid upgrades get halfway, a maxed car reaches the top
-const climb = (id: string, e: Tier, t: Tier) => { let n = 0; while (n < STRIP.rungs) { const r = stripRung(CARS[id].league, n + 1, stage); if (simTime(id, e, t, stage, 1, [MATCH.reaction, MATCH.reaction], 7, r.dist) >= r.rival.expect) break; n++; } return n; };
-const cl = [climb('panda_civix', 1, 1), climb('panda_civix', 3, 3), climb('panda_civix', 5, 5)];
+// the player picks the best gearing for each rung's length
+const climb = (id: string, tune: Tune) => { let n = 0; while (n < STRIP.rungs) { const r = stripRung(CARS[id].league, n + 1, stage); if (Math.min(...GEARINGS.map(g => simTime(id, { ...tune, gearing: g.id }, stage, 1, [MATCH.reaction, MATCH.reaction], 7, r.dist))) >= r.rival.expect) break; n++; } return n; };
+const cl = [climb('panda_civix', STOCK_TUNE), climb('panda_civix', allAt(3)), climb('panda_civix', MAX_TUNE)];
 check(cl[0] >= 10 && cl[0] < 30 && cl[1] > cl[0] && cl[1] < 50 && cl[2] >= 55, `Strip D climb with perfect driving: stock ${cl[0]} · T3 ${cl[1]} · T5 ${cl[2]} of ${STRIP.rungs} rungs`);
 const rungs = Array.from({ length: STRIP.rungs }, (_, i) => stripRung('D', i + 1, stage));
 check(rungs.every(r => r.dist === [800, 600, 700][(r.n - 1) % 3]) && rungs.filter(r => r.boss).length === 6, 'Strip rungs rotate 800 / 600 / 700 m with a boss every 10th');
@@ -150,7 +157,7 @@ check(rungs.every(r => r.dist === [800, 600, 700][(r.n - 1) % 3]) && rungs.filte
 const last = rungs[STRIP.rungs - 1].rival;
 const rels = rungs.map(r => { const b = stripBand('D', r.dist, stage); return (b.easy - r.rival.expect) / (b.easy - b.final.expect); });
 check(rels.every((v, i) => i === 0 || v >= rels[i - 1] - 0.01), `every Strip rung is harder than the one before (difficulty ${rels[0].toFixed(2)} → ${rels[29].toFixed(2)} → ${rels[59].toFixed(2)})`);
-check(last.engineTier === 5 && last.transTier === 5 && last.skill >= 0.9 && last.expect - last.yours >= 0.02 && last.expect - last.yours < 0.15, `final rung: maxed-out car, near-perfect driver, beaten only by a perfect maxed run (${last.name} · ${last.carId} T5/T5 · skill ${last.skill} · ${(last.expect - last.yours).toFixed(3)} s behind perfect)`);
+check(Object.entries(last.tune).every(([k, v]) => k === 'gearing' || v === 5) && last.skill >= 0.9 && last.expect - last.yours >= 0.02 && last.expect - last.yours < 0.15, `final rung: maxed-out car, near-perfect driver, beaten only by a perfect maxed run (${last.name} · ${last.carId} all T5 ${last.tune.gearing} · skill ${last.skill} · ${(last.expect - last.yours).toFixed(3)} s behind perfect)`);
 const lr1 = levelReward('D', 1), lr10 = levelReward('D', 10), lr11 = levelReward('D', 11), lr60 = levelReward('D', 60);
 check(lr1.vx === 100 && lr1.crowns === 0 && lr10.crowns === 5 && lr10.cash > 0 && !!lr10.decal && lr11.crowns === 0 && !lr11.decal && lr60.car === 'boss_d' && !lr10.car && levelReward('C', 1).vx > lr1.vx,
   `Strip rewards: L1 +100 VX · bosses +5 Crowns, cash (L10 +${lr10.cash.toLocaleString()} VX), a decal · L60 also the boss car · higher leagues pay more`);
@@ -158,11 +165,43 @@ check(lr1.vx === 100 && lr1.crowns === 0 && lr10.crowns === 5 && lr10.cash > 0 &
 const nextOf: Record<string, string> = { boss_d: 'C', boss_c: 'B', boss_b: 'A', boss_a: 'S', boss_s: 'S' };
 let headStart = true, outmatched = true; const bn: string[] = [];
 for (const [b, lg] of Object.entries(nextOf)) {
-  const ids = CATALOG_ORDER.filter(id => CARS[id].league === lg), bt = tAt(b, 1, 1, 800);
-  const bestStock = Math.min(...ids.map(id => tAt(id, 1, 1, 800))), bestMax = Math.min(...ids.map(id => tAt(id, 5, 5, 800)));
+  const ids = CATALOG_ORDER.filter(id => CARS[id].league === lg), bt = bestAt(b, STOCK_TUNE, 800);
+  const bestStock = Math.min(...ids.map(id => bestAt(id, STOCK_TUNE, 800))), bestMax = Math.min(...ids.map(id => bestAt(id, MAX_TUNE, 800)));
   headStart &&= CARS[b].league === lg && bt < bestStock; outmatched &&= bestMax < bt - 0.3; bn.push(`${b} ${bt.toFixed(2)} vs ${lg} stock ${bestStock.toFixed(2)} / maxed ${bestMax.toFixed(2)}`);
 }
 check(headStart && outmatched, `boss cars: quicker than any stock car in the next league, beaten by upgraded ones (${bn.join(' · ')})`);
+// Tuning Update (V0.11.0, owner Q165–Q173): tyres, weight, turbo, gearing
+{
+  const { torqueAt } = await import('../src/game/stats');
+  const lgs = used.filter(l => l !== 'S' || true);
+  const avg = (l: string, tune: Partial<Tune>) => { const ids = CATALOG_ORDER.filter(id => CARS[id].league === l); return ids.reduce((a, id) => a + tAt(id, tune, 800), 0) / ids.length; };
+  const helps = lgs.map(l => { const st = avg(l, STOCK_TUNE); return [l, st - avg(l, { tires: 5 }), st - avg(l, { weight: 5 }), st - avg(l, { turbo: 5 })] as [string, number, number, number]; });
+  const everyCar = CATALOG_ORDER.every(id => tAt(id, { weight: 5 }, 800) < tAt(id, STOCK_TUNE, 800) && tAt(id, { turbo: 5 }, 800) < tAt(id, STOCK_TUNE, 800));
+  check(helps.every(h => h[1] > 0 && h[2] > 0 && h[3] > 0) && everyCar,
+    `tyres, weight and turbo T5 each make cars quicker (s saved at 800 m, league average — tyres / weight / turbo: ${helps.map(h => `${h[0]} ${h[1].toFixed(2)}/${h[2].toFixed(2)}/${h[3].toFixed(2)}`).join(' · ')})`);
+  const c0 = carStats('panda_civix', STOCK_TUNE, stage), cT = carStats('panda_civix', { turbo: 5 }, stage), cW = carStats('panda_civix', { weight: 5, turbo: 5 }, stage), cY = carStats('panda_civix', { tires: 5 }, stage);
+  const lo = 0.35 * c0.redline, hi = 0.95 * c0.redline;
+  check(Math.abs(cT.massKg / c0.massKg - 1.05) < 1e-9 && Math.abs(cW.massKg / c0.massKg - 0.97) < 1e-9 && torqueAt(cT, lo) < torqueAt(c0, lo) && torqueAt(cT, hi) > torqueAt(c0, hi) * 1.2
+    && cY.tractionN > c0.tractionN * 1.2 && cY.launch.perfectMax - cY.launch.perfectMin > (c0.launch.perfectMax - c0.launch.perfectMin) * 1.25,
+    `turbo: less pull low in the revs, +${Math.round((torqueAt(cT, hi) / torqueAt(c0, hi) - 1) * 100)}% high up, +5% weight (Q168); weight T5 + turbo T5 = −3%; tyres T5 +22% grip, +30% launch window`);
+  const gearBest = (id: string, tune: Partial<Tune>, d: number) => { const v = GEARINGS.map(g => tAt(id, { ...tune, gearing: g.id }, d)); return GEARINGS[v.indexOf(Math.min(...v))].id; };
+  const stockShort = CATALOG_ORDER.every(id => gearBest(id, STOCK_TUNE, 800) === 'short');
+  const maxPicks = CATALOG_ORDER.map(id => gearBest(id, MAX_TUNE, 800)), picks = (g: Gearing) => maxPicks.filter(x => x === g).length;
+  check(stockShort && picks('long') >= 3 && picks('long') < maxPicks.length, `gearing is a real choice: every stock car is quickest on Short; maxed at 800 m — Short ${picks('short')} · Balanced ${picks('balanced')} · Long ${picks('long')} cars`);
+  const limit = used.slice(1).map((l, i) => { const below = used[i], ids = (lg: string) => CATALOG_ORDER.filter(id => CARS[id].league === lg);
+    return [below, Math.min(...ids(below).map(id => bestAt(id, MAX_TUNE, 800))), l, Math.min(...ids(l).map(id => bestAt(id, STOCK_TUNE, 800)))] as [string, number, string, number]; });
+  check(limit.every(x => x[1] > x[3]), `class limit (U3): a maxed car never beats a stock car of the next league (${limit.map(x => `${x[0]} maxed ${x[1].toFixed(2)} > ${x[2]} stock ${x[3].toFixed(2)}`).join(' · ')})`);
+  // saves from before the update: the new parts arrive at stock, nothing else changes
+  const S = await import('../src/save/save'), E = await import('../src/data/economy');
+  const old = { ...S.freshSave(), owned: { engine: [1, 2], trans: [1] }, equipped: { engine: 2, trans: 1 }, cars: { panda_civix: { owned: { engine: [1, 2], trans: [1] }, equipped: { engine: 2, trans: 1 }, paint: '', opts: {}, parts: {} } } };
+  const store: Record<string, string> = { 'voxelcity.save': JSON.stringify(old) };
+  (globalThis as any).localStorage = { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => { store[k] = v; } };
+  const ld = S.loadSave(), c = ld.cars.panda_civix;
+  check(ld.equipped.engine === 2 && ld.equipped.tires === 1 && ld.equipped.turbo === 1 && c.owned.weight.join() === '1' && c.equipped.tires === 1 && JSON.stringify(ld.owned.engine) === '[1,2]'
+    && E.sellValue('D', 10_000, { ...c.owned, turbo: [1, 3] }) === Math.round((5_000 + E.partPrice('engine', 2, 'D') / 2 + E.partPrice('turbo', 3, 'D') / 2) / 50) * 50,
+    'old saves keep their engine/gearbox and get tyres, weight and turbo at stock; selling counts every part');
+  delete (globalThis as any).localStorage;
+}
 // economy: harder Street Races pay more; each league's cheapest car takes no more Medium wins than the league below
 const { racePay, CAR_PRICES } = await import('../src/data/economy');
 const wins = LEAGUES.map(l => { const cheapest = Math.min(...CATALOG_ORDER.filter(id => CARS[id].league === l && CARS[id].currency !== 'crowns' && CAR_PRICES[id].price > 0).map(id => CAR_PRICES[id].price)); return cheapest / racePay(l as any, 'medium', true).result; });
@@ -301,7 +340,7 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
       held: (r, rc) => !r.launched ? r.rpm / r.stats.redline < (o.rev ?? 0.63)
         : !(o.lift && rc.raceTime >= o.lift[0] && rc.raceTime < o.lift[1]) && !(o.spinLift && r.launchTimer < 0.06),
       shift: (r, rc) => { if (r.launched) return r.launchTimer > 0.3 && ai.shift(r); if (o.noTap || tapped || rc.t < (o.tapAt ?? 3)) return false; tapped = true; return true; } };
-    const r = race.add('p', carStats('panda_civix', 1, 1, stage), ctl);
+    const r = race.add('p', carStats('panda_civix', STOCK_TUNE, stage), ctl);
     for (let i = 0; i < 120 * 60 && !race.done; i++) { race.step(1 / 120); if (r.lastEvent?.text === 'Too early') early = true; }
     return { r, time: r.finish ?? 99, early };
   };

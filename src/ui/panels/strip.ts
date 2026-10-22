@@ -1,5 +1,5 @@
 // The Strip (owner Q87/Q100): the race-menu card, and the screen with every level as a card on a sideways scroller
-// (like CSR). Owner 2026-10-21 (V0.13.0): each card shows only the level and the money it pays; the next level is the
+// (like CSR). Owner 2026-10-21 (V0.14.0): each card shows only the level and the money it pays; the next level is the
 // yellow card you tap to race; rewards are added automatically when a level is cleared (main.ts grantLevel).
 import { SaveV1 } from '../../save/save';
 import { CARS } from '../../data/cars';

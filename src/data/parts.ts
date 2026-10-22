@@ -36,11 +36,79 @@ const TRANS_D: TransmissionTier[] = [
 ];
 
 export type PartLeague = 'D' | 'C' | 'B' | 'A' | 'S';
+
+// ---- Tuning Update (V0.11.0, owner Q165–Q173): tyres, weight, turbo and a gearing choice ----
+/** Tyres: more grip (traction before wheelspin) and a wider Perfect-launch window (owner Q166 B). */
+export interface TiresTier { tier: Tier; gripMult: number; launchMult: number; price: number; label: string }
+/** Weight: a lighter car (owner Q167 A). */
+export interface WeightTier { tier: Tier; massMult: number; price: number; label: string }
+/** Turbo: more power that arrives higher in the revs, a little less down low, and a little weight back (owner Q168 B). */
+export interface TurboTier { tier: Tier; boost: number; lowLoss: number; massAdd: number; price: number; label: string }
+
+const TIRES_D: TiresTier[] = [
+    { tier: 1, gripMult: 1.00, launchMult: 1.00, price: 0, label: 'Stock tyres' },
+    { tier: 2, gripMult: 1.05, launchMult: 1.08, price: 0, label: 'Street radials' },
+    { tier: 3, gripMult: 1.10, launchMult: 1.15, price: 0, label: 'Sport compound' },
+    { tier: 4, gripMult: 1.16, launchMult: 1.22, price: 0, label: 'Semi-slicks' },
+    { tier: 5, gripMult: 1.22, launchMult: 1.30, price: 0, label: 'Drag radials' },
+];
+const WEIGHT_D: WeightTier[] = [
+    { tier: 1, massMult: 1.00, price: 0, label: 'Stock body' },
+    { tier: 2, massMult: 0.98, price: 0, label: 'Light seats' },
+    { tier: 3, massMult: 0.96, price: 0, label: 'Stripped interior' },
+    { tier: 4, massMult: 0.94, price: 0, label: 'Carbon panels' },
+    { tier: 5, massMult: 0.92, price: 0, label: 'Race shell' },
+];
+const TURBO_D: TurboTier[] = [
+    { tier: 1, boost: 0.00, lowLoss: 0.00, massAdd: 0.00, price: 0, label: 'No turbo' },
+    { tier: 2, boost: 0.06, lowLoss: 0.03, massAdd: 0.02, price: 0, label: 'Small turbo' },
+    { tier: 3, boost: 0.12, lowLoss: 0.04, massAdd: 0.03, price: 0, label: 'Twin-scroll turbo' },
+    { tier: 4, boost: 0.18, lowLoss: 0.05, massAdd: 0.04, price: 0, label: 'Big single turbo' },
+    { tier: 5, boost: 0.25, lowLoss: 0.06, massAdd: 0.05, price: 0, label: 'Twin turbo' },
+];
+/** Where the turbo comes on, as a share of redline: none below `from`, full boost from `full` up (smooth between). */
+export const SPOOL = { from: 0.45, full: 0.80 };
+
+/** Gearing (owner Q170 B): one free choice per car. Short = harder pull in 1st and 2nd gear, but a shorter top gear that
+ *  runs out of revs sooner; Long = a softer start, a taller top gear. `pull` multiplies the drive (and the grip it can use)
+ *  in the first two gears; `top` multiplies the top-gear ratio. */
+export type Gearing = 'short' | 'balanced' | 'long';
+export const GEARINGS: { id: Gearing; label: string; pull: number; top: number; desc: string }[] = [
+  { id: 'short', label: 'Short', pull: 1.06, top: 1.08, desc: 'Harder launch, runs out of revs sooner' },
+  { id: 'balanced', label: 'Balanced', pull: 1.00, top: 1.00, desc: 'The factory gearing' },
+  { id: 'long', label: 'Long', pull: 0.96, top: 0.88, desc: 'Softer launch, more top speed' },
+];
+export const GEARING_BY_ID = Object.fromEntries(GEARINGS.map(g => [g.id, g])) as Record<Gearing, (typeof GEARINGS)[number]>;
+
+/** How strong upgrades are in each league (1 = the tables as written). Class limit (U3): a fully upgraded car never beats
+ *  a stock car of the next league, and leagues C and B sit close to the league above, so their parts do less.
+ *  Scales the power, grip, weight and turbo effects; transmissions are the same everywhere. */
+export const LEAGUE_EFFECT: Record<PartLeague, number> = { D: 1, C: 0.38, B: 0.6, A: 1, S: 1 };
+
+/** Every performance part a car can upgrade (U1). Nitrous comes in its own update. */
+export type PerfKind = 'engine' | 'trans' | 'tires' | 'weight' | 'turbo';
+export const PERF_KINDS: PerfKind[] = ['engine', 'trans', 'tires', 'weight', 'turbo'];
+export const PERF_LABEL: Record<PerfKind, string> = { engine: 'Engine', trans: 'Transmission', tires: 'Tyres', weight: 'Weight', turbo: 'Turbo' };
+/** A car's performance set-up: a tier per part + its gearing (missing gearing = balanced). */
+export type Tune = Record<PerfKind, Tier> & { gearing?: Gearing };
+export const STOCK_TUNE: Tune = { engine: 1, trans: 1, tires: 1, weight: 1, turbo: 1 };
+export const MAX_TUNE: Tune = { engine: 5, trans: 5, tires: 5, weight: 5, turbo: 5 };
+/** Every part at one tier (tests, the Strip). */
+export const allAt = (t: Tier, gearing?: Gearing): Tune => ({ engine: t, trans: t, tires: t, weight: t, turbo: t, ...(gearing ? { gearing } : {}) });
+/** Fill in parts missing from an older save / rival (stock) — returns a full tune. */
+export const fullTune = (t: Partial<Tune> | undefined): Tune => ({ ...STOCK_TUNE, ...(t || {}) });
+
 // Prices come from the economy file (PART_PRICES × LEAGUE_SCALE); the tier effects above are the same in every league for now.
-const priced = <T extends { price: number; tier: Tier }>(rows: T[], kind: 'engine' | 'trans', l: PartLeague): T[] => rows.map(r => ({ ...r, price: partPrice(kind, r.tier, l) }));
+const priced = <T extends { price: number; tier: Tier }>(rows: T[], kind: PerfKind, l: PartLeague): T[] => rows.map(r => ({ ...r, price: partPrice(kind, r.tier, l) }));
 const LG: PartLeague[] = ['D', 'C', 'B', 'A', 'S'];
-export const ENGINE = Object.fromEntries(LG.map(l => [l, priced(ENGINE_D, 'engine', l)])) as Record<PartLeague, EngineTier[]>;
-export const TRANSMISSION = Object.fromEntries(LG.map(l => [l, priced(TRANS_D, 'trans', l)])) as Record<PartLeague, TransmissionTier[]>;
+const perLeague = <T extends { price: number; tier: Tier }>(rows: T[], kind: PerfKind) => Object.fromEntries(LG.map(l => [l, priced(rows, kind, l)])) as Record<PartLeague, T[]>;
+export const ENGINE = perLeague(ENGINE_D, 'engine');
+export const TRANSMISSION = perLeague(TRANS_D, 'trans');
+export const TIRES = perLeague(TIRES_D, 'tires');
+export const WEIGHT = perLeague(WEIGHT_D, 'weight');
+export const TURBO = perLeague(TURBO_D, 'turbo');
+/** A part's tier row (label + price) for any kind. */
+export const PART_TABLE: Record<PerfKind, Record<PartLeague, { tier: Tier; price: number; label: string }[]>> = { engine: ENGINE, trans: TRANSMISSION, tires: TIRES, weight: WEIGHT, turbo: TURBO };
 
 // Launch window (hold to rev, release on green): RPM at release as a fraction of redline (R9).
 export const LAUNCH = { perfectMin: 0.55, perfectMax: 0.72, goodPad: 0.10, bogPenalty: 0.55, spinSeconds: 0.7, spinGrip: 0.55 };

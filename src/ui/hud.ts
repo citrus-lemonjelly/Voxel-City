@@ -146,7 +146,7 @@ export class Hud {
     this.plateW = { compact: PWc, full: PWf };
     (plate as any).style.cssText = `left:0;top:${PT}px`;
     plate.setAttribute('height', String(PH));
-    // Bevel+ (owner Q175, V0.12.1): a lit block like the menus — drop shadow, dark outline, light top/left edge, dark right edge
+    // Bevel+ (owner Q175, V0.13.1): a lit block like the menus — drop shadow, dark outline, light top/left edge, dark right edge
     this.plateShadow = svgEl('path', { fill: BEVEL.edge, 'fill-opacity': 0.6, transform: 'translate(5 5)' }, plate);
     this.plateFill = svgEl('path', { fill: BEVEL.face, 'fill-opacity': 0.92, stroke: BEVEL.edge, 'stroke-width': 2 }, plate);
     this.plateEdge = svgEl('path', { stroke: BEVEL.light, 'stroke-width': 3, fill: 'none', transform: 'translate(1.5 1.5)' }, plate);

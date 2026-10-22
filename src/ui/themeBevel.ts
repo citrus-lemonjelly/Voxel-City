@@ -1,4 +1,4 @@
-// "Bevel+" look (owner 2026-10-21; S69) — the game's only look since V0.12.0, layered on top of styles.ts (layout).
+// "Bevel+" look (owner 2026-10-21; S75) — the game's only look since V0.13.0, layered on top of styles.ts (layout).
 // Every panel and button is a lit voxel block (light top-left edge, dark bottom-right, like the cars and paddles),
 // pressed/selected = sunk in, trays = sunken wells. Yellow only means "act" (Race, the chosen option, panel titles).
 // Titles and big numbers in the Silkscreen pixel font (built in, data/fontSilkscreen.ts); the rest system-ui, 11 px+.
@@ -29,6 +29,7 @@ export const BEVEL_CSS = [
   B('.hd', `${PX};letter-spacing:.04em`),
   B('.voxels,.crowns,.g-stats b,.stat b,.tier b,.g-grid b,.g-go,.gr-dbtn b,.g-sub-name,.g-subtab,.earn .total,.ty-stats .stat b,#gearbox b,#grade,.dl-rw,.dl-st,.pt-plate input', PX),
   B('.pt-group', 'font:700 11px system-ui;letter-spacing:.1em;color:#7d8290'),
+  B('.upg-hd h3', 'font-size:11px;width:auto;min-width:104px'),      // Upgrades rows (Tuning Update): "Transmission" fits
   B('.pt-rar', 'font-size:11px'),
   B('.gr-tabs button', 'font:700 12px system-ui;letter-spacing:.02em'),
   B('.cal-day', 'font:700 11px system-ui;font-variant-numeric:tabular-nums'),
@@ -69,7 +70,7 @@ export const BEVEL_CSS = [
   B('.g-panel', 'padding:0 16px 16px;gap:10px'),
   B('.g-panel>h2.hd', 'display:flex;align-items:center;gap:8px;margin:0 -16px 2px;padding:12px 52px 11px 14px;font-size:16px;color:#f2c230;background:#1f232c;box-shadow:inset 0 -2px 0 #15171d,inset 3px 3px 0 #3f4555'),
   B('.g-panel>h2.hd svg', 'flex:none'),
-  // small grey label at the end of a title ("Current V0.12.1", "League D parts · Civix")
+  // small grey label at the end of a title ("Current V…", "League D parts · Civix")
   B('.g-panel>h2 .g-sub', 'position:static;transform:none;display:inline;margin-left:auto;padding:0;background:none;box-shadow:none;z-index:auto;font:700 11px system-ui;letter-spacing:0;text-transform:none;color:#9aa3b5;white-space:nowrap'),
   B('.g-close', 'right:10px;top:9px;width:28px;height:28px;font-size:12px'),
   B('.g-panel.g-notes', 'left:28px;right:auto;top:160px;bottom:106px;width:470px;gap:10px'),
@@ -120,7 +121,7 @@ export const BEVEL_CSS = [
   B('.g-racebtn:active', 'transform:translateY(2px)'),
   B('.g-racebtn:active .rb-face', 'box-shadow:inset 3px 3px 0 #b8901c,inset -3px -3px 0 #ffe27a,0 0 0 2px #0b0c10'),
   B('.g-racebtn:focus-visible .rb-face', 'outline:3px solid #fff;outline-offset:-8px'),
-  // ---- the Strip, compact (owner 2026-10-21, V0.13.0): a narrow centred strip of small cards — level + money only; the next
+  // ---- the Strip, compact (owner 2026-10-21, V0.14.0): a narrow centred strip of small cards — level + money only; the next
   //      level is the yellow card you tap to race; cleared levels get a green tick; boss levels a red edge ----
   B('.strip-wrap', 'left:50%;right:auto;transform:translateX(-50%);width:min(700px,calc(100% - 56px));bottom:104px;padding:7px 9px 8px;gap:5px'),
   B('.sl-head', 'gap:10px;align-items:center'),
@@ -143,7 +144,7 @@ export const BEVEL_CSS = [
   B('.sl-go', 'font:700 11px system-ui;color:#14161c'),
   // ---- Typing Race panel grows to fit its text, so the stats row never gets cut off on short screens ----
   B('#typing .ty-panel', 'top:auto;max-height:calc(100% - 120px)'),
-  // ---- race screen (owner Q175, V0.12.1): race strip as a block with a sunken road; the start lights are sunken cells that
+  // ---- race screen (owner Q175, V0.13.1): race strip as a block with a sunken road; the start lights are sunken cells that
   //      light up as lit blocks. The dash plate behind gauge + paddles + pedal is drawn in hud.ts with the same colours. ----
   B('.hud2 .race-strip', `${PANEL};clip-path:none`),
   B('.hud2 .race-strip .road', WELL),
@@ -154,8 +155,8 @@ export const BEVEL_CSS = [
   // ---- race menu cards ----
   B('.g-mode .hd', 'font-size:16px'),
   B('.g-go', 'color:#f2c230'),
-  // ---- touch screens (owner E4, V0.12.1): a little bigger to tap. On phones the whole layer is also scaled to fit
-  //      (styles.ts, V0.13.0), so these end up ~45 × 39 px on a sideways phone, and the side rail fits as on a PC. ----
+  // ---- touch screens (owner E4, V0.13.1): a little bigger to tap. On phones the whole layer is also scaled to fit
+  //      (styles.ts, V0.14.0), so these end up ~45 × 39 px on a sideways phone, and the side rail fits as on a PC. ----
   `@media (pointer:coarse){${[
     B('.g-util>button', 'width:64px;height:56px'),
     B('.g-tab', 'width:88px;height:56px'),

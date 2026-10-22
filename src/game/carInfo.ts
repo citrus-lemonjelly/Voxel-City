@@ -4,14 +4,14 @@ import { Race } from './race';
 import { AIController } from './ai';
 import { carStats, wheelRpm } from './stats';
 import { CARS } from '../data/cars';
-import { Tier } from '../data/parts';
+import { Tune, STOCK_TUNE, MAX_TUNE } from '../data/parts';
 
 export interface CarInfo { zeroTo60: number; topMph: number; gripG: number; shiftS: number; shiftWindow: number; launchWindow: number }
 const cache = new Map<string, CarInfo>();
 
-export function carInfo(id: string, eng: Tier = 1, trans: Tier = 1): CarInfo {
-  const key = `${id}:${eng}:${trans}`, hit = cache.get(key); if (hit) return hit;
-  const s = carStats(id, eng, trans);
+export function carInfo(id: string, tune: Tune = STOCK_TUNE): CarInfo {
+  const key = `${id}:${JSON.stringify(tune)}`, hit = cache.get(key); if (hit) return hit;
+  const s = carStats(id, tune);
   // 0–60 mph with a perfect launch and shifts
   const race = new Race(2000), r = race.add('x', s, new AIController(1, [0.25, 0.25], 7));
   let t60 = 99;
@@ -48,9 +48,9 @@ export function infoRows(id: string): { label: string; value: string; bar: numbe
 
 /** Garage rows (owner 2026-10-19): the car's stock value and its value with your upgrades, as 0–1 bars on one scale that
  *  spans the league from the weakest stock car to the best fully upgraded one, so the upgrade part of each bar shows. */
-export function garageRows(id: string, eng: Tier, trans: Tier): { label: string; value: string; base: number; now: number }[] {
+export function garageRows(id: string, tune: Tune): { label: string; value: string; base: number; now: number }[] {
   const league = CARS[id].league, ids = Object.keys(CARS).filter(k => CARS[k].league === league && !CARS[k].unique).concat(id);
-  const pool = ids.flatMap(k => [carInfo(k), carInfo(k, CARS[k].unique ? 1 : 5, CARS[k].unique ? 1 : 5)]), base = carInfo(id), now = carInfo(id, eng, trans);
+  const pool = ids.flatMap(k => [carInfo(k), carInfo(k, MAX_TUNE)]), base = carInfo(id), now = carInfo(id, tune);
   const rel = (f: (c: CarInfo) => number, lowerIsBetter = false) => {
     const xs = pool.map(f), lo = Math.min(...xs), hi = Math.max(...xs);
     const r = (c: CarInfo) => hi - lo < 1e-6 ? 0.75 : 0.15 + 0.85 * (lowerIsBetter ? (hi - f(c)) / (hi - lo) : (f(c) - lo) / (hi - lo));

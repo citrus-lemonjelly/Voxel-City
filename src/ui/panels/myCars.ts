@@ -5,6 +5,7 @@ import { SaveV1, carTiers, slotsUsed, slotsTotal, sellBlock } from '../../save/s
 import { CARS, CATALOG_ORDER, LEAGUES, carBrand, carName } from '../../data/cars';
 import { GARAGE, sellValue, EcoLeague } from '../../data/economy';
 import { garageRows } from '../../game/carInfo';
+import { PERF_KINDS } from '../../data/parts';
 import { DEV } from '../devConsole';
 import { ui, scroll, lookOf, crownIcon, TYPE_SUB, GarageHandlers, Wire } from './shared';
 import { curSel, partLook } from './bodyShop';
@@ -43,7 +44,7 @@ export function garageHtml(save: SaveV1, on: GarageHandlers): string {
     const c = CARS[cid], t = carTiers(save, cid), use = save.carId === cid, fav = favs.includes(cid);
     const tag = use ? '<em class="cat-tag use">Driving</em>' : c.unique ? '<em class="cat-tag own">Boss car</em>' : `<em class="cat-tag own">League ${c.league}</em>`;
     return `<button class="cat-card gr-card ${cid === id ? 'on' : ''}" data-gcar="${cid}"><img class="cat-thumb" alt="" src="${on.thumb(lookOf(save, cid))}">
-      <span class="cat-row"><b>${carName(cid)}</b>${tag}</span><span class="gr-sub">${c.unique ? 'No upgrades' : `Engine T${t.equipped.engine} · Gearbox T${t.equipped.trans}`}</span>
+      <span class="cat-row"><b>${carName(cid)}</b>${tag}</span><span class="gr-sub">${c.unique ? 'No upgrades' : `Upgrades ${PERF_KINDS.reduce((a, k) => a + t.equipped[k] - 1, 0)}/${PERF_KINDS.length * 4}`}</span>
       <i class="gr-star ${fav ? 'on' : ''}" data-fav="${cid}" title="${fav ? 'Remove from favourites' : 'Add to favourites'}">★</i></button>`;
   };
   const list = ids.length ? ids.map(card).join('') : `<div class="g-note gr-empty">${ui.favOnly ? 'No favourites yet — tap ★ on a car.' : ui.gtab === 'boss' ? 'No boss cars yet — beat the boss at level 60 of a Strip.' : 'No cars yet.'}</div>`;
@@ -51,7 +52,7 @@ export function garageHtml(save: SaveV1, on: GarageHandlers): string {
   const tabs = `<div class="seg gr-tabs"><button class="${ui.gtab === 'cars' ? 'on' : ''}" data-gtab="cars">Cars ${used}/${total}</button><button class="${ui.gtab === 'boss' ? 'on' : ''}" data-gtab="boss">Boss cars ${bossN}</button></div>`;
   const slot = ui.gtab === 'cars' && total < GARAGE.maxSlots ? `<button class="gr-slot" id="gSlot" ${DEV.unlimited || save.crowns >= GARAGE.slotCrowns ? '' : 'disabled'}>+1 slot · ${crownIcon()}${GARAGE.slotCrowns}</button>` : '';
   const more = Object.keys(save.cars).length < 2 ? `<div class="g-note gr-empty">Buy more cars in the Catalog ▸</div>` : '';
-  const rows = garageRows(id, T.equipped.engine, T.equipped.trans);
+  const rows = garageRows(id, T.equipped);
   const pc = (v: number) => Math.round(Math.max(0, Math.min(1, v)) * 100);
   // grey = stock; green = what your upgrades add; red = what they cost (e.g. shorter gears trade top speed for pull)
   const bars = rows.map(r => { const lo = pc(Math.min(r.base, r.now)), hi = pc(Math.max(r.base, r.now)), worse = r.now < r.base - 1e-6;

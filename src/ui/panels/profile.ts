@@ -9,7 +9,7 @@ import { icon, fmtTime } from './shared';
 
 export function profileHtml(save: SaveV1, close: string): string {
   const rate = save.races ? Math.round(save.wins / save.races * 100) + '%' : '—';
-  const st = displayStats(carStats(save.carId, save.equipped.engine, save.equipped.trans));
+  const st = displayStats(carStats(save.carId, save.equipped));
   return `<div class="g-panel blk">${close}<h2 class="hd">Profile</h2>
       <div class="g-avatar"><div class="g-avatar-box">${icon('profile', 7)}</div><div><b class="hd">Driver</b><span>League ${CARS[save.carId].league}</span><span class="g-note">Avatar comes with the avatar system.</span></div></div>
       <div class="g-pcar"><div class="g-league"><span class="g-chipL">League ${CARS[save.carId].league}</span>${carBrand(save.carId)} · driving</div><b class="hd">${carName(save.carId)}</b>

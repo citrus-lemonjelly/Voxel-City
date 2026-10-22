@@ -8,7 +8,7 @@ import { CARS, CATALOG_ORDER, League } from '../data/cars';
 import { StageDef } from '../data/stages';
 import { makeRng } from './ai';
 import { Rival, rivalNear, simTime, MATCH } from './rivals';
-import { Tier } from '../data/parts';
+import { allAt, GEARINGS, STOCK_TUNE, Tune } from '../data/parts';
 import { STRIP_REWARDS, LEAGUE_SCALE } from '../data/economy';
 
 export const STRIP = { rungs: 60, bossEvery: 10, dists: [800, 600, 700] as const,
@@ -54,18 +54,20 @@ const bandCache = new Map<string, { easy: number; final: Rival }>();
 export function stripBand(league: League, dist: number, stage: StageDef) {
   const k = `${league}:${dist}`, hit = bandCache.get(k); if (hit) return hit;
   const ids = CATALOG_ORDER.filter(id => CARS[id].league === league), me: [number, number] = [MATCH.reaction, MATCH.reaction];
-  const easy = Math.max(...ids.map(id => simTime(id, 1, 1, stage, 1, me, 7, dist))) + STRIP.easyPad;
+  const easy = Math.max(...ids.map(id => simTime(id, STOCK_TUNE, stage, 1, me, 7, dist))) + STRIP.easyPad;
   const F = STRIP.final, seed = 0xf1a1 + dist;
-  // the best a player can do here: the league's quickest car, maxed, driven perfectly
-  const perfect = Math.min(...ids.map(id => simTime(id, 5, 5, stage, 1, me, 7, dist)));
+  // the best a player can do here: the league's quickest car, maxed, on its best gearing for this length, driven perfectly
+  const maxed: Record<string, Tune> = {}, best: Record<string, number> = {};
+  for (const id of ids) for (const g of GEARINGS) { const t = simTime(id, allAt(5, g.id), stage, 1, me, 7, dist); if (!(t >= best[id])) { best[id] = t; maxed[id] = allAt(5, g.id); } }
+  const perfect = Math.min(...ids.map(id => best[id]));
   // final rival: maxed car, the most competent driver that a perfect run in the right car still beats (by ≥ F.margin)
   let final: Rival | null = null;
   for (let skill = 0.99; skill >= 0.9; skill -= 0.005) for (const id of ids) {
-    const t = simTime(id, 5, 5, stage, skill, F.reaction, seed, dist);
+    const t = simTime(id, maxed[id], stage, skill, F.reaction, seed, dist);
     if (t >= perfect + F.margin && (!final || t < final.expect))
-      final = { id: 'rival', name: BOSSES[league].name, carId: id, engineTier: 5 as Tier, transTier: 5 as Tier, skill: +skill.toFixed(3), reaction: F.reaction, paint: BOSSES[league].paint, seed, expect: t, yours: perfect };
+      final = { id: 'rival', name: BOSSES[league].name, carId: id, tune: maxed[id], skill: +skill.toFixed(3), reaction: F.reaction, paint: BOSSES[league].paint, seed, expect: t, yours: perfect };
   }
-  final ??= { id: 'rival', name: BOSSES[league].name, carId: ids[0], engineTier: 5 as Tier, transTier: 5 as Tier, skill: 0.9, reaction: F.reaction, paint: BOSSES[league].paint, seed, expect: perfect + F.margin, yours: perfect };
+  final ??= { id: 'rival', name: BOSSES[league].name, carId: ids[0], tune: maxed[ids[0]], skill: 0.9, reaction: F.reaction, paint: BOSSES[league].paint, seed, expect: perfect + F.margin, yours: perfect };
   const b = { easy, final }; bandCache.set(k, b); return b;
 }
 

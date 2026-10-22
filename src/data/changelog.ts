@@ -26,7 +26,7 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '0.13.0', date: '2026-10-21', title: 'Every screen fits your phone', header: 'Phone Update',
+    version: '0.14.0', date: '2026-10-21', title: 'Every screen fits your phone', header: 'Phone Update',
     added: [
       'Every menu, result and Typing Race screen now fits small screens and phones: it shrinks to fit, and long panels scroll inside.',
       'Strip rewards are added automatically when you clear a level (they show on the race results).',
@@ -46,7 +46,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.12.1', date: '2026-10-21', title: 'The race screen gets the new look',
+    version: '0.13.1', date: '2026-10-21', title: 'The race screen gets the new look',
     added: [
       'Clicking anywhere outside the side bar, or pressing Esc, closes it (the click still does what you meant).',
       'Phones: the menu opens as a row of big buttons just above the Menu button, so it fits on a sideways screen.',
@@ -61,7 +61,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.12.0', date: '2026-10-21', title: 'A new coat for every menu', header: 'Style Update',
+    version: '0.13.0', date: '2026-10-21', title: 'A new coat for every menu', header: 'Style Update',
     added: [
       'A Menu button in the bottom-left corner: it opens a side bar with Profile, Garage, Catalog, Settings and the four small buttons, and closes again when you pick one.',
       'A yellow dot on the Menu button when a Daily task or calendar day is ready to claim.',
@@ -76,14 +76,14 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Small labels are bigger (11 px and up).',
     ],
     fixed: [
-      'Small labels at the end of some panel titles (like "Current V0.12.0") were hidden; they show now.',
+      'Small labels at the end of some panel titles (like "Current V…") were hidden; they show now.',
     ],
     removed: [
       'The best time in the wallet corner (it is still in Profile and on the race results).',
     ],
   },
   {
-    version: '0.11.0', date: '2026-10-21', title: 'Hold the gas yourself', header: 'Pedal Update',
+    version: '0.12.0', date: '2026-10-21', title: 'Hold the gas yourself', header: 'Pedal Update',
     added: [
       'Pedal mode (Settings ▸ Controls ▸ Drive mode): the gas pedal stays all race. Hold it to pull, let go to coast. Tap shift up on green to launch.',
       'Shift up has its own key in Pedal mode (↑ by default, change it in Controls).',
@@ -96,6 +96,22 @@ export const CHANGELOG: ChangelogEntry[] = [
     changed: [
       'The Race button is smaller and blocky, with a wheel and a gear that turn when you point at it.',
       'Classic controls stay the default and work exactly as before.',
+    ],
+  },
+  {
+    version: '0.11.0', date: '2026-10-21', title: 'Tyres, weight, turbo and gearing', header: 'Tuning Update',
+    added: [
+      'Three new upgrades for every car, T1–T5 in each league: Tyres (more grip and an easier perfect launch), Weight (a lighter car) and Turbo (more power high in the revs, a little less down low, and a little extra weight).',
+      'Gearing for every car, free to change in Upgrades: Short (harder launch, runs out of revs sooner), Balanced (factory) or Long (softer launch, more top speed). Stock cars like Short; fully upgraded cars often need Long so they don\'t hit the rev limiter before the line.',
+      'Boss cars can change their gearing too (their parts still come as they are).',
+    ],
+    changed: [
+      'Rivals now carry all five parts, each at a random tier near your own level, and a random gearing, so no two rivals are set up the same.',
+      'The Strip\'s top rungs expect a fully upgraded car on the right gearing for the race length.',
+      'Upgrades in Leagues C and B are a little gentler so a fully upgraded car never beats a stock car of the next league.',
+      'Boss cars of Leagues D and B got a little more power so they keep their head start in the next league.',
+      'The Garage list shows how many upgrade steps a car has (for example Upgrades 6/20).',
+      'Selling a car pays back half of every part bought for it, not just the engine and gearbox.',
     ],
   },
   {

@@ -8,7 +8,8 @@ type Lg = 'D' | 'C' | 'B' | 'A' | 'S';
 // The typical player + league targets live in economy.ts (PACING) so the test console uses the same numbers.
 const P = E.PACING, TARGET = P.targetHours, dragPerMin = E.dragPerMin, typingPerMin = E.typingPerMin;
 const f = (n: number) => Math.round(n).toLocaleString('en-US');
-const upgradeCost = (l: Lg) => [2, 3, 4, 5].reduce((a, t) => a + E.partPrice('engine', t, l) + E.partPrice('trans', t, l), 0);
+const KINDS = Object.keys(E.PART_PRICES) as (keyof typeof E.PART_PRICES)[];
+const upgradeCost = (l: Lg) => [2, 3, 4, 5].reduce((a, t) => a + KINDS.reduce((b, k) => b + E.partPrice(k, t, l), 0), 0);
 const cheapestCar = (l: Lg) => Math.min(...CATALOG_ORDER.filter((id: string) => CARS[id].league === l && CARS[id].currency !== 'crowns' && CARS[id].price > 0).map((id: string) => CARS[id].price));
 function stripCash(l: Lg) { let s = 0; for (let n = 1; n <= STRIP.rungs; n++) { const r = levelReward(l, n); s += r.vx + r.cash; } return s; }
 function stripCrowns(l: Lg) { let s = 0; for (let n = 1; n <= STRIP.rungs; n++) s += levelReward(l, n).crowns; return s; }
@@ -28,7 +29,7 @@ table('Hours to finish a league (buy its cheapest car + max it; the Strip pays a
   (LEAGUES as Lg[]).map(l => {
     const rate = dragPerMin(l), need = cheapestCar(l) + upgradeCost(l) - stripCash(l) - E.ECONOMY.startingVoxels * +(l === 'D');
     const h = Math.max(0, need) / rate / 60, [lo, hi] = TARGET[l];
-    return [l, f(cheapestCar(l)), f(upgradeCost(l)), f(stripCash(l)), (upgradeCost(l) / 8 / rate).toFixed(1), h.toFixed(1), `${lo}–${hi}`, h < lo ? 'TOO FAST' : h > hi ? 'TOO SLOW' : 'ok'];
+    return [l, f(cheapestCar(l)), f(upgradeCost(l)), f(stripCash(l)), (upgradeCost(l) / (KINDS.length * 4) / rate).toFixed(1), h.toFixed(1), `${lo}–${hi}`, h < lo ? 'TOO FAST' : h > hi ? 'TOO SLOW' : 'ok'];
   }));
 
 const vxIds = Object.keys(E.COSMETIC_PRICES).filter(id => E.COSMETIC_PRICES[id].currency !== 'crowns');
