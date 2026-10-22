@@ -117,14 +117,17 @@ export const ENGINE = perLeague(ENGINE_D, 'engine');
  *  and B keep the 5-speed → 6-speed boxes. Extra gears sit between the same first and top ratios (closer spacing), and the
  *  shift gets quicker in step, so a race doesn't lose more time changing gear than a 6-speed would. */
 export const GEARS_BY_LEAGUE: Partial<Record<PartLeague, number[]>> = { A: [6, 6, 7, 7, 7], S: [7, 7, 8, 8, 8] };
+/** V0.16.2 (owner: "1st to 8th in 2 seconds"): the A and S boxes are taller and spaced progressively — first gear × first, top
+ *  gear × top, and the steps shrink toward the top (spacing p < 1) — so these powerful cars use every gear across the run
+ *  instead of reaching top gear in a few seconds and sitting on the limiter. */
+export const TALL_BOX: Partial<Record<PartLeague, { first: number; top: number; p: number }>> = { A: { first: 1, top: 1, p: 0.75 }, S: { first: 0.78, top: 0.67, p: 0.8 } };
 const SPEED_NAME: Record<number, string> = { 5: '5-speed', 6: '6-speed', 7: '7-speed', 8: '8-speed' };
-function moreGears(t: TransmissionTier, n: number): TransmissionTier {
-  const a = t.ratios[0], z = t.ratios[t.ratios.length - 1], have = t.ratios.length;
-  if (n <= have) return t;
-  const ratios = Array.from({ length: n }, (_, i) => +(a * Math.pow(z / a, i / (n - 1))).toFixed(3));
-  return { ...t, ratios, shiftTime: +(t.shiftTime * (have - 1) / (n - 1)).toFixed(3), label: t.label.replace(/[0-9]-speed/, SPEED_NAME[n]).replace('Short shifter', `Short shifter ${SPEED_NAME[n]}`) };
+function moreGears(t: TransmissionTier, n: number, tall = { first: 1, top: 1, p: 1 }): TransmissionTier {
+  const a = t.ratios[0] * tall.first, z = t.ratios[t.ratios.length - 1] * tall.top, have = t.ratios.length;
+  const ratios = Array.from({ length: n }, (_, i) => +(a * Math.pow(z / a, Math.pow(i / (n - 1), tall.p))).toFixed(3));
+  return { ...t, ratios, shiftTime: +(t.shiftTime * (have - 1) / Math.max(have - 1, n - 1)).toFixed(3), label: t.label.replace(/[0-9]-speed/, SPEED_NAME[n]).replace('Short shifter', `Short shifter ${SPEED_NAME[n]}`) };
 }
-export const TRANSMISSION = Object.fromEntries(LG.map(l => [l, priced(TRANS_D, 'trans', l).map((t, i) => GEARS_BY_LEAGUE[l] ? moreGears(t, GEARS_BY_LEAGUE[l]![i]) : t)])) as Record<PartLeague, TransmissionTier[]>;
+export const TRANSMISSION = Object.fromEntries(LG.map(l => [l, priced(TRANS_D, 'trans', l).map((t, i) => GEARS_BY_LEAGUE[l] ? moreGears(t, GEARS_BY_LEAGUE[l]![i], TALL_BOX[l]) : t)])) as Record<PartLeague, TransmissionTier[]>;
 export const TIRES = perLeague(TIRES_D, 'tires');
 export const WEIGHT = perLeague(WEIGHT_D, 'weight');
 export const TURBO = perLeague(TURBO_D, 'turbo');

@@ -385,6 +385,12 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
     for (let s = 1; s <= n; s++) { if (me < makeRival(id, MAX_TUNE, stage, s * 7919, 800, [0.04, 0.21]).expect) med++; if (me < makeRival(id, MAX_TUNE, stage, s * 104729, 800, [0.01, 0.07]).expect) hard++; }
     check(med === n && hard >= n - 1, `end game ${lg}: maxed ${id}, perfect shifts, 0.30 s reaction, no nitrous wins Medium ${med}/${n} and Hard ${hard}/${n}`);
   }
+  { // owner V0.16.2: "1st to 8th in 2 seconds" — a maxed hypercar must use its gears across the run
+    const r = humanRun('hyper', MAX_TUNE, 0.30); const race = new Race(800), rr = race.add('p', carStats('hyper', MAX_TUNE, stage), new AIController(1, [0.3, 0.3], 7, false)); const at: number[] = []; let g = 0;
+    for (let i = 0; i < 120 * 60 && !race.done; i++) { race.step(1 / 120); if (rr.gear !== g) { g = rr.gear; at.push(race.raceTime - rr.launchTime); } }
+    const gaps = at.map((t, i) => i ? t - at[i - 1] : t), top = at[at.length - 1];
+    check(at.length === 7 && top >= 6 && Math.min(...gaps) >= 0.55 && r.finish! > 0, `maxed hypercar spreads its 7 shifts over the run (8th at ${top.toFixed(1)} s, shortest gear ${Math.min(...gaps).toFixed(2)} s)`);
+  }
   check(TRANSMISSION.A[4].ratios.length === 7 && TRANSMISSION.S[4].ratios.length === 8 && TRANSMISSION.D[4].ratios.length === 6,
     `gearboxes (owner): League A tops out at 7 gears, League S at 8 (D–B keep 6) — ${TRANSMISSION.S.map(t => t.ratios.length).join('/')} gears in S`);
   check(PART_LEAGUE.D < 1 && PART_LEAGUE.S > 1, `economy pass (Q181): League D parts cheaper (×${PART_LEAGUE.D}), League S dearer (×${PART_LEAGUE.S})`);

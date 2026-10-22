@@ -18,8 +18,13 @@ export function setSoundLevel(v: number, engine: number) {
 export function startSound() {
   if (ac || vol === 0) { if (ac?.state === 'suspended') ac.resume(); return; }
   const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return;
-  ac = new AC() as AudioContext; master = ac.createGain(); master.gain.value = vol / 100; master.connect(ac.destination);
-  engBus = ac.createGain(); engBus.gain.value = engVol / 100; engBus.connect(master);
+  // output chain (V0.16.2, owner: "blown speakers" on the muscle car): master → limiter → speakers, so nothing ever clips;
+  // engines → engine volume → high-pass at 40 Hz → master, so no rumble below what speakers can play (it made the cones flap)
+  ac = new AC() as AudioContext; master = ac.createGain(); master.gain.value = vol / 100;
+  const lim = ac.createDynamicsCompressor(); lim.threshold.value = -10; lim.knee.value = 6; lim.ratio.value = 12; lim.attack.value = 0.003; lim.release.value = 0.15;
+  master.connect(lim).connect(ac.destination);
+  engBus = ac.createGain(); engBus.gain.value = engVol / 100;
+  const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 40; hp.Q.value = 0.7; engBus.connect(hp).connect(master);
   noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 }
 const ready = () => !!ac && !!master && vol > 0 && ac.state === 'running';
@@ -47,7 +52,7 @@ type Body = 'hatch' | 'sedan' | 'muscle' | 'tuner' | 'hyper';
 const VOICE: Record<Body, { pitch: number; w1: OscillatorType; w2: OscillatorType; q: number; sub: number }> = {
   hatch: { pitch: 1.0, w1: 'sawtooth', w2: 'square', q: 3, sub: 0 },
   sedan: { pitch: 0.85, w1: 'sawtooth', w2: 'triangle', q: 2, sub: 0.15 },
-  muscle: { pitch: 0.55, w1: 'sawtooth', w2: 'square', q: 2, sub: 0.6 },
+  muscle: { pitch: 0.72, w1: 'sawtooth', w2: 'triangle', q: 2, sub: 0.3 },     // V0.16.2: was 0.55 + square + sub 0.6 → 6–25 Hz, speakers flapped
   tuner: { pitch: 1.2, w1: 'square', w2: 'sawtooth', q: 7, sub: 0 },
   hyper: { pitch: 1.35, w1: 'sawtooth', w2: 'sawtooth', q: 4, sub: 0.2 },
 };
@@ -80,7 +85,8 @@ export function raceSound(me: Racer, opp: Racer, race: Race, held: boolean) {
     const e = engine(i); if (!e) return;
     const frac = Math.min(1.05, r.rpm / r.stats.redline), hz = (32 + r.rpm / 60 * 2 * 0.55) * VOICE[voices[i]].pitch;   // firing note × the body's voice
     const gas = r.finish !== undefined ? 0.25 : r.launched ? (r.shifting > 0 ? 0.35 : 1) : held || i === 1 ? 0.8 : 0.3;
-    e.o1.frequency.setTargetAtTime(hz, t, 0.03); e.o2.frequency.setTargetAtTime(hz * 0.5, t, 0.03); e.sub.frequency.setTargetAtTime(hz * 0.25, t, 0.03);
+    // nothing below 40–55 Hz (speakers can't play it — it only rattles them)
+    e.o1.frequency.setTargetAtTime(Math.max(55, hz), t, 0.03); e.o2.frequency.setTargetAtTime(Math.max(45, hz * 0.5), t, 0.03); e.sub.frequency.setTargetAtTime(Math.max(42, hz * 0.5), t, 0.03);
     e.f.frequency.setTargetAtTime(300 + frac * 2200 * gas + (r.nitro > 0 ? 800 : 0), t, 0.05);
     e.g.gain.setTargetAtTime((i === 0 ? 0.11 : 0.035) * (0.35 + 0.65 * gas), t, 0.05);
   });

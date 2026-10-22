@@ -26,6 +26,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.16.2', date: '2026-10-22', title: 'Hypercar gearing and a cleaner engine sound',
+    changed: [
+      'League S gearboxes are taller with progressive spacing: a maxed hypercar now uses its 8 gears across the whole run (8th comes at about 7.5 s, not 4) and stops sitting on the rev limiter — it is quicker too.',
+      'League A gearboxes use progressive spacing (bigger steps in the low gears, closer at the top).',
+    ],
+    fixed: [
+      'The muscle car engine sounded like a blown speaker: it played notes too low for speakers (down to 6 Hz). Engine notes now stay above 45 Hz, the muscle car keeps its deep rumble, and a limiter stops any sound from clipping.',
+      'A maxed hypercar shifted from 2nd to 8th in under 3 seconds.',
+    ],
+  },
+  {
     version: '0.16.1', date: '2026-10-22', title: 'Fair end game and more gears',
     changed: [
       'League A cars now have up to 7 gears and League S cars up to 8 (stock 6- and 7-speeds), with closer ratios and quicker shifts.',
