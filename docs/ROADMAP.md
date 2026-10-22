@@ -131,7 +131,22 @@ Proposed pieces:
 | E4.3 | Typing Race: more passages per tier, nitro upgrades, its own district | Medium |
 | E4.4 | Crowns sources: weekly events, achievements | Medium |
 | E4.5 | Accounts + server saves + owner admin console (Milestone 5; P8) | Big |
-| E4.6 | **Drift mode — built in V0.18.0 (S87–S90); phone layout still to do**  (owner 2026-10-22, Q193): a winding road with curved turns in each district (the road ahead shifts); hold a Drift button beside the gas pedal to break the rear loose, then feather the gas to hold the revs inside a target band through the turn. Scored on angle × time in the band, not a finish line. One winding scene per district. Ideas: rev band like the shift window (green / Perfect), chained drifts multiply, Drift tyres + LSD parts, solo score runs first, a ghost rival later | Big |
+| E4.6 | **Drift mode — built in V0.18.0–V0.18.1, hidden behind dev mode since V0.18.2 (owner: "this needs a lot of work").** Work list in §E4.6 below. Test it with `?dev` → Race ▸ Drift | Big |
+
+#### §E4.6 Drift — what it needs before it goes live again
+What exists (S87–S92): drag → 3–5 turns → drag, automatic gears, tap Drift + hold the revs in the green band, 3-2-1 cue above the gauge, chain multiplier, four night districts (new layout each run, rain 40 %), ghost rival, drift parts, four Drift button looks, pay at Street Race parity. Tools: `npm run drift-lab`, `npm run drift-feel`, shot waits `drift · sliding · cue · cuego`.
+
+| # | Work | Effort |
+|---|---|---|
+| D1 | **Feel pass with the owner playing it**: tap vs hold to drift, band width and rev speed, how the angle shows, when a spin happens; maybe counter-steer feel | Medium |
+| D2 | **Visual drift**: car body roll and weight shift, front wheels counter-steering, skid marks left on the road, a wider camera swing in long drifts, smoke that reads at speed | Medium |
+| D3 | **Scoring**: judge the line (clipping points on the inside, outer zones near the wall), proximity bonus, clearer score pop-ups; decide whether speed counts at all | Medium |
+| D4 | **HUD**: GO! call-out on green, cue lights polish, the run's turns on the progress strip, results chips per turn | Small |
+| D5 | **Scenes**: district names (Q196), a landmark per district, more prop variety, a frame-rate check on slower PCs | Medium |
+| D6 | **Ghost rival**: ghost look (trail / colour), names and cars that fit each district, tandem bonus for drifting beside it | Medium |
+| D7 | **Sound**: a proper tyre squeal that follows the angle, a clutch-kick blip at the turn-in | Small |
+| D8 | **Phones**: Drift button opposite the gas pedal for two thumbs; check every phone size | Medium |
+| D9 | **Economy**: drift parts prices and Drift pay once it is played for real (`npm run economy`), dailies for Drift | Small |
 
 ### E5 Tools and code
 | # | Idea | Effort |

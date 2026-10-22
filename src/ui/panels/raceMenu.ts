@@ -7,6 +7,7 @@ import { StageDef } from '../../data/stages';
 import { averageFor } from '../../game/typing';
 import { ui, resetGarageUI, Wire } from './shared';
 import { stripCard } from './strip';
+import { DEV } from '../devConsole';
 
 export function raceMenuHtml(save: SaveV1, opp: OpponentDef, stage: StageDef): string {
   if (!ui.raceMenu) return '';
@@ -17,11 +18,12 @@ export function raceMenuHtml(save: SaveV1, opp: OpponentDef, stage: StageDef): s
         <div class="g-dist seg" role="group" aria-label="Race length">${RACE_DISTS.map(d => `<button class="${save.raceDist === d ? 'on' : ''}" data-dist="${d}">${d} m</button>`).join('')}</div></div>
       ${stripCard(save)}
       <button class="g-mode blk" id="typingRace"><span class="hd">Typing Race</span><span class="g-mode-sub">${stage.name} · ${DIFFICULTY[save.raceDiff].label} · 5 racers · your ${DIFFICULTY[save.raceDiff].label} average ${Math.round(averageFor(typingStats(save), save.raceDiff))} wpm<br>Type to drive · win +${typingPay(car.league, save.raceDiff, 1, false, 0).result.toLocaleString()} VX</span><span class="g-go">Go ▸</span></button>
-      ${driftCard(save)}
+      ${DEV.enabled ? driftCard(save) : ''}
     </div>`;
 }
 
-/** Drift (owner, V0.18.0): the district's winding night road, a course picker, best score. */
+/** Drift (owner, V0.18.0): the district's winding night road, a course picker, best score. Dev mode only since V0.18.2 (owner:
+ *  "this needs a lot of work" — ROADMAP E4.6). */
 function driftCard(save: SaveV1) {
   const id = DRIFT_BY_ID[save.driftCourse ?? ''] ? save.driftCourse! : DRIFT_COURSES[0].id, c = DRIFT_BY_ID[id], best = save.driftBest?.[id];
   return `<button class="g-mode blk" id="driftRun"><span class="hd">Drift · ${c.name}</span><span class="g-mode-sub">${c.district} · night · ${DIFFICULTY[save.raceDiff].label} · vs a ghost rival${best ? ` · best ${best.toLocaleString()}` : ''}<br>${c.blurb} · win +${driftPay(CARS[save.carId].league, save.raceDiff, true).result.toLocaleString()} VX</span><span class="g-go">Go ▸</span></button>

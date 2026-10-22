@@ -5,6 +5,7 @@ import { volOf } from '../../game/sound';
 import { keysOf, keyName, KEY_ACTIONS, KEY_MODE_LABEL, KeyMode } from '../../game/keys';
 import { DRIFT_BUTTONS } from '../driftButton';
 import { ui, Wire } from './shared';
+import { DEV } from '../devConsole';
 
 type Row = [string, string, [string, string][]];
 const DISPLAY_ROWS: Row[] = [
@@ -58,11 +59,13 @@ const MODE_NOTE: Record<KeyMode, (save: SaveV1) => string> = {
 };
 
 function controlsHtml(save: SaveV1): string {
+  if (ui.kmode === 'drift' && !DEV.enabled) ui.kmode = 'drag';
   const K = keysOf(save.settings), m = ui.kmode;
   const modeRows = MODE_ROWS[m].map(([key, label, opts, def]) => `<div class="setrow"><span>${label}</span>${seg(key, (save.settings as any)[key] ?? def, opts)}</div>`).join('');
   const rows = (KEY_ACTIONS[m] as [string, string][]).map(([a, label]) => { const id = `${m}.${a}`, wait = ui.capture === id;
     return `<div class="setrow"><span>${label}</span><button class="keycap ${wait ? 'wait' : ''}" data-bind="${id}">${wait ? 'Press a key…' : keyName((K[m] as any)[a])}</button></div>`; }).join('');
-  return `<div class="seg ctl-tabs">${(Object.keys(KEY_MODE_LABEL) as KeyMode[]).map(k => `<button class="${m === k ? 'on' : ''}" data-kmode="${k}">${KEY_MODE_LABEL[k]}</button>`).join('')}</div>
+  // Drift is dev-mode only for now (V0.18.2) — its keys and button look too
+  return `<div class="seg ctl-tabs">${(Object.keys(KEY_MODE_LABEL) as KeyMode[]).filter(k => k !== 'drift' || DEV.enabled).map(k => `<button class="${m === k ? 'on' : ''}" data-kmode="${k}">${KEY_MODE_LABEL[k]}</button>`).join('')}</div>
     ${modeRows}${rows}<div class="ctl-foot"><span class="g-note">${ui.kmsg || MODE_NOTE[m](save)}</span><button class="keycap ghost" id="kReset">Reset</button></div>`;
 }
 

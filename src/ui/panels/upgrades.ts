@@ -92,8 +92,8 @@ export function upgradesHtml(save: SaveV1, close: string): string {
       ${dynoHtml(W, T, custom ? 'custom' : gear)}
       <div class="upg-grid">${PERF_KINDS.map(k => `<div class="upg"><h3 class="hd">${PERF_LABEL[k]}</h3><div class="tiers">${TIERS.map(t => tierBtn(k, t)).join('')}</div></div>${k === 'trans' && !T.owned.trans.includes(5) ? ratiosHtml(W, T) : ''}`).join('')}
       ${gearRow}</div>
-      <div class="pt-group">Drift parts — Drift only</div>
-      <div class="upg-grid">${DRIFT_KINDS.map(k => `<div class="upg"><h3 class="hd">${PART_LABEL[k]}</h3><div class="tiers">${TIERS.map(t => tierBtn(k, t)).join('')}</div></div>`).join('')}</div>
+      ${DEV.enabled ? `<div class="pt-group">Drift parts — Drift only (dev)</div>
+      <div class="upg-grid">${DRIFT_KINDS.map(k => `<div class="upg"><h3 class="hd">${PART_LABEL[k]}</h3><div class="tiers">${TIERS.map(t => tierBtn(k, t)).join('')}</div></div>`).join('')}</div>` : ''}
       <div class="upg-info g-note" id="upgInfo">${UPG_HINT}</div></div>`;
 }
 

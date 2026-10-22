@@ -26,6 +26,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.2', date: '2026-10-22', title: 'Drift goes back to the workshop',
+    removed: [
+      'Drift is hidden for now while it gets a lot more work — the Race menu card, the drift parts in Upgrades and the Drift keys in Settings. It will come back in a later update.',
+    ],
+  },
+  {
     version: '0.18.1', date: '2026-10-22', title: 'Easier drifts, automatic gears and a turn-in light',
     added: [
       'Drift cue: a small 3-2-1 light just above the gauge counts down to each turn-in, then goes green — that is the moment to tap Drift. A soft beep with each light.',

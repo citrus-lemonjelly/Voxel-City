@@ -512,6 +512,7 @@ const driftCourse = () => DRIFT_BY_ID[save.driftCourse ?? ''] ? save.driftCourse
 /** Rain on 40 % of drift runs (owner); ?weather=rain / clear forces it. */
 function driftWeather() { const w = params.get('weather'); return w === 'rain' ? true : w === 'clear' ? false : Math.random() < 0.4; }
 function startDrift() {
+  if (!DEV.enabled) return showGarage();                              // dev mode only for now (V0.18.2, ROADMAP E4.6)
   screen = 'drift'; document.getElementById('vc-update')?.remove();
   const course = params.get('course') && DRIFT_BY_ID[params.get('course')!] ? params.get('course')! : driftCourse(), path = driftPath(course, Math.floor(Math.random() * 1000), CARS[save.carId].league), wet = driftWeather(), track = wet ? wetStage(stage) : stage, diff = save.raceDiff;
   const seed = params.get('rseed') ? +params.get('rseed')! : ((Date.now() & 0x7fffffff) || 1);

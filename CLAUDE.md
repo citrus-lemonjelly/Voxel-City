@@ -68,7 +68,7 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - 3D garage room: `src/render/garage.ts` (room + how each piece looks), placements `src/data/garageLayout.ts`;
   camera views + angles A–D, turntable spin/drag: `src/render/scene.ts`. Race time of day: random, forced from the test console.
 - Typing Race: `src/game/typing.ts`, `src/render/typingView.ts`, `src/ui/typingHud.ts`, passages `src/data/passages.ts` (original text only).
-- Drift (V0.18.0, S87–S90): run physics + scoring + AI + ghost rival `src/game/drift.ts`; roads per district `src/data/driftCourses.ts`;
+- Drift (V0.18.0, S87–S93; **dev mode only** since V0.18.2): run physics + scoring + AI + ghost rival `src/game/drift.ts`; roads per district `src/data/driftCourses.ts`;
   night scene `src/render/driftView.ts`, its props `src/render/driftProps.ts`; HUD `src/ui/driftHud.ts` (wraps the race `Hud` + Drift
   button in the pedal bay); button looks `src/ui/driftButton.ts` (`__vc.driftButtons()` sheet); drift parts in `parts.ts` (`driftKitOf`),
   pay `driftPay` in `economy.ts`. URL: `?course=downtown|harbour|ridge|neon`, `?dbtn=brake|pedal|puck|key`, `?weather=rain|clear`.
@@ -95,7 +95,8 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Live: **V0.18.0 "Drift Update"** (shipped 2026-10-22, S87–S90; Q194 A button beside the gas pedal, Q195 Handbrake default): Drift mode (drag → 3–5 drifts → drag, four night districts, ghost rival,
   drift parts, four Drift button looks), Settings header bars Display · Audio · Keybinds. Phone Drift layout: later (owner).
 - Live: **V0.18.1** (shipped 2026-10-22): easier drifts (S91), 3-2-1 drift cue above the gauge, automatic gears in Drift (S92).
-- **Next:** owner tries Drift; open Q196 (district names); then ROADMAP items. Run heavy checks one at a time.
+- Built: **V0.18.2** — Drift hidden behind dev mode (S93); its work list is ROADMAP §E4.6 (D1–D9).
+- **Next:** the owner picks what to work on next (Q199). Open: Q196 district names (for Drift, later). Run heavy checks one at a time.
 - Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
   weighted time of day (Small) · garage decor shop with Crowns (Big) · Body Shop "undo" (Small) · saved looks per car (Medium) ·
   rival plate text (Small) · split main.ts further (Typing Race, race setup) (Medium) · Drift on phones (Medium).
