@@ -1,11 +1,11 @@
 // Key bindings (owner 2026-10-19): Settings ▸ Controls, with a Drag Race and a Typing Race set. One key per action;
 // Shift / Ctrl / Alt match either side. Typing Race keys can't be letters, numbers, space or punctuation (those are typed).
-export type DragAction = 'gas' | 'down';
+export type DragAction = 'gas' | 'up' | 'down';
 export type TypeAction = 'nitro' | 'leave';
 export interface KeyBinds { drag: Record<DragAction, string>; typing: Record<TypeAction, string> }
-export const DEFAULT_KEYS: KeyBinds = { drag: { gas: 'Space', down: 'ShiftLeft' }, typing: { nitro: 'Enter', leave: 'Escape' } };
+export const DEFAULT_KEYS: KeyBinds = { drag: { gas: 'Space', up: 'ArrowUp', down: 'ShiftLeft' }, typing: { nitro: 'Enter', leave: 'Escape' } };
 export const KEY_ACTIONS: { drag: [DragAction, string][]; typing: [TypeAction, string][] } = {
-  drag: [['gas', 'Gas · shift up'], ['down', 'Shift down']],
+  drag: [['gas', 'Gas (Classic: also shifts up)'], ['up', 'Shift up'], ['down', 'Shift down']],
   typing: [['nitro', 'Nitro (finish the word)'], ['leave', 'Leave the race']],
 };
 const side = (c: string) => c.replace(/^(Shift|Control|Alt|Meta)(Left|Right)$/, '$1');

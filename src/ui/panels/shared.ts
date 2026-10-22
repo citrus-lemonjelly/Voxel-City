@@ -26,8 +26,6 @@ export interface GarageHandlers {
   onView(v: GarageView): void;
   /** Body Shop: turn the car on the turntable to show a part (null = free spin again) */
   onFace(dir: [number, number] | null): void;
-  /** claim a cleared Strip level's one-time reward */
-  onClaim(n: number): void;
   /** Catalog (Q79): buy a car with the paint/options picked; use an owned car; save paint/options on an owned car. */
   onBuyCar(id: string, paint: string, opts: Record<string, string>): void;
   onUseCar(id: string): void;

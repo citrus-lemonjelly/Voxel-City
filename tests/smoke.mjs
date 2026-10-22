@@ -20,17 +20,21 @@ pg.setDefaultTimeout(300000);
 const t0 = Date.now(), res = []; let fails = 0;
 const ok = (name, cond, detail = '') => { res.push([name, !!cond]); if (!cond) fails++; console.log(`${cond ? 'PASS' : 'FAIL'} ${name} ${detail}`); };
 const ev = f => pg.evaluate(f);
+/** Garage tabs live in the side rail behind the Menu button (V0.12.0): open it first if it is closed. */
+const tab = async name => { if (await ev(() => !!document.querySelector('#menuBtn') && !document.querySelector('#garage.rail-open'))) await pg.click('#menuBtn'); await pg.click('[data-panel="' + name + '"]'); };
 
 await pg.goto(pathToFileURL(resolve(root, 'build/index.html')).href + '?fast=4&autoplay&dev');
 await pg.waitForFunction(() => window.__vc && window.__vc.screen === 'garage');
 const v = await ev(() => [window.__vc.version, document.querySelector('#notesBtn span')?.textContent]);
 ok('garage loads, version shown', v[1] === `V${v[0]}`, v.join(' / '));
+await pg.click('#menuBtn'); ok('Menu button opens the side rail', await ev(() => !!document.querySelector('#garage.rail-open')));
+await pg.click('#menuBtn'); ok('Menu button closes it again', await ev(() => !document.querySelector('#garage.rail-open')));
 ok('bottom bar: no separate Upgrades tab (it lives in Garage ▸ Upgrade)', await ev(() => !document.querySelector('[data-panel="upgrades"]')));
-for (const tab of ['profile', 'garage', 'catalog', 'settings', 'daily', 'calendar']) {
-  await pg.click(`[data-panel="${tab}"]`); await pg.waitForTimeout(400);
+for (const t of ['profile', 'garage', 'catalog', 'settings', 'daily', 'calendar']) {
+  await tab(t); await pg.waitForTimeout(400);
   const open = await ev(() => !!document.querySelector('.g-panel, .cat-list, .gr-list'));
-  ok(`tab opens: ${tab}`, open);
-  if (tab === 'garage') { ok('garage: Drive / Body Shop / Upgrade / Sell show as soon as it opens', await ev(() => document.querySelectorAll('.g-subtab').length === 4 && document.querySelectorAll('[data-gtab]').length === 2));
+  ok(`tab opens: ${t}`, open);
+  if (t === 'garage') { ok('garage: Drive / Body Shop / Upgrade / Sell show as soon as it opens', await ev(() => document.querySelectorAll('.g-subtab').length === 4 && document.querySelectorAll('[data-gtab]').length === 2));
     await pg.click('#gParts'); await pg.waitForTimeout(500);
     const paint = await ev(() => document.querySelectorAll('.pt-swatch').length);
     await pg.click('[data-slot="plate"]'); await pg.waitForTimeout(500);
@@ -39,7 +43,7 @@ for (const tab of ['profile', 'garage', 'catalog', 'settings', 'daily', 'calenda
     await pg.click('#gUpg'); await pg.waitForTimeout(400);
     ok('garage ▸ Upgrade opens the Upgrades panel', await ev(() => !!document.querySelector('button.tier[data-kind="engine"]')));
     await pg.click('#garage .g-close'); await pg.waitForTimeout(300); await pg.click('#garage .g-close'); await pg.waitForTimeout(300); continue; }
-  await pg.click(`[data-panel="${tab}"]`); await pg.waitForTimeout(200);
+  await tab(t); await pg.waitForTimeout(200);
 }
 await pg.click('#notesBtn'); await pg.waitForTimeout(300); ok('patch notes open', await ev(() => !!document.querySelector('.pn-ver'))); await pg.click('#notesBtn');
 // one drag race (auto-driven)
@@ -57,11 +61,11 @@ ok('Typing Race finishes with places and pay', ty[0] >= 1 && ty[0] <= 5 && ty[1]
 await pg.screenshot({ path: `${out}/typing-results.png` });
 await pg.click('#tyGarage');
 // Daily + calendar (V0.9.0): the two races count towards today's tasks; claim calendar day 1
-await pg.click('[data-panel="daily"]'); await pg.waitForTimeout(300);
+await tab('daily'); await pg.waitForTimeout(300);
 const dl = await ev(() => [document.querySelectorAll('.dl-task').length, window.__vc.save.daily?.prog.join(',')]);
-await pg.click('[data-panel="calendar"]'); await pg.waitForTimeout(300); await pg.click('#calClaim'); await pg.waitForTimeout(300);
+await tab('calendar'); await pg.waitForTimeout(300); await pg.click('#calClaim'); await pg.waitForTimeout(300);
 ok('daily tasks + login calendar', dl[0] === 4 && await ev(() => window.__vc.save.cal?.n === 1), JSON.stringify(dl));
-await pg.screenshot({ path: `${out}/calendar.png` }); await pg.click('[data-panel="calendar"]');
+await pg.screenshot({ path: `${out}/calendar.png` }); await tab('calendar');
 // Car Lab (dev only)
 await ev(() => window.__vc.openLab()); await pg.waitForTimeout(800);
 await pg.fill('#carlab [data-n="L"]', '70'); await pg.dispatchEvent('#carlab [data-n="L"]', 'input'); await pg.waitForTimeout(600);

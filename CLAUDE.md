@@ -8,8 +8,10 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Every update raises the version in `src/data/changelog.ts` (newest first). Patch 0.x.Y = fixes/tweaks; minor 0.X.0 = features, with a
   `header` named after the biggest feature (e.g. "Garage Update"). **V1.0 is the owner's call** — keep counting V0.X.X until he says so.
 - Every changelog entry has Added / Changed / Fixed / Removed lines in plain words (they show in-game in Patch notes).
-- New UI follows the game's theme: blocky panels (`.blk`), Courier New uppercase headings, accent yellow `--accent`, no default browser
-  styling, no blinking/pulsing. Sleek, but true to the voxel style.
+- New UI follows the game's theme, **Bevel+** (S69, `src/ui/themeBevel.ts`): every panel/button is a lit block (light top-left,
+  dark bottom-right), pressed/chosen = sunk in, grouped info in sunken trays; yellow `--accent` only for what you act on (Race,
+  the chosen option, panel titles); Silkscreen pixel font (built in) for titles and big numbers, system-ui for the rest; text
+  11 px or bigger; no default browser styling, no blinking/pulsing (one short slide is fine). Sleek, but true to the voxel style.
 - Cosmetics are visual-only. Same block size everywhere. Asset packs are references only.
 - Always check collisions on base cars and every part (`npm run collide`) and fix clashes before shipping.
 - Workflow: analyze → suggest / ask (Q# numbered questions, tables) → build → short summary. Detailed, table-heavy replies.
@@ -26,7 +28,11 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - `npm run smoke` — browser smoke test (~1 min): every screen, a drag race, a Typing Race, Body Shop, Car Lab
 - `npm run release` — version check → package.json sync → sim → collision check → build → list of changed files.
   It refuses if the version wasn't raised. Only use `--same` if that version has never shipped.
-- `npm run shot -- OUT.png "Title" "click:SEL; wait:MS; cap:TEXT"` — screenshot sheet for review (1–2 per feature)
+- `npm run shot -- OUT.png "Title" "click:SEL; wait:MS; cap:TEXT"` — screenshot sheet for review (1–2 per feature).
+  Also `size:844x390` + `url:?dev&phone` (phone race screen), `touch` (a touch-screen phone page — use with `size:844x390`),
+  `hover:SEL`, `js:CODE` (a step can't contain `;` — use commas). `click:[data-panel=…]` opens the Menu by itself.
+- Test builds stamp `build/version.json`, which `npm run release` compares against: after testing a not-yet-shipped version,
+  run `git checkout -- build/` so Ship It still sees the live version.
 - `npm run economy` — pacing tables from `economy.ts`: VX/min per mode, hours per league vs the owner's targets
   (D 2–3 h · C 3–4 h · B/A/S 3–6 h), cosmetics in minutes, Crowns. Run it after any price/payout change.
 - `npm run ship` (owner: double-click `Ship It.cmd`) — git check → release → commit "V0.x.y" → push to GitHub (no smoke — it runs while building);
@@ -43,20 +49,29 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Garage screen shell (layout, which panel shows, shared buttons): `src/ui/garage.ts`. **One file per panel** in `src/ui/panels/`:
   `catalog` · `bodyShop` (parts, Paint tab, plate text) · `myCars` (Garage list + sub-tabs, sell, slots) · `upgrades` · `profile` ·
   `settings` (+ Controls) · `daily` (+ calendar) · `notes` · `strip` · `raceMenu` · `miniHud`; shared state/icons/helpers in `shared.ts`.
-  What buying/selling/claiming/fitting does: `src/game/garageActions.ts`. Styles `src/ui/styles.ts`.
+  What buying/selling/claiming/fitting does: `src/game/garageActions.ts`. Layout styles `src/ui/styles.ts`; the look (block
+  surfaces, fonts, garage bar / Menu / side rail, race strip + lights, phone sizes) `src/ui/themeBevel.ts`.
 - 3D garage room: `src/render/garage.ts` (room + how each piece looks), placements `src/data/garageLayout.ts`;
   camera views + angles A–D, turntable spin/drag: `src/render/scene.ts`. Race time of day: random, forced from the test console.
 - Typing Race: `src/game/typing.ts`, `src/render/typingView.ts`, `src/ui/typingHud.ts`, passages `src/data/passages.ts` (original text only).
 - Key bindings: `src/game/keys.ts`. Update notice: `src/game/updates.ts`. Car Lab (dev only, `?dev` → test console → Car Lab): `src/ui/carLab.ts`.
 - Tools: `tools/release.mjs`, `tools/collide.mjs` (+ `collide-entry.ts`), `tools/shot.mjs`, `tests/smoke.mjs`, `tests/sim.ts`; owner launcher `Run Smoke Test.cmd`.
 - Decisions log: `docs/DECISIONS.md` (S-numbered rows). Patch notes doc is generated: `docs/CHANGELOG.md`.
-- Test URL flags: `?dev` (test console), `?fast=N` (clock ×N), `?autoplay`, `?lab` (Car Lab).
+- Test URL flags: `?dev` (test console), `?fast=N` (clock ×N), `?autoplay`, `?lab` (Car Lab), `?phone` (phone race screen on a PC).
+- Garage tabs sit in the side rail behind the **Menu** button (`#menuBtn`); `tests/smoke.mjs` and `tools/shot.mjs` open it themselves.
+- Drive modes (Classic / Pedal, S66): `Controller.pedal` in `src/game/race.ts`; phone race HUD (S67): `Hud.buildPhone` in `src/ui/hud.ts`.
 
-## Where we left off (V0.10.0 "Garage Room Update", 2026-10-20 — live, shipped for the owner's testing)
-- Shipped: 3D garage room behind the menus (showcase turntable, loft, office nook, mechanic bay + lift with primer shell, roll-up
-  door with the street; S64), garage door + camera-angle buttons (Cam A–D, default D), Upgrades/Profile camera turns (E2),
-  random race time of day (test console can force it; S65), garage UI split into one file per panel. Smoke 16/16 on the PC.
-- **Next:** owner feedback on the garage room. Q159 trophy shelf (later). Run heavy checks one at a time (owner: don't max the CPU).
+## Where we left off (V0.13.0 "Phone Update" + V0.12.1 + V0.12.0 "Style Update" + V0.11.0 "Pedal Update", 2026-10-21 — built, NOT shipped; V0.10.1 live)
+- V0.13.0: every screen fits phones (fitUI shrink-to-fit, `--ui-s`), panels sit over buttons, Settings beside Notes, camera icon
+  beside Race, car card moved into Profile, compact Strip (level + money) with automatic rewards (S71). Check phones with the shot tool's `touch; size:844x390`
+  (also 667x375 and 932x430). Not done: typing with a phone keyboard in the Typing Race.
+- V0.11.0: Pedal mode (S66), phone race screen + Pedal side + sideways notice + Perfect-shift buzz (S67), voxel Race button (S68).
+- V0.12.0: Bevel+ look as default with the Menu button + side rail, built-in Silkscreen font, pass 2 over every screen (S69).
+- V0.12.1: race dash plate / strip / lights in the bevel style (Q175), click outside or Esc closes the menu (Q185), styles merged
+  into themeBevel.ts (old look removed), phones: menu opens as a row + bigger buttons (S70).
+  All four ship together when the owner says ship (release goes 0.10.1 → 0.13.0).
+- **Next:** phone keyboard for the Typing Race; owner feedback on phones.
+  Q159 trophy shelf (later). Run heavy checks one at a time (owner: don't max the CPU).
 - Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
   weighted time of day (Small) · garage decor shop with Crowns (Big) · Body Shop "undo" (Small) · saved looks per car (Medium) ·
   rival plate text (Small) · split main.ts further (Typing Race, race setup) (Medium).

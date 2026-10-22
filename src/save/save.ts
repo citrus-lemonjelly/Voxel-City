@@ -86,8 +86,14 @@ export interface Settings {
   door?: 'open' | 'closed';
   /** garage camera angle A–D (owner Q163, 2026-10-20); missing = d */
   gcam?: 'a' | 'b' | 'c' | 'd';
+  /** Drag Race controls (owner 2026-10-21): Classic = the car pulls by itself; Pedal = hold gas the whole race. Missing = classic */
+  drive?: 'classic' | 'pedal';
+  /** phone race screen (owner Q170): which side the gas pedal sits on. Missing = right */
+  pedalSide?: 'right' | 'left';
+  /** phones: a short buzz on a Perfect shift (owner E4). Missing = on */
+  buzz?: 'on' | 'off';
   /** key bindings (owner 2026-10-19; defaults in game/keys.ts) */
-  keys?: Partial<{ drag: Partial<Record<'gas' | 'down', string>>; typing: Partial<Record<'nitro' | 'leave', string>> }>;
+  keys?: Partial<{ drag: Partial<Record<'gas' | 'up' | 'down', string>>; typing: Partial<Record<'nitro' | 'leave', string>> }>;
 }
 export const DEFAULT_SETTINGS: Settings = { camera: 'dynamic', time: 'day', nearSide: 'mixed', blur: 'low' };
 const KEY = 'voxelcity.save';

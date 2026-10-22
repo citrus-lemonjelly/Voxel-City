@@ -4,6 +4,8 @@
 //   url:?query      open build/index.html with that query (default ?dev)      click:SELECTOR    click an element
 //   wait:MS         wait                                                      js:CODE           run code in the page
 //   key:KEY         press a key                                               cap:TEXT          caption for this panel
+//   size:WxH        window size for this panel (default 1280x720; phones e.g. size:844x390 with url:?dev&phone)
+//   hover:SELECTOR  move the mouse over an element                            touch             a touch-screen phone page (pointer:coarse)
 // Example: node tools/shot.mjs build/shots/garage.png "Garage" "click:[data-panel=garage]; wait:1500; cap:Garage"
 import { chromium } from 'playwright';
 import { resolve, dirname } from 'node:path';
@@ -16,17 +18,23 @@ const out = resolve(outArg); mkdirSync(dirname(out), { recursive: true });
 const linux = process.platform === 'linux';
 const b = await chromium.launch({ headless: true, executablePath: process.env.PW_CHROMIUM || (linux ? '/opt/pw-browsers/chromium' : undefined),
   args: linux ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [] });
-const pg = await b.newPage({ viewport: { width: 1280, height: 720 } }); pg.setDefaultTimeout(300000);
+const desk = await b.newPage({ viewport: { width: 1280, height: 720 } }); desk.setDefaultTimeout(300000);
+let touchPg = null, pg = desk;   // 'touch' step: a phone-like page (touch screen, so (pointer:coarse) styles apply)
 const page = q => pathToFileURL(resolve(root, 'build/index.html')).href + (q || '?dev');
 const panels = [];
 for (const spec of shots) {
   let cap = '', url = '?dev';
   const steps = spec.split(';').map(s => s.trim()).filter(Boolean);
+  if (steps.includes('touch')) { if (!touchPg) { touchPg = await (await b.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true })).newPage(); touchPg.setDefaultTimeout(300000); } pg = touchPg; } else pg = desk;
   const u = steps.find(s => s.startsWith('url:')); if (u) url = u.slice(4);
+  const sz = steps.find(s => s.startsWith('size:')), [vw, vh] = sz ? sz.slice(5).split('x').map(Number) : [1280, 720];
+  await pg.setViewportSize({ width: vw, height: vh });
   await pg.goto(page(url)); await pg.waitForFunction(() => window.__vc && window.__vc.screen); await pg.waitForTimeout(1500);
   for (const s of steps) {
     const [k, ...r] = s.split(':'), v = r.join(':');
-    if (k === 'click') await pg.click(v); else if (k === 'wait') await pg.waitForTimeout(+v);
+    // garage tabs sit in the side rail behind the Menu button (V0.12.0): open it first when a step clicks one
+    if (k === 'click' && v.startsWith('[data-panel') && await pg.evaluate(() => !!document.querySelector('#menuBtn') && !document.querySelector('#garage.rail-open'))) await pg.click('#menuBtn');
+    if (k === 'click') await pg.click(v); else if (k === 'hover') await pg.hover(v); else if (k === 'wait') await pg.waitForTimeout(+v);
     else if (k === 'js') await pg.evaluate(v); else if (k === 'key') await pg.keyboard.press(v); else if (k === 'cap') cap = v;
   }
   panels.push({ cap, img: (await pg.screenshot()).toString('base64') });

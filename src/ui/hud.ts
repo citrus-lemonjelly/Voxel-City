@@ -5,6 +5,7 @@
 import { Race, Racer, COUNTDOWN } from '../game/race';
 import { LAUNCH } from '../data/parts';
 import { PADDLES, PaddleSkin, PedalStyle } from '../data/cosmetics';
+import { BEVEL } from './themeBevel';
 
 const NS = 'http://www.w3.org/2000/svg';
 const svgEl = (tag: string, attrs: Record<string, string | number>, parent?: Element) => {
@@ -39,30 +40,35 @@ const COL = { lit: '#eeeae0', unlit: '#474c5a', zone: '#4ade80', zoneOff: '#2d5a
 export class Hud {
   el: HTMLElement;
   /** The paddle shifter (pointer target for press/release). */
-  shiftBtn: HTMLElement;
+  shiftBtn!: HTMLElement;
   /** The downshift paddle (pointer target). */
-  downBtn: HTMLElement;
+  downBtn!: HTMLElement;
   /** The gas pedal (pointer target) — launch control only; it leaves once the car has launched. */
-  gasBtn: HTMLElement;
-  private pedalPod!: HTMLElement; private pedalEl!: HTMLElement; private pedalGone = false; private goneAt = 0;
-  private plateFill!: Element; private plateEdge!: Element; private platePH = 0; private plateW = { compact: 0, full: 0 };
+  gasBtn!: HTMLElement;
+  private pedalPod!: HTMLElement; private pedalEl!: HTMLElement; private pedalGone = false; private goneAt = 0; private pedalStays = false;
+  private plateFill!: Element; private plateEdge!: Element; private plateDark!: Element; private plateShadow!: Element; private platePH = 0; private plateW = { compact: 0, full: 0 };
   private dashes: Element[] = [];
   private needle!: Element;
   private zoneBand!: Element;
   private gearG!: Element; private speedG!: Element; private gradeG!: Element; private countG!: Element;
   private lights: HTMLElement[];
-  private hint: HTMLElement; private keyHint: HTMLElement;
+  private hint: HTMLElement; private keyHint!: HTMLElement;
   private me: HTMLElement; private them: HTMLElement; private gapEl: HTMLElement;
   private gaugeMax: number;
   private paddleEl!: HTMLElement; private downEl!: HTMLElement; private plusRects: Element[] = []; private skin!: PaddleSkin;
   private last = { gear: '', mph: -1, zone: '', grade: '', count: '' };
 
-  constructor(root: HTMLElement, private race: Race, private player: Racer, private opp: Racer, opts: { oppName: string; paddle: string; paint?: string; showKeyHint: boolean; paddleShape?: 'arc' | 'tab'; pedal?: PedalStyle; /** bound key names (Settings ▸ Controls) */ keys?: { gas: string; down: string } }) {
+  constructor(root: HTMLElement, private race: Race, private player: Racer, private opp: Racer, opts: { oppName: string; paddle: string; paint?: string; showKeyHint: boolean; paddleShape?: 'arc' | 'tab'; pedal?: PedalStyle; /** bound key names (Settings ▸ Controls) */ keys?: { gas: string; up?: string; down: string };
+    /** Pedal mode: the pedal stays all race (owner 2026-10-21) */ drive?: 'classic' | 'pedal'; /** phone race screen */ phone?: boolean; /** phone: pedal on the left */ swap?: boolean }) {
     root.innerHTML = '';
     this.gaugeMax = Math.ceil(player.stats.redline / 1000);
-    this.el = h(`<div class="overlay hud2">
+    const phone = !!opts.phone, pedalMode = opts.drive === 'pedal', gasKey = opts.keys?.gas ?? 'SPACE';
+    this.pedalStays = pedalMode;
+    const hint = phone ? (pedalMode ? 'Hold the pedal to keep the revs in the green. Tap <b>+</b> on green to go.' : 'Hold the pedal to keep the revs in the green. Let go when the light turns green.')
+      : pedalMode ? `Hold <b>${gasKey}</b> to keep the revs in the green. Tap <b>${opts.keys?.up ?? '↑'}</b> on green to go.` : `Hold <b>${gasKey}</b> to keep the revs in the green. Let go when the light turns green.`;
+    this.el = h(`<div class="overlay hud2${phone ? ' phone' : ''}${phone && opts.swap ? ' swap' : ''}">
       <div id="lights" class="blk"><i></i><i></i><i></i></div>
-      <div id="hint" class="blk">Hold <b>${opts.keys?.gas ?? 'SPACE'}</b> to keep the revs in the green. Let go when the light turns green.</div>
+      <div id="hint" class="blk">${hint}</div>
       <div class="race-strip"><div class="gap"></div><div class="road"></div><div class="flag"></div><div class="car them"></div><div class="car me"></div></div>
       <div class="cluster"></div>
     </div>`);
@@ -87,8 +93,8 @@ export class Hud {
     const r = build(false, '+'), rl = build(true, '-');
     const pw = +r.svg.getAttribute('width')!, ph = +r.svg.getAttribute('height')!;
     const reach = r.ox + pw;                                            // how far a paddle reaches past the gauge centre
-    const GXO = Math.max(22, 14 + reach - CX);                          // gauge offset inside the dash plate (room for the left paddle)
-    const plate = svgEl('svg', { class: 'plate' }, cluster);
+    const GXO = phone ? 0 : Math.max(22, 14 + reach - CX);              // gauge offset inside the dash plate (room for the left paddle)
+    const plate = phone ? null : svgEl('svg', { class: 'plate' }, cluster);
     const g = svgEl('svg', { width: D, height: D, class: 'gauge', style: `left:${GXO}px` }, cluster);
     // 3D body (owner Q33): drop shadow, rim thickness, metal bezel lit from the top-left, recessed face, glass sheen
     const defs = svgEl('defs', {}, g);
@@ -121,6 +127,11 @@ export class Hud {
     svgEl('circle', { cx: CX, cy: CY, r: 8, fill: '#2b2e38', stroke: COL.gold, 'stroke-width': 2 }, g);
     this.gearG = svgEl('g', {}, g); this.speedG = svgEl('g', {}, g);
     svgEl('text', { x: CX + 20, y: CY + 91, fill: '#a7adbb', 'font-size': 12, class: 'mph' }, g).textContent = 'mph';
+    (g as any).style.pointerEvents = 'none';
+    // ---- grade + countdown (block lettering above the gauge / centre screen) ----
+    const over = svgEl('svg', { width: 520, height: 46, class: 'grade' }, this.el); this.gradeG = svgEl('g', {}, over);
+    const cnt = svgEl('svg', { width: 200, height: 170, class: 'count' }, this.el); this.countG = svgEl('g', {}, cnt);
+    if (phone || !plate) { this.buildPhone(cluster, skin, opts.pedal || 'alloy'); return; }
     // ---- paddles: shape + skin, tucked partly behind the gauge (owner Q33/Q36/Q39); left = downshift (owner) ----
     const px = GXO + CX + r.ox, py = CY + r.oy, pxl = GXO + CX - reach;
     this.plusRects = r.plus;
@@ -135,11 +146,13 @@ export class Hud {
     this.plateW = { compact: PWc, full: PWf };
     (plate as any).style.cssText = `left:0;top:${PT}px`;
     plate.setAttribute('height', String(PH));
-    this.plateFill = svgEl('path', { fill: '#14161c', 'fill-opacity': 0.55 }, plate);
-    this.plateEdge = svgEl('path', { stroke: '#ffffff2e', 'stroke-width': 3, fill: 'none' }, plate);
+    // Bevel+ (owner Q175, V0.12.1): a lit block like the menus — drop shadow, dark outline, light top/left edge, dark right edge
+    this.plateShadow = svgEl('path', { fill: BEVEL.edge, 'fill-opacity': 0.6, transform: 'translate(5 5)' }, plate);
+    this.plateFill = svgEl('path', { fill: BEVEL.face, 'fill-opacity': 0.92, stroke: BEVEL.edge, 'stroke-width': 2 }, plate);
+    this.plateEdge = svgEl('path', { stroke: BEVEL.light, 'stroke-width': 3, fill: 'none', transform: 'translate(1.5 1.5)' }, plate);
+    this.plateDark = svgEl('path', { stroke: BEVEL.dark, 'stroke-width': 3, fill: 'none' }, plate);
     this.platePH = PH; this.setPlateWidth(PWf);
     (cluster as HTMLElement).style.width = PWc + 'px';                     // centred on the gauge; the bay hangs off to the right
-    (g as any).style.pointerEvents = 'none';
     // press targets: each half of the plate (gauge centre → plate edge), so the hidden part of each paddle counts too
     const HX = GXO + CX + 24, HL = GXO + CX - 24;
     this.shiftBtn = h(`<button class="paddle-hit" aria-label="Shift up" style="left:${HX}px;top:${PT}px;width:${PWc - HX}px;height:${D - PT}px"></button>`);
@@ -147,7 +160,7 @@ export class Hud {
     cluster.appendChild(this.shiftBtn); cluster.appendChild(this.downBtn);
     // labels with key pictures (owner): "SHIFT DOWN" + [SHIFT] under the left paddle, "SHIFT UP" + [SPACE] under the right
     const visR = Math.round((GXO + D - 8 + px + pw) / 2), visL = PWc - visR, LY = D - 34;
-    this.keyHint = h(`<div class="keylabels">${keyLabel('SHIFT DOWN', opts.keys?.down ?? 'SHIFT', visL, LY)}${keyLabel('SHIFT UP', opts.keys?.gas ?? 'SPACE', visR, LY)}</div>`);
+    this.keyHint = h(`<div class="keylabels">${keyLabel('SHIFT DOWN', opts.keys?.down ?? 'SHIFT', visL, LY)}${keyLabel('SHIFT UP', pedalMode ? opts.keys?.up ?? '↑' : gasKey, visR, LY)}</div>`);
     if (opts.showKeyHint) cluster.appendChild(this.keyHint);
     // ---- gas pedal (owner): sits in the plate's bay right of the "+" paddle for the launch, then drops away ----
     this.pedalPod = h(`<div class="pedal-pod" style="left:${PWc}px;top:0;width:${BAY}px;height:${D}px"></div>`);
@@ -160,11 +173,29 @@ export class Hud {
     this.pedalPod.appendChild(this.gasBtn);
     if (opts.showKeyHint) this.pedalPod.appendChild(h(`<div class="keylabels">${keyLabel('GAS', opts.keys?.gas ?? 'SPACE', BAY / 2 - 4, LY)}</div>`));
     cluster.appendChild(this.pedalPod);
-    // ---- grade + countdown (block lettering above the gauge / centre screen) ----
-    const over = svgEl('svg', { width: 520, height: 46, class: 'grade' }, this.el); this.gradeG = svgEl('g', {}, over);
-    const cnt = svgEl('svg', { width: 200, height: 170, class: 'count' }, this.el); this.countG = svgEl('g', {}, cnt);
   }
   private oppName = 'Rival';
+
+  /** Phone race screen (owner 2026-10-21): gauge in the middle, a compact "− +" paddle pair (shift up on the right) in one
+   *  bottom corner and the gas pedal in the other (Settings ▸ Controls ▸ Pedal side). Each control has a big invisible
+   *  thumb zone around it, so you can watch the gauge instead of your thumbs. */
+  private buildPhone(cluster: HTMLElement, skin: PaddleSkin, pedal: PedalStyle) {
+    cluster.style.width = D + 'px';
+    const cell = 5, up = padPaddle(skin, cell, '+'), dn = padPaddle(skin, cell, '-');
+    this.plusRects = up.plus;
+    this.downEl = h(`<div class="paddle ph-pad"></div>`); this.downEl.appendChild(dn.svg);
+    this.paddleEl = h(`<div class="paddle ph-pad"></div>`); this.paddleEl.appendChild(up.svg);
+    const pads = h(`<div class="ph-side ph-pads"></div>`); pads.append(this.downEl, this.paddleEl);
+    const art = drawPedal(pedal, skin, cell);
+    this.pedalPod = h(`<div class="pedal-pod" style="position:relative;width:${art.getAttribute('width')}px;height:${art.getAttribute('height')}px"></div>`);
+    this.pedalEl = h(`<div class="pedal" style="left:0;top:0"></div>`); this.pedalEl.appendChild(art); this.pedalPod.appendChild(this.pedalEl);
+    const pedalSide = h(`<div class="ph-side ph-gasside"></div>`); pedalSide.appendChild(this.pedalPod);
+    this.downBtn = h(`<button class="paddle-hit ph-zone ph-down" aria-label="Shift down"></button>`);
+    this.shiftBtn = h(`<button class="paddle-hit ph-zone ph-up" aria-label="Shift up"></button>`);
+    this.gasBtn = h(`<button class="paddle-hit ph-zone ph-gas" aria-label="Gas"></button>`);
+    this.keyHint = h(`<div></div>`);
+    this.el.append(pads, pedalSide, this.downBtn, this.shiftBtn, this.gasBtn);
+  }
 
   /** Paddle press feedback (mouse, touch or Space): pulls in toward the dial and darkens — no flashing (Q40 #1). */
   setPressed(down: boolean) { this.paddleEl.classList.toggle('down', down); }
@@ -173,13 +204,16 @@ export class Hud {
     w = Math.round(w / 2) * 2;
     const st = 8, RC = 52, H = this.platePH, plate = this.plateFill.parentNode as Element;
     plate.setAttribute('width', String(w));
-    let top = `M0 ${2 * st} H${st} V${st} H${2 * st} V0 H${w - RC}`;
+    let top = `M0 ${2 * st} H${st} V${st} H${2 * st} V0 H${w - RC}`, light = `M0 ${H} V${2 * st} H${st} V${st} H${2 * st} V0 H${w - RC}`;
     for (let a = 1; a <= 6; a++) {                                       // 6 block steps approximating a quarter circle
       const t = a / 6 * Math.PI / 2, x = w - RC + Math.sin(t) * RC, y = RC - Math.cos(t) * RC;
       top += ` V${Math.round(y)} H${Math.round(x)}`;
+      if (a < 6) light += ` V${Math.round(y)} H${Math.round(x)}`;          // the light edge stops short of the dark right side
     }
     this.plateFill.setAttribute('d', `${top} V${H} H0 Z`);
-    this.plateEdge.setAttribute('d', top);
+    this.plateShadow.setAttribute('d', `${top} V${H} H0 Z`);
+    this.plateEdge.setAttribute('d', light);
+    this.plateDark.setAttribute('d', `M${w - 1.5} ${RC} V${H}`);
   }
   /** Gas pedal press feedback: the pedal tips forward under your foot. */
   setGas(down: boolean) { this.pedalEl.classList.toggle('down', down); }
@@ -192,8 +226,8 @@ export class Hud {
     const lit = Math.min(3, Math.floor(t));
     this.lights.forEach((l, i) => { l.className = this.race.green ? 'green' : i < lit ? (i === 0 ? 'red' : 'amber') : ''; });
     if (r.launched) this.hint.style.display = 'none';
-    if (r.launched && !this.pedalGone) { this.pedalGone = true; this.goneAt = performance.now(); this.pedalEl.classList.remove('down'); this.pedalPod.classList.add('gone'); }
-    if (this.pedalGone && this.goneAt) {                                // the bay folds in once, smoothly, after the pedal has dropped
+    if (r.launched && !this.pedalGone && !this.pedalStays) { this.pedalGone = true; this.goneAt = performance.now(); this.pedalEl.classList.remove('down'); this.pedalPod.classList.add('gone'); this.gasBtn.classList.add('gone'); }
+    if (this.pedalGone && this.goneAt && this.plateFill) {                                // the bay folds in once, smoothly, after the pedal has dropped
       // owner Q56: slower — the pedal rests (released) for 0.5 s, drops over 0.9 s, then the bay folds in over 0.7 s
       const k = Math.min(1, Math.max(0, (performance.now() - this.goneAt - PEDAL_EXIT.foldDelayMs) / PEDAL_EXIT.foldMs)), e = k * k * (3 - 2 * k);
       this.setPlateWidth(this.plateW.full + (this.plateW.compact - this.plateW.full) * e);
@@ -233,10 +267,10 @@ export class Hud {
     // grade (steady, fades out — never flashes) and countdown
     const ev = r.lastEvent;
     let grade = '';
-    if (ev && t - ev.t < 0.9) grade = (/launch|Bog|Downshift|Over-rev/i.test(ev.text) ? ev.text : `${ev.text} shift`).toUpperCase();
+    if (ev && t - ev.t < 0.9) grade = (/launch|Bog|Downshift|Over-rev|Too early|Grip back/i.test(ev.text) ? ev.text : `${ev.text} shift`).toUpperCase();
     else if (this.race.green && !r.launched) grade = 'GO!';
     if (grade !== this.last.grade) {
-      const col = /PERFECT|GO!/.test(grade) ? COL.zone : /GOOD/.test(grade) ? '#5aa9ff' : /DOWNSHIFT/.test(grade) ? COL.lit : '#f2a43a';
+      const col = /PERFECT|GO!/.test(grade) ? COL.zone : /GOOD/.test(grade) ? '#5aa9ff' : /DOWNSHIFT|GRIP/.test(grade) ? COL.lit : '#f2a43a';
       const w = blockText(this.gradeG, grade.replace(/[^A-Z0-9! -]/g, ''), F5, 6, col, 0, 6, 3);
       this.gradeG.setAttribute('transform', `translate(${(520 - w) / 2} 0)`); this.last.grade = grade;
     }
@@ -267,6 +301,15 @@ function tabPaddle(k: PaddleSkin, cell: number, mirror = false, sym: '+' | '-' =
   const visCx = ((D / 2 + 8 - x0 * cell) + W * cell) / 2;                     // centre of the part not hidden by the dial
   const out = drawPaddle(k, cell, W, H, inside, visCx, H * cell / 2, -x0 * cell, H * cell / 2, mirror, sym);
   return { ...out, ox: x0 * cell, oy: y0 * cell };
+}
+/** Phone paddle: a compact block button with "+" or "−" in the paddle skin (no dial to tuck behind). */
+function padPaddle(k: PaddleSkin, cell: number, sym: '+' | '-') {
+  const W = 16, H = 18, R = 4;
+  const inside = (c: number, r: number) => {
+    const ax = Math.abs(c + 0.5 - W / 2) - (W / 2 - R), ay = Math.abs(r + 0.5 - H / 2) - (H / 2 - R);
+    return c >= 0 && r >= 0 && c < W && r < H && (ax <= 0 || ay <= 0 || ax * ax + ay * ay <= R * R);
+  };
+  return drawPaddle(k, cell, W, H, inside, W * cell / 2, H * cell / 2, -1e4, -1e4, false, sym);
 }
 /** Draw a paddle ("+" up or "−" down) with bevel lighting, a one-block shadow where it slides under the dial's rim (Q40 #4), optional skin
  *  stripes, and the engraved "+" on a finer half-block grid so it stays small and crisp. (gx, gy) = gauge centre in paddle px. */

@@ -289,4 +289,31 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   const ratios = LEAGUES.map(l => E.typingPerMin(l as any) / E.dragPerMin(l as any));
   check(ratios.every(r => r > 0.88 && r < 1.12), `typing pay parity at ${E.PACING.wpm} wpm: Typing ÷ Street per minute ${ratios.map(r => r.toFixed(2)).join(' · ')} (D → S)`);
 }
+
+// ---- Pedal mode (owner 2026-10-21): gas held all race, tap shift-up on green to launch, lift to stop wheelspin ----
+{
+  /** Scripted Pedal driver: revs to `rev` × redline, taps shift-up at `tapAt` s of race clock (default: right on green),
+   *  then AI-perfect shifts. `lift` = [from, to] seconds after green with the gas off; `spinLift` = lift just after launch. */
+  const pedal = (o: { rev?: number; tapAt?: number; lift?: [number, number]; spinLift?: boolean; noTap?: boolean } = {}) => {
+    const race = new Race(stage.distanceM), ai = new AIController(1, [0.2, 0.2], 7);
+    let tapped = false, early = false;
+    const ctl: Controller = { pedal: true,
+      held: (r, rc) => !r.launched ? r.rpm / r.stats.redline < (o.rev ?? 0.63)
+        : !(o.lift && rc.raceTime >= o.lift[0] && rc.raceTime < o.lift[1]) && !(o.spinLift && r.launchTimer < 0.06),
+      shift: (r, rc) => { if (r.launched) return r.launchTimer > 0.3 && ai.shift(r); if (o.noTap || tapped || rc.t < (o.tapAt ?? 3)) return false; tapped = true; return true; } };
+    const r = race.add('p', carStats('panda_civix', 1, 1, stage), ctl);
+    for (let i = 0; i < 120 * 60 && !race.done; i++) { race.step(1 / 120); if (r.lastEvent?.text === 'Too early') early = true; }
+    return { r, time: r.finish ?? 99, early };
+  };
+  const clean = pedal(), lifted = pedal({ lift: [6, 8] }), spin = pedal({ rev: 0.99 }), spinFix = pedal({ rev: 0.99, spinLift: true });
+  check(clean.r.launchGrade === 'Perfect' && Math.abs(clean.time - stockPerfect.time) < 0.6,
+    `pedal mode: holding gas + tapping shift-up on green launches (${clean.r.launchGrade}) and runs like Classic (${clean.time.toFixed(2)} vs ${stockPerfect.time.toFixed(2)} s)`);
+  check(lifted.time > clean.time + 0.5, `pedal mode: letting go of the gas coasts — 2 s off costs time (${lifted.time.toFixed(2)} > ${clean.time.toFixed(2)})`);
+  check(spin.r.launchGrade === 'Wheelspin' && spinFix.r.gripBack === true && spinFix.time < spin.time,
+    `pedal mode: lifting off during wheelspin brings grip back and is faster (${spinFix.time.toFixed(2)} < ${spin.time.toFixed(2)}; ${spin.r.launchGrade}, grip back ${spinFix.r.gripBack})`);
+  const jump = pedal({ tapAt: 2 }), none = pedal({ noTap: true });
+  check(jump.early && jump.r.finish !== undefined, `pedal mode: a tap before green shows "Too early" and does not launch (the car still goes later)`);
+  check(none.r.finish !== undefined && none.r.launchTime >= 3, `pedal mode: with no tap at all the car goes by itself ${none.r.launchTime.toFixed(1)} s after green, so the race always ends`);
+  check(keysOf({}).drag.up === 'ArrowUp', 'pedal mode: shift up has its own key (default ↑)');
+}
 process.exit(fail ? 1 : 0);

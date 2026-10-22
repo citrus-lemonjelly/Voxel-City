@@ -12,7 +12,7 @@ import { loadSave, writeSave, SaveV1, addCar, RaceDist } from './save/save';
 import { STAGES, START_STAGE } from './data/stages';
 import { ECONOMY, DIFFICULTY, racePay, Difficulty, partPrice, cosmeticPrice } from './data/economy';
 import { Tier } from './data/parts';
-import { CARS, carBody, carName, carPaint } from './data/cars';
+import { CARS, carBody, carName, carPaint, League } from './data/cars';
 import { makeRival, Rival } from './game/rivals';
 import { lookParts, randomParts } from './data/visualParts';
 import { stripRung, STRIP, Rung, levelReward, decalName } from './game/strip';
@@ -30,6 +30,7 @@ import { typingPay, TYPING } from './data/economy';
 import { dailyEvent } from './game/daily';
 import { partFits } from './render/bodies';
 import { garageActions } from './game/garageActions';
+import { BEVEL_CSS } from './ui/themeBevel';
 
 const params = new URLSearchParams(location.search);
 const AUTOPLAY = params.has('autoplay');          // test hook: the player car drives itself
@@ -38,8 +39,23 @@ const FAST = Math.max(1, +(params.get('fast') || 1));   // test hook: run the ga
 let NO_RENDER = params.has('norender');           // test hook: skip 3D drawing during races (input-timing tests)
 let paused = false;                               // preview hook: freeze physics while posing cars
 
-document.head.appendChild(Object.assign(document.createElement('style'), { textContent: CSS }));
+// layout (styles.ts) + the "Bevel+" look on top (themeBevel.ts, owner 2026-10-21, S69)
+document.documentElement.classList.add('ui-bevel');
+document.head.appendChild(Object.assign(document.createElement('style'), { textContent: CSS + BEVEL_CSS }));
 document.body.innerHTML = '<div id="stage"></div><div id="ui" class="overlay"></div>';
+/** Phones/tablets (owner 2026-10-21): thumb-sized race screen, sideways only (Q168). ?phone forces it on a PC for testing. */
+const PHONE = params.has('phone') || matchMedia('(pointer: coarse)').matches;
+document.documentElement.classList.toggle('vc-phone', PHONE);
+/** Shrink-to-fit (owner 2026-10-21, V0.13.0): the menus, results and Typing Race screen are laid out for a window at least
+ *  FIT.h tall and FIT.w wide; on anything smaller (a phone held sideways is ~390 px tall) the whole layer is scaled down to
+ *  fit, so every screen shows in full. PCs stay at 1. styles: #garage / #results / #typing / #typing-res use --ui-s. */
+const FIT = { w: 1060, h: 560, min: 0.55 };
+function fitUI() {
+  const s = Math.max(FIT.min, Math.min(1, innerHeight / FIT.h, innerWidth / FIT.w)), r = document.documentElement.style;
+  r.setProperty('--ui-s', String(s)); r.setProperty('--ui-w', innerWidth / s + 'px'); r.setProperty('--ui-h', innerHeight / s + 'px');
+}
+fitUI(); addEventListener('resize', fitUI); addEventListener('orientationchange', fitUI);
+document.body.insertAdjacentHTML('beforeend', `<div id="vc-rotate"><div class="blk"><svg width="128" height="64" viewBox="0 0 32 16" shape-rendering="crispEdges"><rect x="1" y="1" width="8" height="14" fill="#5a5f6d"/><rect x="2" y="3" width="6" height="10" fill="#14161c"/><rect x="11" y="7" width="5" height="2" fill="var(--accent)"/><rect x="15" y="5" width="1" height="6" fill="var(--accent)"/><rect x="16" y="6" width="1" height="4" fill="var(--accent)"/><rect x="17" y="7" width="1" height="2" fill="var(--accent)"/><rect x="19" y="4" width="12" height="8" fill="#eeeae0"/><rect x="21" y="5" width="8" height="6" fill="#14161c"/></svg><h2 class="hd">Turn your phone sideways</h2><p>Voxel City plays in landscape.</p></div></div>`);
 const stageEl = document.getElementById('stage')!, ui = document.getElementById('ui')!;
 const world = new World(stageEl);
 let save: SaveV1 = loadSave();
@@ -81,11 +97,13 @@ function rivalParts(carId: string, seed: number) { const body = carBody(carId).p
 // ---------------- input: SPACE or the on-screen Shift button ----------------
 const input = { held: false, shiftQueued: false, downQueued: false };
 let playerRacer: Racer | null = null;
-// Space = gas before the launch (owner: gas pedal for launch control), upshift after it
-function press() { input.held = true; if (playerRacer?.launched) { input.shiftQueued = true; hud?.setPressed(true); } else hud?.setGas(true); }
+/** Pedal mode (owner 2026-10-21): gas is only gas, held the whole race; shift-up has its own key and launches on green. */
+const pedalMode = () => save.settings.drive === 'pedal';
+// Classic: Space = gas before the launch (owner: gas pedal for launch control), upshift after it
+function press() { input.held = true; if (playerRacer?.launched && !pedalMode()) { input.shiftQueued = true; hud?.setPressed(true); } else hud?.setGas(true); }
 function release() { input.held = false; hud?.setPressed(false); hud?.setGas(false); }
-/** The "+" paddle only shifts — before the launch it does nothing (the gas pedal revs). */
-function paddlePress() { hud?.setPressed(true); if (playerRacer?.launched) input.shiftQueued = true; }
+/** The "+" paddle only shifts — before the launch it does nothing in Classic (the gas pedal revs); in Pedal mode it drops the clutch. */
+function paddlePress() { hud?.setPressed(true); if (playerRacer?.launched || pedalMode()) input.shiftQueued = true; }
 function paddleRelease() { hud?.setPressed(false); }
 // downshift (left "−" paddle): Shift or ↓ — owner request, for when an upshift came too early
 // keys come from Settings ▸ Controls (owner 2026-10-19)
@@ -95,15 +113,18 @@ window.addEventListener('keydown', e => {
   if (screen === 'typing') return typingKey(e);                       // the Typing Race takes every key
   const K = keysOf(save.settings).drag;
   if (keyMatches(e.code, K.gas)) { e.preventDefault(); if (!e.repeat) press(); }
+  else if (keyMatches(e.code, K.up) && screen === 'race') { e.preventDefault(); if (!e.repeat) paddlePress(); }
   else if (keyMatches(e.code, K.down) && screen === 'race') { e.preventDefault(); if (!e.repeat) downPress(); }
 });
 window.addEventListener('keyup', e => {
   if (screen === 'typing') return;
   const K = keysOf(save.settings).drag;
   if (keyMatches(e.code, K.gas)) { e.preventDefault(); release(); }
+  else if (keyMatches(e.code, K.up)) paddleRelease();
   else if (keyMatches(e.code, K.down)) downRelease();
 });
 class PlayerController implements Controller {
+  constructor(public pedal = false) {}
   held() { return input.held; }
   shift() { const q = input.shiftQueued; input.shiftQueued = false; return q; }
   downshift() { const q = input.downQueued; input.downQueued = false; return q; }
@@ -116,7 +137,7 @@ let race: Race | null = null, hud: Hud | null = null, oppRacer: Racer | null = n
 
 function showGarage(toast?: string) {
   screen = 'garage'; world.mode = 'garage'; setTimeout(showUpdate, 0); rollRival(); if (!garageInCatalog()) world.setGarageCar(playerLook());
-  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onRace: () => startRace(), onStrip: startStrip, stripNext, onClaim: claimLevel, onSetting: setSetting, onRepaint: repaint, onPlateText: setPlateText,
+  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onRace: () => startRace(), onStrip: startStrip, stripNext, onSetting: setSetting, onRepaint: repaint, onPlateText: setPlateText,
     onPreview: look => world.setGarageCar(look ?? playerLook()), onView: v => world.setGarageView(v), onFace: d => world.faceGarage(d),
     onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, onBuyPart: buyPart, onFitPart: (id: string, carId: string) => fitPart(id, undefined, carId),
     onFav: (id: string) => { const f = save.favs ??= []; const i = f.indexOf(id); if (i >= 0) f.splice(i, 1); else f.push(id); writeSave(save); showGarage(); }, onDistance: setDistance, onDifficulty: setDifficulty, thumb: (look, view) => world.thumbnail(look, undefined, undefined, view), playerLook,
@@ -160,15 +181,24 @@ function stripNext(): Rung | null {
   return n > STRIP.rungs ? null : stripRung(lg, n, stage);
 }
 /** Claim a cleared Strip level's one-time reward (owner: L1 100 VX, every 10th level +5 Crowns). */
-function claimLevel(n: number) {
-  const lg = CARS[save.carId].league, got = save.stripClaimed[lg] ?? [];
-  if (n > (save.strip[lg] ?? 0) || got.includes(n)) return;
-  const r = levelReward(lg, n); save.voxels += r.vx + r.cash; save.crowns += r.crowns; save.stripClaimed[lg] = [...got, n];
+/** A cleared Strip level's one-time reward (owner: L1 100 VX, every 10th level +5 Crowns, decals, boss cars). Since V0.13.0 it
+ *  is added automatically when the level is cleared (owner 2026-10-21) — no Claim button. Grants the Crowns / decal / car and
+ *  marks the level claimed; the caller adds the VX (the race results add it with the race pay). */
+function grantLevel(lg: League, n: number) {
+  const r = levelReward(lg, n);
+  save.crowns += r.crowns; save.stripClaimed[lg] = [...(save.stripClaimed[lg] ?? []), n];
   if (r.decal && !save.decals.includes(r.decal)) save.decals.push(r.decal);
   if (r.car) addCar(save, r.car);
-  writeSave(save);
-  showGarage(`Level ${n} reward: +${(r.vx + r.cash).toLocaleString()} VX${r.crowns ? ` · +${r.crowns} Crowns` : ''}${r.decal ? ` · ${decalName(r.decal)} decal` : ''}${r.car ? ` · ${carName(r.car)} (League ${CARS[r.car].league}) — it's in your Catalog` : ''}`);
+  return r;
 }
+const rewardExtras = (r: ReturnType<typeof levelReward>) => `${r.crowns ? ` · +${r.crowns} Crowns` : ''}${r.decal ? ` · ${decalName(r.decal)} decal` : ''}${r.car ? ` · ${carName(r.car)} (League ${CARS[r.car].league}) — it's in your Catalog` : ''}`;
+/** Saves from before V0.13.0 may hold cleared levels that were never claimed: add those rewards once, on load. */
+(function claimPendingStrip() {
+  let vx = 0, n = 0;
+  for (const lg of Object.keys(save.strip) as League[]) for (let k = 1; k <= (save.strip[lg] ?? 0); k++)
+    if (!(save.stripClaimed[lg] ?? []).includes(k)) { const r = grantLevel(lg, k); vx += r.vx + r.cash; n++; }
+  if (n) { save.voxels += vx; writeSave(save); }
+})();
 function startStrip() { const r = stripNext(); if (!r) return showGarage('This league\'s Strip is complete'); startRace('strip', r); }
 
 function startRace(kind: 'street' | 'strip' = 'street', stripR?: Rung) {
@@ -178,17 +208,17 @@ function startRace(kind: 'street' | 'strip' = 'street', stripR?: Rung) {
   input.held = false; input.shiftQueued = false; input.downQueued = false;
   const dist = rung ? rung.dist : save.raceDist;
   race = new Race(dist);
-  playerRacer = race.add('player', carStats(save.carId, save.equipped.engine, save.equipped.trans, stage), AUTOPLAY || (DEV.enabled && DEV.autoDrive) ? new AIController(1, [0.15, 0.15], 3) : new PlayerController());
+  playerRacer = race.add('player', carStats(save.carId, save.equipped.engine, save.equipped.trans, stage), AUTOPLAY || (DEV.enabled && DEV.autoDrive) ? new AIController(1, [0.15, 0.15], 3) : new PlayerController(pedalMode()));
   oppRacer = race.add(opp.id, carStats(opp.carId, opp.engineTier as Tier, opp.transTier as Tier, stage), new AIController(devOppSkill() ?? opp.skill, opp.reaction, opp.seed));
   world.setupRace(stage, dist, playerLook(), oppLook(), { time: raceTime(), near: save.settings.nearSide });
   // the "Space or click" hint shows for the player's first 3 races (owner Q29)
   const DK = keysOf(save.settings).drag;
-  hud = new Hud(ui, race, playerRacer, oppRacer, { keys: { gas: keyName(DK.gas), down: keyName(DK.down) }, oppName: opp.name, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
+  hud = new Hud(ui, race, playerRacer, oppRacer, { keys: { gas: keyName(DK.gas), up: keyName(DK.up), down: keyName(DK.down) }, drive: pedalMode() ? 'pedal' : 'classic', phone: PHONE, swap: save.settings.pedalSide === 'left', oppName: opp.name, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3 && !PHONE, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
   const btn = hud.shiftBtn;
   btn.addEventListener('pointerdown', e => { e.preventDefault(); btn.setPointerCapture(e.pointerId); paddlePress(); });
   btn.addEventListener('pointerup', paddleRelease); btn.addEventListener('pointercancel', paddleRelease);
   const gas = hud.gasBtn;
-  gas.addEventListener('pointerdown', e => { e.preventDefault(); gas.setPointerCapture(e.pointerId); if (!playerRacer?.launched) { input.held = true; hud?.setGas(true); } });
+  gas.addEventListener('pointerdown', e => { e.preventDefault(); gas.setPointerCapture(e.pointerId); if (!playerRacer?.launched || pedalMode()) { input.held = true; hud?.setGas(true); } });
   gas.addEventListener('pointerup', release); gas.addEventListener('pointercancel', release);
   const dbtn = hud.downBtn;
   dbtn.addEventListener('pointerdown', e => { e.preventDefault(); dbtn.setPointerCapture(e.pointerId); downPress(); });
@@ -210,6 +240,9 @@ function finishRace() {
   const doneRung = rung;
   if (rung && won && rung.n > (save.strip[rung.league] ?? 0)) dailyEvent(save, 'stripClear');
   if (rung && won) save.strip[rung.league] = Math.max(save.strip[rung.league] ?? 0, rung.n);
+  // the level's reward is added right away (owner 2026-10-21): its VX shows in the results with the race pay
+  const lr = rung && won && !(save.stripClaimed[rung.league] ?? []).includes(rung.n) ? grantLevel(rung.league, rung.n) : null;
+  if (lr && rung) earnings.push([`Level ${rung.n} reward`, lr.vx + lr.cash]);
   // dailies (owner Q150)
   dailyEvent(save, 'race'); dailyEvent(save, 'perfectShift', perfects);
   if (me.launchGrade === 'Perfect') dailyEvent(save, 'perfectLaunch');
@@ -222,13 +255,21 @@ function finishRace() {
   rec.races++; if (won) rec.wins++; if (rec.best[dist] == null || me.finish! < rec.best[dist]!) rec.best[dist] = me.finish!;
   save.voxels += total; save.races += 1; save.perfectShifts += perfects; if (won) save.wins += 1; if (newBest) { save.best[dist] = me.finish!; if (dist === 800) save.bestTime = me.finish!; }
   writeSave(save);
-  const lr = doneRung ? levelReward(doneRung.league, doneRung.n) : null;
-  const note = doneRung ? `The Strip · League ${doneRung.league} · Level ${doneRung.n} of ${STRIP.rungs}${doneRung.boss ? ' · Boss' : ''} · ${won ? `cleared — claim your reward in the Strip` : 'same rival next time'}` : undefined;
+  const note = doneRung ? `The Strip · League ${doneRung.league} · Level ${doneRung.n} of ${STRIP.rungs}${doneRung.boss ? ' · Boss' : ''} · ${won ? `cleared${lr ? ` — reward added${rewardExtras(lr)}` : ''}` : 'same rival next time'}` : undefined;
   const data: ResultData = { won, myTime: me.finish!, oppTime: them.finish!, oppName: opp.name, launch: me.launchGrade || 'Bog', shifts: me.shifts.map(s => s.grade), earnings, total, newBest, note };
   rollRival(true);                                                                   // next street race: a new rival
   setTimeout(showUpdate, 0);
   renderResults(ui, data, { again: doneRung ? () => { garageOpenStrip(); showGarage(); } : () => startRace(), garage: () => showGarage() }, doneRung ? 'The Strip ▸' : 'Race again');
   (window as any).__vc.lastResult = data;
+}
+
+/** Phones (owner E4): a short buzz on each Perfect shift. Phones without vibration (iPhone Safari) just skip it. */
+let buzzedAt = -1;
+function buzzCheck(r: Racer) {
+  const ev = r.lastEvent;
+  if (!ev || ev.t === buzzedAt || ev.text !== 'Perfect') return;
+  buzzedAt = ev.t;
+  if (save.settings.buzz !== 'off') (navigator as any).vibrate?.(35);
 }
 
 // ---------------- main loop: fixed-step physics, render every frame ----------------
@@ -247,6 +288,7 @@ function frame(now: number) {
     const lerp = (r: Racer) => (r.px ?? r.x) + (r.x - (r.px ?? r.x)) * al;
     world.updateRace(lerp(playerRacer), lerp(oppRacer), playerRacer.v, oppRacer.v, dt, race.t);
     hud?.update();
+    buzzCheck(playerRacer);
     world.setTree(Math.min(3, Math.floor(race.t)), race.green);
     if (race.done && !paused) { finishedAt ||= now; if ((now - finishedAt) * FAST > 1200) finishRace(); }
   }

@@ -15,12 +15,22 @@ export function settingsHtml(save: SaveV1, close: string): string {
       ${controlsHtml(save)}</div>`;
 }
 
+/** Drag Race control choices (owner 2026-10-21): Pedal mode, which side the phone pedal sits on (Q170), phone buzz (E4). [key, label, options, default] */
+const DRIVE_ROWS: [string, string, [string, string][], string][] = [
+  ['drive', 'Drive mode', [['classic', 'Classic'], ['pedal', 'Pedal']], 'classic'],
+  ['pedalSide', 'Pedal side (phones)', [['right', 'Right'], ['left', 'Left']], 'right'],
+  ['buzz', 'Perfect shift buzz (phones)', [['on', 'On'], ['off', 'Off']], 'on'],
+];
+const DRIVE_NOTE = { classic: 'Classic: hold gas to rev, let go on green to launch; the car pulls by itself and gas shifts up.', pedal: 'Pedal: hold gas the whole race (let go to coast), tap shift up on green to launch. Lift off to stop wheelspin.' };
+
 function controlsHtml(save: SaveV1): string {
-  const K = keysOf(save.settings), m = ui.kmode;
+  const K = keysOf(save.settings), m = ui.kmode, drive = save.settings.drive ?? 'classic';
+  const driveRows = m !== 'drag' ? '' : DRIVE_ROWS.map(([key, label, opts, def]) => { const cur = (save.settings as any)[key] ?? def;
+    return `<div class="setrow"><span>${label}</span><div class="seg">${opts.map(([v, t]) => `<button class="${cur === v ? 'on' : ''}" data-set="${key}" data-val="${v}">${t}</button>`).join('')}</div></div>`; }).join('');
   const rows = (KEY_ACTIONS[m] as [string, string][]).map(([a, label]) => { const id = `${m}.${a}`, wait = ui.capture === id;
     return `<div class="setrow"><span>${label}</span><button class="keycap ${wait ? 'wait' : ''}" data-bind="${id}">${wait ? 'Press a key…' : keyName((K[m] as any)[a])}</button></div>`; }).join('');
   return `<div class="ctl"><h3 class="hd">Controls</h3><div class="seg ctl-tabs"><button class="${m === 'drag' ? 'on' : ''}" data-kmode="drag">Drag Race</button><button class="${m === 'typing' ? 'on' : ''}" data-kmode="typing">Typing Race</button></div>
-    ${rows}<div class="ctl-foot"><span class="g-note">${ui.kmsg || (m === 'drag' ? 'Hold gas to rev, let go on green to launch; gas shifts up after that.' : 'Letters, numbers, space and punctuation always type.')}</span><button class="keycap ghost" id="kReset">Reset</button></div></div>`;
+    ${driveRows}${rows}<div class="ctl-foot"><span class="g-note">${ui.kmsg || (m === 'drag' ? DRIVE_NOTE[drive] : 'Letters, numbers, space and punctuation always type.')}</span><button class="keycap ghost" id="kReset">Reset</button></div></div>`;
 }
 
 // while a Controls key is waiting, the next key press goes to it (before the game's own key handling)

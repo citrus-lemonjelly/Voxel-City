@@ -46,17 +46,8 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 /* ---- Garage HUD (owner 2026-10-18) ---- */
 #garage{position:absolute;inset:0;pointer-events:none}
 #garage>*{pointer-events:auto}
-.g-title{position:absolute;left:28px;top:24px;padding:14px 18px;background:#14161cc8;clip-path:polygon(0 8px,8px 8px,8px 0,100% 0,100% 100%,0 100%)}
 .g-title .screen-title{font-size:13px;color:var(--dim)}
-.g-title h1{margin:2px 0 6px;font-size:30px}
 .g-stats{display:flex;gap:14px;font-size:12px;color:var(--dim)}.g-stats b{color:var(--text);font:900 15px "Courier New",monospace}
-.g-wallet{position:absolute;right:28px;top:24px;display:flex;flex-direction:column;align-items:flex-end;gap:2px;padding:10px 16px;background:#14161cc8}
-.g-rec{font-size:12px;color:var(--dim)}
-.g-bar{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);display:flex;gap:6px;padding:8px;background:#14161cd8;box-shadow:0 0 0 3px var(--edge),6px 6px 0 3px #0b0c10}
-.g-tab{border:0;cursor:pointer;width:104px;height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:var(--panel2);color:#cfd3dc;box-shadow:0 0 0 2px var(--edge);font:800 12px system-ui;letter-spacing:.05em;text-transform:uppercase}
-.g-tab:hover{color:#fff;box-shadow:0 0 0 2px #5a5f6d}
-.g-tab.on{background:#2f3442;color:#fff;box-shadow:0 0 0 2px var(--accent)}
-.g-tab.g-spin{width:88px;margin-right:8px}
 .g-tabwrap{position:relative;display:flex}
 .g-sub{position:absolute;left:50%;bottom:calc(100% + 22px);transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:6px;background:#14161cf0;white-space:nowrap;z-index:6}
 .g-sub-name{font:900 11px 'Courier New',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);padding:0 6px 0 2px}
@@ -64,22 +55,16 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .g-subtab:hover:not(:disabled){box-shadow:0 0 0 2px var(--accent)}
 .g-subtab.drive{background:var(--accent);color:#14161c;box-shadow:0 0 0 2px #b8901c}
 .g-subtab:disabled{cursor:default;opacity:.6}
-.g-sub-stem{position:absolute;left:50%;top:100%;width:6px;height:16px;margin-left:-3px;background:var(--edge);box-shadow:3px 3px 0 #0b0c10}
-.g-tab.g-spin:not(.on){color:#7d8290}
 canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
-.g-racebtn{position:absolute;right:28px;bottom:22px;font-size:30px!important;padding:20px 34px!important}
+@keyframes rb-spin{to{transform:rotate(360deg)}}
+.g-racebtn:hover .rb-wheel{animation:rb-spin .9s linear infinite}
+.g-racebtn:hover .rb-gear{animation:rb-spin 1.6s linear infinite reverse}
+@media (prefers-reduced-motion:reduce){.g-racebtn .rb-ic{animation:none!important}}
 /* update notice (owner V0.2.1): static, top centre, above everything */
 .upd{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;padding:12px 16px;max-width:820px;width:max-content}
 .upd-txt{display:flex;flex-direction:column;gap:2px}.upd-txt .hd{color:var(--accent);font-size:16px}.upd-txt span{font-size:12.5px;color:#cfd3dc}
 .upd .btn{font-size:14px;padding:9px 14px;white-space:nowrap}
-/* patch notes (owner 2026-10-19): small paper button bottom-left, panel opens above it */
-.g-notesbtn,.g-cambtn{position:absolute;left:28px;bottom:22px;border:0;cursor:pointer;width:62px;height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#14161cd8;color:#cfd3dc;box-shadow:0 0 0 3px var(--edge),4px 4px 0 3px #0b0c10;font:800 10px "Courier New",monospace;letter-spacing:.04em}
-.g-cambtn{left:104px}
-.g-notesbtn:hover,.g-cambtn:hover{color:#fff;box-shadow:0 0 0 3px #5a5f6d,4px 4px 0 3px #0b0c10}
-.g-notesbtn.on{color:#fff;box-shadow:0 0 0 3px var(--accent),4px 4px 0 3px #0b0c10}
 .g-new{position:absolute;top:-9px;right:-12px;font:900 9px system-ui;letter-spacing:.08em;text-transform:uppercase;font-style:normal;padding:2px 5px;background:var(--accent);color:#14161c;box-shadow:0 0 0 2px #b8901c}
-.catalog-mode .g-notesbtn,.strip-mode .g-notesbtn,.catalog-mode .g-cambtn,.strip-mode .g-cambtn{display:none}
-.g-panel.g-notes{left:28px;right:auto;top:160px;bottom:106px;width:470px;gap:10px}
 .pn-ver{padding:12px 14px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge)}
 .pn-ver.big{box-shadow:0 0 0 2px var(--accent)}.pn-banner{margin:-12px -14px 10px;padding:8px 14px;background:var(--accent);color:#14161c;font-size:15px;letter-spacing:.1em}
 .pn-head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}.pn-head .hd{color:var(--accent);font-size:18px}
@@ -87,14 +72,14 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .pn-kind{font:800 11px system-ui;letter-spacing:.08em;text-transform:uppercase;margin:8px 0 2px}
 .pn-added{color:var(--good)}.pn-changed{color:var(--blue)}.pn-fixed{color:var(--amber)}.pn-removed{color:var(--bad)}
 .pn-ver ul{margin:0;padding-left:18px;font-size:12.5px;color:#cfd3dc}.pn-ver li{margin:2px 0}
-.g-racemenu{position:absolute;right:28px;bottom:120px;display:flex;flex-direction:column;gap:10px;width:330px}
+.g-racemenu{position:absolute;right:28px;bottom:104px;display:flex;flex-direction:column;gap:10px;width:330px}
 .g-mode{border:0;text-align:left;cursor:pointer;color:var(--text);padding:14px 16px;display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center}
 .g-mode .hd{font-size:20px;color:var(--accent)}
 .g-mode-sub{grid-column:1;font-size:12px;color:var(--dim)}
 .g-go{grid-row:1/3;grid-column:2;font:900 18px "Courier New",monospace;color:var(--good)}
 .g-mode.off{cursor:default;opacity:.75}.g-mode.off .hd{color:var(--dim)}
 .g-soon{grid-row:1/3;grid-column:2;font:800 11px system-ui;letter-spacing:.08em;text-transform:uppercase;padding:4px 8px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge);color:var(--amber)}
-.g-panel{position:absolute;right:28px;top:110px;bottom:128px;width:440px;padding:18px 20px;overflow:auto;display:flex;flex-direction:column;gap:14px}
+.g-panel{position:absolute;right:28px;top:110px;bottom:104px;width:440px;padding:18px 20px;overflow:auto;display:flex;flex-direction:column;gap:14px}
 .g-panel h2{margin:0;font-size:22px}
 .g-close{position:absolute;right:10px;top:10px;border:0;cursor:pointer;width:30px;height:30px;background:var(--panel2);color:var(--text);box-shadow:0 0 0 2px var(--edge);font:900 14px system-ui}
 .g-note{font-size:12px;color:var(--dim)}
@@ -113,7 +98,6 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .g-strip-bar{display:block;height:5px;background:#2a2e38;margin-top:6px}.g-strip-bar u{display:block;height:100%;background:var(--accent)}
 .g-boss{font-style:normal;font:900 11px system-ui;color:#14161c;background:var(--bad);padding:1px 6px;margin-left:6px;vertical-align:3px}
 .res-note{font:700 13px system-ui;color:var(--accent);margin-top:-6px}
-.g-claimable{color:var(--accent);font-weight:800}
 /* the Strip screen: a sideways scroller of level cards (owner: like CSR) */
 .strip-wrap{position:absolute;left:28px;right:28px;bottom:118px;padding:12px 14px 14px;background:#14161ce0;display:flex;flex-direction:column;gap:10px}
 .sl-head{display:flex;align-items:baseline;gap:14px;position:relative}.sl-head h2{margin:0;font-size:22px}.sl-head span{font-size:12px;color:var(--dim)}.sl-head .g-close{right:0;top:-2px}
@@ -123,13 +107,7 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .strip-track{flex:1;min-width:0;display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin;padding:4px 2px 8px;cursor:grab;user-select:none}
 .strip-track.dragging{cursor:grabbing;scroll-snap-type:none}
 .sl-card{flex:none;width:176px;scroll-snap-align:center;display:flex;flex-direction:column;gap:5px;padding:10px 12px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge)}
-.sl-card.next{box-shadow:0 0 0 3px var(--accent);background:#2f3442}.sl-card.claim{box-shadow:0 0 0 2px var(--good)}
 .sl-card.locked{opacity:.55}.sl-card.boss .sl-top b{color:var(--bad)}
-.sl-top{display:flex;align-items:center;gap:6px}.sl-top b{font-size:16px}
-.sl-dist{font:800 20px "Courier New",monospace}.sl-rival{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sl-rw{display:flex;gap:8px;align-items:center;font-size:12px}.sl-rw b{color:var(--accent)}.sl-rw b.cr{color:#e8c46a;display:inline-flex;align-items:center}
-.sl-extra{display:flex;flex-direction:column;gap:1px}.sl-extra em{font:700 10px system-ui;font-style:normal;color:#c9b8ff}.sl-extra em.car{color:var(--bad)}
-.sl-btn{padding:6px 10px;font-size:13px;margin-top:2px}.sl-st{font:700 11px system-ui;color:var(--dim);margin-top:6px}.sl-st.ok{color:var(--good)}
 .sl-bar{margin-top:0}
 .g-pick{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .g-dist{display:flex;justify-content:flex-end}.g-dist button{min-width:64px}
@@ -204,6 +182,30 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 #lights i{width:42px;height:42px;background:#2b2e38;box-shadow:inset 0 0 0 3px #1a1c22}
 #lights i.red{background:#e0261c}#lights i.amber{background:#f2a43a}#lights i.green{background:#4ade80}
 #hint{position:absolute;top:100px;left:50%;transform:translateX(-50%);font-size:15px;padding:8px 14px;white-space:nowrap}
+/* phone race screen (owner 2026-10-21): "− +" pair and the pedal in the bottom corners, gauge in the middle, big thumb zones */
+.hud2.phone{-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
+.hud2.phone .cluster{bottom:6px}
+.hud2 .ph-side{position:absolute;bottom:16px;display:flex;align-items:flex-end;gap:12px;transform:scale(var(--hud-scale,1));pointer-events:none}
+.hud2 .ph-pads{left:22px;transform-origin:0 100%}
+.hud2 .ph-gasside{right:30px;transform-origin:100% 100%}
+.hud2.swap .ph-pads{left:auto;right:22px;transform-origin:100% 100%}
+.hud2.swap .ph-gasside{right:auto;left:30px;transform-origin:0 100%}
+.hud2 .ph-pad{position:relative}
+.hud2 .ph-pad.down{transform:translateY(3px);filter:brightness(.8)}
+.hud2 .ph-zone{top:24%;bottom:0;width:16%}
+.hud2 .ph-down{left:0}.hud2 .ph-up{left:16%}.hud2 .ph-gas{right:0;width:24%}
+.hud2.swap .ph-down{left:auto;right:16%}.hud2.swap .ph-up{left:auto;right:0}.hud2.swap .ph-gas{right:auto;left:0}
+.hud2 .ph-zone.gone{pointer-events:none}
+.hud2.phone .race-strip{transform:scale(.62);transform-origin:0 0;left:12px;top:10px}
+.hud2.phone #lights{transform:translateX(-50%) scale(.6);transform-origin:50% 0;top:8px}
+.hud2.phone #hint{top:58px;font-size:12px;padding:5px 10px}
+.hud2.phone .grade{bottom:auto;top:92px;transform:translateX(-50%) scale(.7);transform-origin:50% 0}
+.hud2.phone .count{top:100px;transform:translateX(-50%) scale(.55);transform-origin:50% 0}
+/* phones play sideways only (owner Q168) */
+#vc-rotate{display:none}
+@media (orientation:portrait){.vc-phone #vc-rotate{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;background:#14161cf4}}
+#vc-rotate .blk{display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 26px;text-align:center}
+#vc-rotate h2{margin:0;font-size:18px;color:var(--accent)}#vc-rotate p{margin:0;font-size:13px;color:var(--dim)}
 #progress{position:absolute;top:22px;left:28px;width:260px;padding:10px 12px;font-size:12px}
 #progress .track{position:relative;height:10px;background:#2b2e38;margin:6px 0}
 #progress .me,#progress .them{position:absolute;top:-3px;width:8px;height:16px}
@@ -334,7 +336,6 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .gr-rec{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--dim);padding:6px 8px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge)}
 .gr-rec b{color:var(--text);font:700 12px system-ui;font-variant-numeric:tabular-nums}.gr-rec em{font-style:normal;font-size:10px}
 /* V0.9.0 Economy Update: Daily tab, garage slots + boss tab, sell */
-.g-tab{position:relative}
 .g-dot{position:absolute;top:7px;right:9px;width:8px;height:8px;background:var(--accent);box-shadow:0 0 0 2px #b8901c}
 .gr-tabs{display:flex;margin:2px 4px 8px}.gr-tabs button{flex:1;padding:7px 8px;font:900 12px 'Courier New',monospace;letter-spacing:.06em;text-transform:uppercase}
 .gr-head{gap:6px}.gr-head .hd{margin-right:auto}
@@ -361,12 +362,15 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .cal-sw{display:block;width:16px;height:12px;box-shadow:0 0 0 2px #0b0c10}
 .cal-cr{color:#e8c46a;display:inline-flex;align-items:center}
 .cal-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.cal-foot .btn{font-size:14px;padding:8px 14px}
-/* V0.9.1 mini HUD: Spin · Daily / Calendar · spare, one tab-sized square beside Profile */
-.g-mini{display:grid;grid-template-columns:35px 35px;grid-template-rows:35px 35px;gap:4px;margin-right:8px}
-.g-mb{position:relative;border:0;cursor:pointer;display:flex;align-items:center;justify-content:center;background:var(--panel2);color:#cfd3dc;box-shadow:0 0 0 2px var(--edge);padding:0}
-.g-mb:hover:not(:disabled){color:#fff;box-shadow:0 0 0 2px #5a5f6d}
-.g-mb.sel{background:#2f3442;color:#fff;box-shadow:0 0 0 2px var(--accent)}
-.g-mb.off{color:#7d8290}
-.g-mb.empty{cursor:default;background:#1a1d25}
-.g-mb .g-dot{top:3px;right:3px;width:6px;height:6px}
+/* ---- every screen fits (owner 2026-10-21, V0.13.0): on small windows (phones) main.ts fitUI() scales the menu layer, the
+   results and the Typing Race screen down by --ui-s inside a box the size of the window, so each screen shows in full and
+   long panels scroll inside themselves. PCs: --ui-s = 1, nothing changes. ---- */
+#garage,#typing{inset:auto;left:0;top:0;width:var(--ui-w,100vw);height:var(--ui-h,100vh);transform:scale(var(--ui-s,1));transform-origin:0 0}
+#results,#typing-res{transform:translate(-50%,-50%) scale(var(--ui-s,1));max-height:calc(var(--ui-h,100vh) - 24px);overflow-y:auto}
+.gr-info{max-height:calc(100% - 128px - 96px);overflow-y:auto}
+/* open screens sit on top of the buttons that are always there (owner): car card, wallet, Menu · Notes · Cam and Race
+   < panels and lists < Garage sub-tabs < the side rail (z 7, themeBevel.ts) */
+.g-title,.g-wallet,.g-util,.g-raceside{z-index:2}
+.g-panel,.cat-list,.pt-tabs,.cat-under,.gr-info,.strip-wrap,.g-racemenu{z-index:4}
+#garage>.g-sub{z-index:5}
 `;
