@@ -19,6 +19,8 @@ import { COSMETIC_PRICES } from '../src/data/economy';
 import { readFileSync } from 'node:fs';
 import { stripRung, stripBand, STRIP, levelReward } from '../src/game/strip';
 import { dyno } from '../src/game/dyno';
+import { wetStage } from '../src/data/stages';
+import { PART_LEAGUE } from '../src/data/economy';
 
 declare const process: { exit(code: number): never };
 const stage = STAGES.downtown_grid;
@@ -369,5 +371,8 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   const rows = dyno('panda_civix', STOCK_TUNE, stage), maxed = dyno('panda_civix', MAX_TUNE, stage);
   check(rows.length === 3 && rows.every(r => r.t60 > 0 && r.t600 < r.t800) && maxed[1].t800 < rows[1].t800,
     `test run: 0–60 / 600 m / 800 m on each gearing, maxed beats stock (balanced 800 m ${rows[1].t800.toFixed(2)} → ${maxed[1].t800.toFixed(2)} s)`);
+  const wet = dyno('panda_civix', STOCK_TUNE, wetStage(stage));
+  check(wet[1].t800 > rows[1].t800 && wet[1].t800 - rows[1].t800 < 1.5, `rain (Q190 B): less grip makes the same car slower, but not hugely (dry ${rows[1].t800.toFixed(2)} → wet ${wet[1].t800.toFixed(2)} s)`);
+  check(PART_LEAGUE.D < 1 && PART_LEAGUE.S > 1, `economy pass (Q181): League D parts cheaper (×${PART_LEAGUE.D}), League S dearer (×${PART_LEAGUE.S})`);
 }
 process.exit(fail ? 1 : 0);

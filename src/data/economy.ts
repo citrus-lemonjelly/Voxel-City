@@ -71,7 +71,10 @@ export const PART_PRICES = {
   nitrous: [0, 3_000, 6_000, 10_500, 16_500],   // V0.16.0 — first guess, to be timed in the economy pass (Q181)
 };
 export type PartKind = keyof typeof PART_PRICES;
-export const partPrice = (kind: PartKind, tier: number, league: EcoLeague) => round(PART_PRICES[kind][tier - 1] * LEAGUE_SCALE[league], 50);
+/** Economy pass (owner Q181, V0.16.0): part prices per league on top of LEAGUE_SCALE, so each league takes its target time with
+ *  every part (nitrous included) — D was 4.1 h (target 2–3), S 2.9 h (target 3–6). `npm run economy` shows the result. */
+export const PART_LEAGUE: Record<EcoLeague, number> = { D: 0.66, C: 1, B: 1, A: 1, S: 1.1 };
+export const partPrice = (kind: PartKind, tier: number, league: EcoLeague) => round(PART_PRICES[kind][tier - 1] * LEAGUE_SCALE[league] * PART_LEAGUE[league], 50);
 
 // ---------------- Visual parts (cosmetic, owner 2026-10-19) ----------------
 /** Bought once, fit every car (Q110). Common/rare in VX, the special ones in Crowns (Q111). Factory parts are free. */

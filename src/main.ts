@@ -4,12 +4,12 @@ import { prewarmVehicles, TimeOfDay } from './render/stage';
 import { STOCK_LOOK, CarLook } from './render/carBuilder';
 import { CSS } from './ui/styles';
 import { renderResults, ResultData } from './ui/screens';
-import { renderGarage, garageInCatalog, garageOpenStrip } from './ui/garage';
+import { renderGarage, garageInCatalog, garageOpenStrip, resetGarageUI } from './ui/garage';
 import { Hud } from './ui/hud';
 import { VERSION, CHANGELOG } from './data/changelog';
 import { watchForUpdates, reloadInto, RemoteBuild } from './game/updates';
 import { loadSave, writeSave, SaveV1, addCar, RaceDist } from './save/save';
-import { STAGES, START_STAGE } from './data/stages';
+import { STAGES, START_STAGE, wetStage } from './data/stages';
 import { ECONOMY, DIFFICULTY, racePay, Difficulty, partPrice, cosmeticPrice } from './data/economy';
 import { Tier, LAUNCH } from './data/parts';
 import { CARS, carBody, carName, carPaint, League } from './data/cars';
@@ -31,7 +31,7 @@ import { dailyEvent } from './game/daily';
 import { partFits } from './render/bodies';
 import { garageActions } from './game/garageActions';
 import { BEVEL_CSS } from './ui/themeBevel';
-import { startSound, setSoundLevel, raceSound, raceReset, engineStop, keyClick, nitroSound, uiTick, winSound } from './game/sound';
+import { volOf, startSound, setSoundLevel, raceSound, raceReset, engineStop, keyClick, nitroSound, uiTick, winSound } from './game/sound';
 
 const params = new URLSearchParams(location.search);
 const AUTOPLAY = params.has('autoplay');          // test hook: the player car drives itself
@@ -76,7 +76,7 @@ world.setCameraPreset(save.settings.camera);
 const gfxLite = () => save.settings.gfx === 'light' || (save.settings.gfx !== 'full' && PHONE);
 world.setLite(gfxLite());
 // sound (owner C1, V0.16.0): browsers only allow it after a tap or key press; menu buttons tick
-setSoundLevel(save.settings.sound ?? 'full');
+setSoundLevel(volOf(save.settings.sound, 75), volOf(save.settings.engineVol, 75));
 addEventListener('pointerdown', startSound, true); addEventListener('keydown', startSound, true);
 document.addEventListener('click', e => { if ((e.target as Element).closest?.('#garage button, #results button, #typing-res button')) uiTick(); }, true);
 let engineOn = false;
@@ -169,7 +169,7 @@ function showGarage(toast?: string) {
 const { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setGearing } =
   garageActions({ save: () => save, world, show: msg => showGarage(msg), lookFor, playerLook });
 
-/** Weather (owner C5, V0.16.0): rain in about one race in four; ?weather=rain / clear forces it. Looks only — grip is unchanged. */
+/** Weather (owner Q190 B): random — rain in about one race in four; ?weather=rain / clear forces it. Rain = less grip (wetStage). */
 function raceWeather(): Weather { const w = params.get('weather'); return w === 'rain' || w === 'clear' ? w : Math.random() < 0.25 ? 'rain' : 'clear'; }
 const fxOf = (r: Racer): FxCar => ({ launched: r.launched, launchTimer: r.launchTimer, spin: r.launchGrade === 'Wheelspin' && r.launchTimer < LAUNCH.spinSeconds && !r.gripBack,
   nitro: r.nitro > 0, v: r.v, finished: r.finish !== undefined, ev: r.lastEvent });
@@ -193,7 +193,7 @@ function setSetting(key: string, value: string) {
   if (key === 'camera') world.setCameraPreset(value as any);
   if (key === 'blur') world.setBlur(value as any);
   if (key === 'gfx') world.setLite(gfxLite());
-  if (key === 'sound') setSoundLevel(value as any);
+  if (key === 'sound' || key === 'engineVol') setSoundLevel(volOf(save.settings.sound, 75), volOf(save.settings.engineVol, 75));
   if (key === 'spin') world.autoSpin = value !== 'off';
   if (key === 'door') world.setGarageDoor(value !== 'closed');
   if (key === 'gcam') world.setGarageCam(value as any);
@@ -236,19 +236,20 @@ function rewardPop(r: ReturnType<typeof levelReward>) {
 function startStrip() { const r = stripNext(); if (!r) return showGarage('This league\'s Strip is complete'); startRace('strip', r); }
 
 function startRace(kind: 'street' | 'strip' = 'street', stripR?: Rung) {
-  raceReset();
+  raceReset(carBody(save.carId).type, carBody(opp.carId).type);
   screen = 'race'; document.getElementById('vc-update')?.remove();   // never interrupt a race — the notice comes back after it
   rung = kind === 'strip' ? (stripR ?? stripNext()) : null;
   if (rung) opp = rung.rival; else rollRival();
   input.held = false; input.shiftQueued = false; input.downQueued = false; input.nosQueued = false;
   const dist = rung ? rung.dist : save.raceDist;
   race = new Race(dist);
-  playerRacer = race.add('player', carStats(save.carId, save.equipped, stage), AUTOPLAY || (DEV.enabled && DEV.autoDrive) ? new AIController(1, [0.15, 0.15], 3) : new PlayerController(pedalMode()));
-  oppRacer = race.add(opp.id, carStats(opp.carId, opp.tune, stage), new AIController(devOppSkill() ?? opp.skill, opp.reaction, opp.seed));
-  world.setupRace(stage, dist, playerLook(), oppLook(), { time: raceTime(), near: save.settings.nearSide, weather: raceWeather() });
+  const weather = raceWeather(), track = weather === 'rain' ? wetStage(stage) : stage;   // rain: less grip for both cars (Q190)
+  playerRacer = race.add('player', carStats(save.carId, save.equipped, track), AUTOPLAY || (DEV.enabled && DEV.autoDrive) ? new AIController(1, [0.15, 0.15], 3) : new PlayerController(pedalMode()));
+  oppRacer = race.add(opp.id, carStats(opp.carId, opp.tune, track), new AIController(devOppSkill() ?? opp.skill, opp.reaction, opp.seed));
+  world.setupRace(stage, dist, playerLook(), oppLook(), { time: raceTime(), near: save.settings.nearSide, weather });
   // the "Space or click" hint shows for the player's first 3 races (owner Q29)
   const DK = keysOf(save.settings).drag;
-  hud = new Hud(ui, race, playerRacer, oppRacer, { keys: { gas: keyName(DK.gas), up: keyName(DK.up), down: keyName(DK.down), nitrous: keyName(DK.nitrous) }, drive: pedalMode() ? 'pedal' : 'classic', phone: PHONE, icons: { me: world.thumbnail(playerLook(), 124, 56, 'strip', 'clear'), them: world.thumbnail(oppLook(), 124, 56, 'strip', 'clear') }, swap: save.settings.pedalSide === 'left', oppName: opp.name, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3 && !PHONE, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
+  hud = new Hud(ui, race, playerRacer, oppRacer, { keys: { gas: keyName(DK.gas), up: keyName(DK.up), down: keyName(DK.down), nitrous: keyName(DK.nitrous) }, drive: pedalMode() ? 'pedal' : 'classic', phone: PHONE, wet: weather === 'rain', icons: { me: world.thumbnail(playerLook(), 124, 56, 'strip', 'clear'), them: world.thumbnail(oppLook(), 124, 56, 'strip', 'clear') }, swap: save.settings.pedalSide === 'left', oppName: opp.name, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3 && !PHONE, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
   const btn = hud.shiftBtn;
   btn.addEventListener('pointerdown', e => { e.preventDefault(); btn.setPointerCapture(e.pointerId); paddlePress(); });
   btn.addEventListener('pointerup', paddleRelease); btn.addEventListener('pointercancel', paddleRelease);
@@ -346,7 +347,7 @@ function pose(playerM: number, oppM: number, speedMs = 30, t = 10) {
   race!.t = t; playerRacer!.x = playerRacer!.px = playerM; oppRacer!.x = oppRacer!.px = oppM; playerRacer!.v = oppRacer!.v = speedMs;
   playerRacer!.launched = oppRacer!.launched = t > 3;
 }
-(window as any).__vc = { get screen() { return screen; }, rewardPop: (n: number) => rewardPop(levelReward(CARS[save.carId].league, n)), get typing() { return ty; }, startTyping, openLab, version: VERSION, get opp() { return opp; }, cars: CARS, levelReward, partPrice, cosmeticPrice, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
+(window as any).__vc = { get screen() { return screen; }, /** test hook: back to the plain garage home screen, no reload (layout check) */ homeUI: () => { resetGarageUI(); showGarage(); }, rewardPop: (n: number) => rewardPop(levelReward(CARS[save.carId].league, n)), get typing() { return ty; }, startTyping, openLab, version: VERSION, get opp() { return opp; }, cars: CARS, levelReward, partPrice, cosmeticPrice, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
   /** preview hook: rebuild the race HUD with another paddle shape/skin (review renders) */
   hudPreview: (shape: string, skin: string, pedalStyle?: string) => { if (race && playerRacer && oppRacer) { hud = new Hud(ui, race, playerRacer, oppRacer, { oppName: opp.name, paddle: skin, paint: playerLook().paint, showKeyHint: true, paddleShape: shape as any, pedal: (pedalStyle || params.get('pedal') || 'alloy') as any }); hud.update(); } }, startRace, showGarage, buyOrEquip, pose, setCam: (m: string) => (world.camMode = m as any), setSetting, world, setNoRender: (b: boolean) => (NO_RENDER = b), setPaused: (b: boolean) => (paused = b) };
 // test console (owner Q58): ?dev once turns it on for this browser; ` opens it

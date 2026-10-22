@@ -22,22 +22,29 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Always look for faster ways to work and reduce load: use the project tools first; if a step is slow, fix the tool.
 
 ## Commands (run them yourself here — this is the owner's PC)
+- **Start every session with `npm run sync`**: shows what GitHub has that this PC doesn't (another session may have shipped),
+  files both sides changed, the live version and the next free version / S-row / Q-number. `-- --pull` fast-forwards when safe.
 - `npm run typecheck` — TypeScript check
 - `npm test` — sim checks (seconds)
 - `npm run collide` — collision check, every car × every part + part pairs (seconds)
-- `npm run smoke` — browser smoke test (~1 min): every screen, a drag race, a Typing Race, Body Shop, Car Lab
+- `npm run smoke` — browser smoke test (~2–3 min): every screen, a drag race, a Typing Race, Body Shop, Car Lab
+- `npm run layout` (~3.5 min; `-- pc|small|phone|large` for one size) — every garage screen on PC + 3 phone sizes: fails on anything
+  off screen, the fixed buttons overlapping, or text spilling out of its box; warns on text drawn under 10 px. Run it after UI work.
 - `npm run release` — version check → package.json sync → sim → collision check → build → list of changed files.
   It refuses if the version wasn't raised. Only use `--same` if that version has never shipped.
 - `npm run shot -- OUT.png "Title" "click:SEL; wait:MS; cap:TEXT"` — screenshot sheet for review (1–2 per feature).
-  Also `size:844x390` + `url:?dev&phone` (phone race screen), `touch` (a touch-screen phone page — use with `size:844x390`),
-  `hover:SEL`, `js:CODE` (a step can't contain `;` — use commas). `click:[data-panel=…]` opens the Menu by itself.
-- Test builds stamp `build/version.json`, which `npm run release` compares against: after testing a not-yet-shipped version,
-  run `git checkout -- build/` so Ship It still sees the live version.
+  **Presets:** `npm run shot -- OUT.png --preset pc|phone|race` (every main screen / every screen on a phone / a whole race).
+  Steps: `size:844x390`, `touch` (touch-screen phone page), `url:?dev&phone`, `hover:SEL`, `waitfor:green|launch|results|nitro|perfect|typing`,
+  `js:CODE` (no `;` inside — use commas) or `jsfile:PATH` for longer page code. `click:[data-panel=…]` opens the Menu by itself.
+- **Test builds go to `build-test/`** (git-ignored): smoke, layout and shot build it themselves, so the live `build/` folder and its
+  version stamp only change when shipping. `node tools/build.mjs --out build-test` builds it by hand.
+- **Code edits on this PC: `node tools/edit.mjs edits.json [--check]`** — a JSON list of {file, find, replace, all?}; checks every edit
+  first, writes all or nothing, keeps line endings. (No Python here, and shell quoting mangles code — don't edit through `sed`/`node -e`.)
 - `npm run economy` — pacing tables from `economy.ts`: VX/min per mode, hours per league vs the owner's targets
   (D 2–3 h · C 3–4 h · B/A/S 3–6 h), cosmetics in minutes, Crowns. Run it after any price/payout change.
 - `npm run ship` (owner: double-click `Ship It.cmd`) — git check → release → commit "V0.x.y" → push to GitHub (no smoke — it runs while building);
   Pages publishes `build` about a minute later. `--no-push` keeps the commit local. Push only when the owner says ship.
-- Don't run `npm run build` by itself just to look — a rebuild changes the build stamp and triggers the website's Update notice.
+- Don't run `npm run build` (the live folder) by itself just to look — use the test build; a rebuild changes the live stamp.
 - This folder is a git clone of `citrus-lemonjelly/Voxel-City`; a push to `main` updates the website (`.github/workflows/static.yml`).
   After shipping, tell the owner which version is live.
 

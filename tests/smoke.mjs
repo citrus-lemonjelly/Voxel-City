@@ -3,12 +3,16 @@
 // opens, no page errors. The full browser test (tests/e2e.py) is for big versions.
 //   node tests/smoke.mjs            (first time on a new computer: npx playwright install chromium)
 import { chromium } from 'playwright';
+import { execFileSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { mkdirSync } from 'node:fs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const out = process.argv[2] || resolve(root, 'build/smoke'); mkdirSync(out, { recursive: true });
+const out = process.argv.slice(2).find(a => !a.startsWith('--')) || resolve(root, 'build-test/smoke'); mkdirSync(out, { recursive: true });
+// T1: always test the current code — build it into build-test/ first (seconds; never touches the live build/ folder)
+if (!process.argv.includes('--no-build')) execFileSync(process.execPath, [resolve(root, 'tools/build.mjs'), '--out', 'build-test'], { stdio: 'ignore' });
+
 const linux = process.platform === 'linux';
 const browser = await chromium.launch({
   headless: true, executablePath: process.env.PW_CHROMIUM || (linux ? '/opt/pw-browsers/chromium' : undefined),
@@ -23,7 +27,7 @@ const ev = f => pg.evaluate(f);
 /** Garage tabs live in the side rail behind the Menu button (V0.12.0): open it first if it is closed. */
 const tab = async name => { if (await ev(() => getComputedStyle(document.querySelector('.g-bar')).visibility === 'hidden')) await pg.click('#menuBtn'); await pg.click('[data-panel="' + name + '"]'); };
 
-await pg.goto(pathToFileURL(resolve(root, 'build/index.html')).href + '?fast=4&autoplay&dev');
+await pg.goto(pathToFileURL(resolve(root, 'build-test/index.html')).href + '?fast=4&autoplay&dev');
 await pg.waitForFunction(() => window.__vc && window.__vc.screen === 'garage');
 const v = await ev(() => [window.__vc.version, document.querySelector('#notesBtn span')?.textContent]);
 ok('garage loads, version shown', v[1] === `V${v[0]}`, v.join(' / '));

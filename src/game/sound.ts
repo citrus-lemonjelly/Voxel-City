@@ -4,20 +4,25 @@
 // Settings ▸ Sound: Off / Low / Full. Browsers only allow audio after a tap or key press, so start() runs on the first one.
 import type { Racer, Race } from './race';
 
-export type SoundLevel = 'off' | 'low' | 'full';
-const LEVEL: Record<SoundLevel, number> = { off: 0, low: 0.35, full: 0.8 };
+/** Settings ▸ Sound volume / Engine volume (owner Q191, V0.16.0): 0–100 in steps of 25. Older saves said off / low / full. */
+export const volOf = (v: string | undefined, def: number) => v === 'off' ? 0 : v === 'low' ? 50 : v === 'full' ? 75 : v != null && !isNaN(+v) ? +v : def;
+let ac: AudioContext | null = null, master: GainNode | null = null, engBus: GainNode | null = null, noiseBuf: AudioBuffer | null = null, vol = 75, engVol = 75;
 
-let ac: AudioContext | null = null, master: GainNode | null = null, noiseBuf: AudioBuffer | null = null, level: SoundLevel = 'full';
-
-export function setSoundLevel(l: SoundLevel) { level = l; if (master && ac) master.gain.setTargetAtTime(LEVEL[l], ac.currentTime, 0.05); if (l === 'off') engineStop(); }
+export function setSoundLevel(v: number, engine: number) {
+  vol = v; engVol = engine;
+  if (master && ac) master.gain.setTargetAtTime(v / 100, ac.currentTime, 0.05);
+  if (engBus && ac) engBus.gain.setTargetAtTime(engine / 100, ac.currentTime, 0.05);
+  if (v === 0) engineStop();
+}
 /** Call from a tap / key press (browser rule); safe to call often. */
 export function startSound() {
-  if (ac || level === 'off') { if (ac?.state === 'suspended') ac.resume(); return; }
+  if (ac || vol === 0) { if (ac?.state === 'suspended') ac.resume(); return; }
   const AC = (window as any).AudioContext || (window as any).webkitAudioContext; if (!AC) return;
-  ac = new AC() as AudioContext; master = ac.createGain(); master.gain.value = LEVEL[level]; master.connect(ac.destination);
+  ac = new AC() as AudioContext; master = ac.createGain(); master.gain.value = vol / 100; master.connect(ac.destination);
+  engBus = ac.createGain(); engBus.gain.value = engVol / 100; engBus.connect(master);
   noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 }
-const ready = () => !!ac && !!master && level !== 'off' && ac.state === 'running';
+const ready = () => !!ac && !!master && vol > 0 && ac.state === 'running';
 
 /** A short tone: frequency f (Hz), length (s), wave, volume. */
 function tone(f: number, len: number, type: OscillatorType = 'sine', vol = 0.2, f2?: number, delay = 0) {
@@ -36,32 +41,46 @@ function noise(len: number, freq: number, q = 1, vol = 0.2, type: BiquadFilterTy
   src.connect(f).connect(g).connect(master!); src.start(t, Math.random() * 0.5); src.stop(t + len + 0.02);
 }
 
-// ---- engine (player car loud, rival quieter) ----
-interface Engine { o1: OscillatorNode; o2: OscillatorNode; f: BiquadFilterNode; g: GainNode }
+// ---- engine (player car loud, rival quieter); its voice depends on the body type (owner E3, V0.16.0) ----
+type Body = 'hatch' | 'sedan' | 'muscle' | 'tuner' | 'hyper';
+/** pitch × the firing note, the two waves, filter sharpness, and a low sub-rumble (muscle V8) */
+const VOICE: Record<Body, { pitch: number; w1: OscillatorType; w2: OscillatorType; q: number; sub: number }> = {
+  hatch: { pitch: 1.0, w1: 'sawtooth', w2: 'square', q: 3, sub: 0 },
+  sedan: { pitch: 0.85, w1: 'sawtooth', w2: 'triangle', q: 2, sub: 0.15 },
+  muscle: { pitch: 0.55, w1: 'sawtooth', w2: 'square', q: 2, sub: 0.6 },
+  tuner: { pitch: 1.2, w1: 'square', w2: 'sawtooth', q: 7, sub: 0 },
+  hyper: { pitch: 1.35, w1: 'sawtooth', w2: 'sawtooth', q: 4, sub: 0.2 },
+};
+const voices: Body[] = ['hatch', 'hatch'];
+interface Engine { o1: OscillatorNode; o2: OscillatorNode; sub: OscillatorNode; subG: GainNode; f: BiquadFilterNode; g: GainNode }
 const engines: Engine[] = [];
 function engine(i: number): Engine | null {
   if (!ready()) return null;
   if (!engines[i]) {
-    const o1 = ac!.createOscillator(), o2 = ac!.createOscillator(), f = ac!.createBiquadFilter(), g = ac!.createGain();
-    o1.type = 'sawtooth'; o2.type = 'square'; o2.detune.value = 9; f.type = 'lowpass'; f.Q.value = 3; g.gain.value = 0;
-    o1.connect(f); o2.connect(f); f.connect(g).connect(master!); o1.start(); o2.start();
-    engines[i] = { o1, o2, f, g };
+    const o1 = ac!.createOscillator(), o2 = ac!.createOscillator(), sub = ac!.createOscillator(), subG = ac!.createGain(), f = ac!.createBiquadFilter(), g = ac!.createGain();
+    o2.detune.value = 9; sub.type = 'sine'; f.type = 'lowpass'; g.gain.value = 0;
+    o1.connect(f); o2.connect(f); sub.connect(subG).connect(g); f.connect(g).connect(engBus!); o1.start(); o2.start(); sub.start();
+    engines[i] = { o1, o2, sub, subG, f, g };
   }
-  return engines[i];
+  const v = VOICE[voices[i]], e = engines[i];
+  if (e.o1.type !== v.w1) e.o1.type = v.w1;
+  if (e.o2.type !== v.w2) e.o2.type = v.w2;
+  e.f.Q.value = v.q; e.subG.gain.value = v.sub;
+  return e;
 }
 export function engineStop() { for (const e of engines) if (e && ac) e.g.gain.setTargetAtTime(0, ac.currentTime, 0.08); }
 
 // ---- race: called every frame; events come from the racers' state ----
 const seen = { ev: -1, oppEv: -1, lights: -1, nitro: false, spin: 0 };
-export function raceReset() { seen.ev = -1; seen.oppEv = -1; seen.lights = -1; seen.nitro = false; seen.spin = 0; }
+export function raceReset(me: Body = 'hatch', opp: Body = 'hatch') { voices[0] = me; voices[1] = opp; seen.ev = -1; seen.oppEv = -1; seen.lights = -1; seen.nitro = false; seen.spin = 0; }
 export function raceSound(me: Racer, opp: Racer, race: Race, held: boolean) {
   if (!ready()) return;
   const t = ac!.currentTime;
   [me, opp].forEach((r, i) => {
     const e = engine(i); if (!e) return;
-    const frac = Math.min(1.05, r.rpm / r.stats.redline), hz = 32 + r.rpm / 60 * 2 * 0.55;     // 4-cylinder firing note, a bit lower
+    const frac = Math.min(1.05, r.rpm / r.stats.redline), hz = (32 + r.rpm / 60 * 2 * 0.55) * VOICE[voices[i]].pitch;   // firing note × the body's voice
     const gas = r.finish !== undefined ? 0.25 : r.launched ? (r.shifting > 0 ? 0.35 : 1) : held || i === 1 ? 0.8 : 0.3;
-    e.o1.frequency.setTargetAtTime(hz, t, 0.03); e.o2.frequency.setTargetAtTime(hz * 0.5, t, 0.03);
+    e.o1.frequency.setTargetAtTime(hz, t, 0.03); e.o2.frequency.setTargetAtTime(hz * 0.5, t, 0.03); e.sub.frequency.setTargetAtTime(hz * 0.25, t, 0.03);
     e.f.frequency.setTargetAtTime(300 + frac * 2200 * gas + (r.nitro > 0 ? 800 : 0), t, 0.05);
     e.g.gain.setTargetAtTime((i === 0 ? 0.11 : 0.035) * (0.35 + 0.65 * gas), t, 0.05);
   });

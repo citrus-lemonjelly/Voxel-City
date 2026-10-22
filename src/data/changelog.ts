@@ -28,16 +28,21 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '0.16.0', date: '2026-10-22', title: 'Sound, smoke, rain and nitrous', header: 'Feel Update',
     added: [
-      'Sound: engine notes that rise with the revs, shift clunks, launch screech, a chime on Perfect shifts, countdown beeps, Typing Race key clicks and a win / lose jingle. Settings ▸ Sound: Off, Low or Full.',
+      'Sound: engine notes that rise with the revs, shift clunks, launch screech, a chime on Perfect shifts, countdown beeps, Typing Race key clicks and a win / lose jingle. Each kind of car sounds different — a muscle car rumbles, a tuner rasps, a hypercar screams.',
+      'Settings ▸ Sound volume and Engine volume (Off, 25, 50, 75, 100).',
       'Nitrous: a new upgrade (T2–T5). One shot per race — press 1, or tap the bottle badge by the gauge. Stronger and longer at higher tiers. Some rivals carry it too.',
       'Voxel effects: tyre smoke on the launch and in wheelspin, a backfire flame on Perfect shifts, a blue flame while nitrous burns, dust at the finish.',
-      'Rain in about one race in four: falling rain, a wet shiny road and spray from the wheels (looks only — grip is the same).',
+      'Rain in about one race in four: falling rain, a wet shiny road, spray from the wheels — and less grip for both cars, so go easy on the launch.',
+      'Night and dusk rain: street lights and headlights reflect in long streaks on the wet road.',
+      'Shift light: the rim of the rev gauge glows green while the revs are in the shift zone.',
       'A camera kick on the launch, a wider view while nitrous burns, and a slow-motion photo finish when the race is too close to call.',
       'Upgrades ▸ Test run: race your set-up on an empty strip and see 0–60, 600 m and 800 m on each gearing — after a change it shows how much quicker you got.',
     ],
     changed: [
       'The Upgrades panel is compact: part names down the left, T1–T5 beside them. Point at a tier to see what it does and what it costs.',
       'The race progress bar uses the same track and chequered flag as the Typing Race.',
+      'League D upgrades cost about a third less and League S upgrades a little more, so every league takes its intended time.',
+      'Small labels (like the New badge) are a bit bigger.',
     ],
   },
   {

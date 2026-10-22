@@ -15,7 +15,10 @@
     "test": "tsx tests/sim.ts",
     "shot": "node tools/shot.mjs",
     "ship": "node tools/ship.mjs",
-    "economy": "tsx tools/economy.mts"
+    "economy": "tsx tools/economy.mts",
+    "sync": "node tools/sync.mjs",
+    "layout": "node tests/layout.mjs",
+    "edit": "node tools/edit.mjs"
   },
   "dependencies": {
     "three": "0.170.0"

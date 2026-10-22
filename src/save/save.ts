@@ -90,7 +90,9 @@ export interface Settings {
   /** garage camera angle A–D (owner Q163, 2026-10-20); missing = d */
   gcam?: 'a' | 'b' | 'c' | 'd';
   /** sound (owner C1, V0.16.0). Missing = full */
-  sound?: 'off' | 'low' | 'full';
+  sound?: string;
+  /** engine volume 0–100 (owner Q191). Missing = 75 */
+  engineVol?: string;
   /** graphics (owner E4, V0.15.0): auto = light on phones, full on PCs. Missing = auto */
   gfx?: 'auto' | 'full' | 'light';
   /** Drag Race controls (owner 2026-10-21): Classic = the car pulls by itself; Pedal = hold gas the whole race. Missing = classic */

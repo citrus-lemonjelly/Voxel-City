@@ -135,7 +135,8 @@ export const BEVEL_CSS = [
   B('.sl-head span', 'font-size:11px'),
   B('.sl-head .g-close', 'top:-3px;right:-2px;width:24px;height:24px'),
   B('.sl-row', 'gap:5px'),
-  B('.sl-arrow', 'width:22px;font-size:10px'),
+  B('.sl-arrow', 'width:22px;font-size:13px'),
+  B('.g-new', 'font-size:11px;padding:1px 5px'),                  // layout check (T3): the badge was drawn at 6–9 px
   B('.strip-track', 'gap:5px;padding:2px 2px 4px'),
   B('.sl-card', 'width:100px;padding:5px 7px;gap:2px;white-space:nowrap;border:0;text-align:left;font:inherit;color:#e9ecf2'),
   B('.sl-card .hd', 'font-size:11px'),
@@ -162,7 +163,7 @@ export const BEVEL_CSS = [
   // ---- touch screens (owner E4, V0.13.1): a little bigger to tap. On phones the whole layer is also scaled to fit
   //      (styles.ts, V0.14.0), so these end up ~45 × 39 px on a sideways phone, and the side rail fits as on a PC. ----
   // ---- phones (owner E2, V0.15.0): the smallest labels a size up, on top of the bigger phone scale (main.ts FIT) ----
-  ...['.setrow,.g-note,.seg button,.g-util>button,.g-tab,.sl-rw,.sl-card .hd,.g-grid span,.stat span,.g-league,.gr-rec,.pt-group,.cal-day,.g-mode-sub'].map(sel =>
+  ...['.setrow,.g-note,.seg button,.g-util>button,.g-tab,.sl-rw,.sl-card .hd,.g-grid span,.stat span,.g-league,.gr-rec,.pt-group,.cal-day,.g-mode-sub,.pn-kind,.g-pick button,.g-panel>h2 .g-sub,.g-new'].map(sel =>
     sel.split(',').map(x => `html.vc-phone.ui-bevel ${x}`).join(',') + '{font-size:12.5px}'),
   `@media (pointer:coarse){${[
     B('.g-util>button', 'width:64px;height:56px'),

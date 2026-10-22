@@ -125,7 +125,7 @@ export class Stage {
   private built = new Map<number, THREE.Group>();
   /** Real x of notable places (preview hook). */
   landmarks: { kind: string; x: number }[] = [];
-  constructor(private def: StageDef, public finishBlocks: number, private mats: Materials, private time: TimeOfDay = 'day', private near: NearStyle = 'mixed') {
+  constructor(private def: StageDef, public finishBlocks: number, private mats: Materials, private time: TimeOfDay = 'day', private near: NearStyle = 'mixed', private wet = false) {
     this.night = time !== 'day';
     // Build the whole strip up front (start runway → finish → run-off) so nothing is generated mid-race.
     const last = Math.ceil((finishBlocks + RUNOFF_BLOCKS) / CHUNK);
@@ -250,6 +250,11 @@ export class Stage {
       const b = pos.length / 3; cc.set(p.c).multiplyScalar(k);
       for (const [u, v] of [[0, 0], [1, 0], [1, 1], [0, 1]]) { pos.push(p.x + (u - 0.5) * 2 * p.r, 1.2, p.z + (v - 0.5) * 2 * p.r); uv.push(u, v); col.push(cc.r, cc.g, cc.b); }
       idx.push(b, b + 2, b + 1, b, b + 3, b + 2);
+      if (this.wet) {                                                  // E5: on a wet road each light streaks across the lanes
+        const w = p.r * 0.32, b2 = pos.length / 3; cc.multiplyScalar(0.55);
+        for (const [u, v] of [[0, 0], [1, 0], [1, 1], [0, 1]]) { pos.push(p.x + (u - 0.5) * 2 * w, 0.9, -12 + v * 98); uv.push(u, v); col.push(cc.r, cc.g, cc.b); }
+        idx.push(b2, b2 + 2, b2 + 1, b2, b2 + 3, b2 + 2);
+      }
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));

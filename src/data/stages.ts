@@ -26,3 +26,7 @@ export const STAGES: Record<string, StageDef> = {
   },
 };
 export const START_STAGE = 'downtown_grid';
+
+/** Rain (owner Q190 B, V0.16.0): the same street, wet — both cars get this much of their grip, so launches spin more. */
+export const RAIN = { grip: 0.88 };
+export const wetStage = (s: StageDef): StageDef => ({ ...s, modifiers: { ...s.modifiers, gripMult: s.modifiers.gripMult * RAIN.grip } });

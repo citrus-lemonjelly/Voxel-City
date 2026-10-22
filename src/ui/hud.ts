@@ -53,7 +53,7 @@ export class Hud {
   private plateFill!: Element; private plateEdge!: Element; private plateDark!: Element; private plateShadow!: Element; private platePH = 0; private plateW = { compact: 0, full: 0 };
   private dashes: Element[] = [];
   private needle!: Element;
-  private zoneBand!: Element;
+  private zoneBand!: Element; private shiftRing!: Element; private ringOn = false;
   private gearG!: Element; private speedG!: Element; private gradeG!: Element; private countG!: Element;
   private lights: HTMLElement[]; private lightsEl!: HTMLElement;
   private hint: HTMLElement; private keyHint!: HTMLElement;
@@ -63,7 +63,7 @@ export class Hud {
   private last = { gear: '', mph: -1, zone: '', grade: '', count: '' };
 
   constructor(root: HTMLElement, private race: Race, private player: Racer, private opp: Racer, opts: { oppName: string; paddle: string; paint?: string; showKeyHint: boolean; paddleShape?: 'arc' | 'tab'; pedal?: PedalStyle; /** bound key names (Settings ▸ Controls) */ keys?: { gas: string; up?: string; down: string; nitrous?: string };
-    /** Pedal mode: the pedal stays all race (owner 2026-10-21) */ drive?: 'classic' | 'pedal'; /** top-down car pictures for the progress bar */ icons?: { me: string; them: string }; /** phone race screen */ phone?: boolean; /** phone: pedal on the left */ swap?: boolean }) {
+    /** Pedal mode: the pedal stays all race (owner 2026-10-21) */ drive?: 'classic' | 'pedal'; /** top-down car pictures for the progress bar */ icons?: { me: string; them: string }; /** rain: tell the player the road is wet */ wet?: boolean; /** phone race screen */ phone?: boolean; /** phone: pedal on the left */ swap?: boolean }) {
     root.innerHTML = '';
     this.gaugeMax = Math.ceil(player.stats.redline / 1000);
     const phone = !!opts.phone, pedalMode = opts.drive === 'pedal', gasKey = opts.keys?.gas ?? 'SPACE';
@@ -72,7 +72,7 @@ export class Hud {
       : pedalMode ? `Hold <b>${gasKey}</b> to keep the revs in the green. Tap <b>${opts.keys?.up ?? '↑'}</b> on green to go.` : `Hold <b>${gasKey}</b> to keep the revs in the green. Let go when the light turns green.`;
     this.el = h(`<div class="overlay hud2${phone ? ' phone' : ''}${phone && opts.swap ? ' swap' : ''}">
       <div id="lights" class="blk"><i></i><i></i><i></i></div>
-      <div id="hint" class="blk">${hint}</div>
+      <div id="hint" class="blk">${hint}${opts.wet ? ' <b class="wet">Wet road — less grip, go easy on the launch.</b>' : ''}</div>
       <div class="race-strip"><div class="road"></div><div class="flag"></div><div class="car them${opts.icons ? ' pic' : ''}">${opts.icons ? `<img src="${opts.icons.them}" alt="">` : ''}</div><div class="car me${opts.icons ? ' pic' : ''}">${opts.icons ? `<img src="${opts.icons.me}" alt="">` : ''}</div></div>
       <div class="cluster"></div>
     </div>`);
@@ -110,6 +110,7 @@ export class Hud {
     svgEl('circle', { cx: CX + 5, cy: CY + 9, r: D / 2 - 4, fill: '#000', 'fill-opacity': 0.45, filter: 'url(#vcShadow)' }, g);
     for (let d = 6; d >= 1; d--) svgEl('circle', { cx: CX + d * 0.6, cy: CY + d, r: D / 2 - 6, fill: d > 3 ? '#121418' : '#1c1f25' }, g);   // rim thickness
     svgEl('circle', { cx: CX, cy: CY, r: D / 2 - 11, fill: 'none', stroke: 'url(#vcBezel)', 'stroke-width': 10 }, g);
+    this.shiftRing = svgEl('circle', { cx: CX, cy: CY, r: D / 2 - 11, fill: 'none', stroke: COL.zone, 'stroke-width': 10, opacity: 0 }, g);   // shift light (E2, V0.16.0)
     svgEl('circle', { cx: CX, cy: CY, r: D / 2 - 16, fill: 'url(#vcFace)', 'fill-opacity': 0.9 }, g);
     svgEl('circle', { cx: CX, cy: CY + 2, r: D / 2 - 17, fill: 'none', stroke: '#000', 'stroke-opacity': 0.45, 'stroke-width': 4 }, g);   // recess shadow under the bezel
     svgEl('path', { d: `M ${CX - 78} ${CY - 40} A 96 96 0 0 1 ${CX + 40} ${CY - 84} A 140 140 0 0 0 ${CX - 78} ${CY - 40} Z`, fill: '#fff', 'fill-opacity': 0.06 }, g);   // glass sheen
@@ -256,6 +257,8 @@ export class Hud {
     const [z0r, z1r] = r.launched ? [s.trans.zoneCentre - s.trans.zoneWidth / 2, s.trans.zoneCentre + s.trans.zoneWidth / 2] : [s.launch.perfectMin, s.launch.perfectMax];
     const z0 = z0r * red0, z1 = z1r * red0, inZone = frac >= z0 && frac <= z1;
     const zoneKey = `${z0.toFixed(3)}`;
+    const ring = inZone && (r.launched ? r.shifting <= 0 : true);           // steady glow in the zone, never blinks
+    if (ring !== this.ringOn) { this.shiftRing.setAttribute('opacity', ring ? '0.9' : '0'); this.ringOn = ring; }
     this.dashes.forEach((d, i) => {
       const f = i / (N_DASH - 1), zone = f >= z0 && f <= z1, red = f >= red0, on = f <= frac + 1e-4;
       d.setAttribute('fill', red ? (on ? COL.red : COL.redOff) : zone ? (on ? COL.zone : COL.zoneOff) : (on ? COL.lit : COL.unlit));

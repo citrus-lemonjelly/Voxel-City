@@ -204,6 +204,7 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .hud2 .race-strip .car img{display:block;width:100%;height:100%;transform:scaleX(-1)}.hud2 .race-strip .car.pic{background:none}
 #lights{position:absolute;top:86px;left:50%;transform:translateX(-50%);display:flex;gap:12px;padding:12px 14px;transition:opacity .6s ease}
 #lights.gone{opacity:0;pointer-events:none}
+#hint .wet{display:block;color:#7cc4ff;margin-top:2px}
 #hint{position:absolute;top:160px;left:50%;transform:translateX(-50%);font-size:15px;padding:8px 14px;white-space:nowrap}
 .hud2 .count{position:absolute;left:50%;top:214px;transform:translateX(-50%)}
 .hud2.phone .race-strip{transform:translateX(-50%) scale(.62);transform-origin:50% 0;top:6px}

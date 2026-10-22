@@ -310,11 +310,11 @@ export class World {
         new THREE.MeshStandardMaterial({ color: '#1c2028', roughness: 0.08, metalness: 0.75, transparent: true, opacity: 0.38, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
       wet.rotation.x = -Math.PI / 2; wet.position.set(400 - len / 2, 0.3, 40); wet.renderOrder = 1; s.add(wet);
     }
-    this.stage = new Stage(stageDef, distanceM / METERS_PER_BLOCK, this.mats, time, opts.near || 'mixed');
+    this.stage = new Stage(stageDef, distanceM / METERS_PER_BLOCK, this.mats, time, opts.near || 'mixed', opts.weather === 'rain');
     s.add(this.stage.group);
     this.player = new CarModel(playerLook, this.mats); this.player.group.position.z = LANE_Z[0]; s.add(this.player.group);
     this.opponent = new CarModel(oppLook, this.mats); this.opponent.group.position.z = LANE_Z[1]; s.add(this.opponent.group);
-    if (time !== 'day') for (const car of [this.player, this.opponent]) car.group.add(carLightPools(time === 'night' ? 1 : 0.6, car.L, car.W));
+    if (time !== 'day') for (const car of [this.player, this.opponent]) car.group.add(carLightPools(time === 'night' ? 1 : 0.6, car.L, car.W, opts.weather === 'rain'));
     // the two race cars also live on the "car" layer so speed blur can keep them sharp
     for (const car of [this.player, this.opponent]) car.group.traverse((o: any) => o.isMesh && !o.material?.map && o.layers.enable(CAR_LAYER));
     this.blur.reset();
@@ -421,13 +421,13 @@ const LIGHTING: Record<TimeOfDay, { hemi: [string, string, number]; sun: [string
 };
 
 /** Additive voxel-stepped headlight / tail-light pools on the road, parented to a car (front at x = 0, facing −x). */
-function carLightPools(k: number, L = CAR_L, W = CAR_W) {
+function carLightPools(k: number, L = CAR_L, W = CAR_W, wet = false) {   // wet (E5): longer, brighter reflections
   const g = new THREE.Group();
   const pool = (w: number, d: number, x: number, colour: string, a: number) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, color: new THREE.Color(colour).multiplyScalar(a * k) }));
     m.rotation.x = -Math.PI / 2; m.position.set(x, 0.35, W / 2); m.renderOrder = 2; g.add(m);
   };
-  pool(90, 40, -34, '#fff1c8', 0.9);
-  pool(26, 30, L + 8, '#ff3a2a', 0.5);
+  pool(wet ? 150 : 90, 40, wet ? -64 : -34, '#fff1c8', wet ? 1.1 : 0.9);
+  pool(wet ? 60 : 26, 30, L + (wet ? 26 : 8), '#ff3a2a', wet ? 0.8 : 0.5);
   return g;
 }

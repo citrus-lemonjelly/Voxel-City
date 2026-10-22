@@ -1,6 +1,7 @@
 // Settings panel: race camera, near side, speed blur (time of day moved to the test console, 2026-10-20), and
 // Settings ▸ Controls (owner 2026-10-19): two key sets, Drag Race and Typing Race.
 import { SaveV1 } from '../../save/save';
+import { volOf } from '../../game/sound';
 import { keysOf, keyName, KEY_ACTIONS } from '../../game/keys';
 import { ui, Wire } from './shared';
 
@@ -9,7 +10,8 @@ const SETTING_ROWS: [string, string, [string, string][]][] = [
   ['nearSide', 'Near side', [['mixed', 'Mixed'], ['curb', 'Curb'], ['barrier', 'Barrier']]],
   ['blur', 'Speed blur', [['off', 'Off'], ['low', 'Low'], ['full', 'Full']]],
   ['gfx', 'Graphics', [['auto', 'Auto'], ['full', 'Full'], ['light', 'Light']]],
-  ['sound', 'Sound', [['off', 'Off'], ['low', 'Low'], ['full', 'Full']]],
+  ['sound', 'Sound volume', [['0', 'Off'], ['25', '25'], ['50', '50'], ['75', '75'], ['100', '100']]],
+  ['engineVol', 'Engine volume', [['0', 'Off'], ['25', '25'], ['50', '50'], ['75', '75'], ['100', '100']]],
 ];
 
 /** Phones (owner E3, V0.15.0): how to put the game on the home screen, so it opens full screen like an app (hidden once it is). */
@@ -17,7 +19,7 @@ const homeTip = () => !document.documentElement.classList.contains('vc-phone') |
   : `<div class="next g-note"><b>Play full screen:</b> add Voxel City to your home screen — iPhone: Share ▸ Add to Home Screen · Android: ⋮ menu ▸ Add to Home screen / Install app.</div>`;
 
 export function settingsHtml(save: SaveV1, close: string): string {
-  return `<div class="g-panel blk">${close}<h2 class="hd">Settings</h2>${homeTip()}<div class="settings">${SETTING_ROWS.map(([key, label, opts]) => `<div class="setrow"><span>${label}</span><div class="seg">${opts.map(([v, t]) => `<button class="${((save.settings as any)[key] ?? (key === 'gfx' ? 'auto' : key === 'sound' ? 'full' : '')) === v ? 'on' : ''}" data-set="${key}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>
+  return `<div class="g-panel blk">${close}<h2 class="hd">Settings</h2>${homeTip()}<div class="settings">${SETTING_ROWS.map(([key, label, opts]) => `<div class="setrow"><span>${label}</span><div class="seg">${opts.map(([v, t]) => `<button class="${((key === 'sound' || key === 'engineVol' ? undefined : (save.settings as any)[key]) ?? (key === 'gfx' ? 'auto' : key === 'sound' || key === 'engineVol' ? String(volOf((save.settings as any)[key], 75)) : '')) === v ? 'on' : ''}" data-set="${key}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>
       ${controlsHtml(save)}</div>`;
 }
 
