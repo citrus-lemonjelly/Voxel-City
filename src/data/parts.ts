@@ -100,7 +100,21 @@ export type PerfKind = 'engine' | 'trans' | 'tires' | 'weight' | 'turbo' | 'nitr
 export const PERF_KINDS: PerfKind[] = ['engine', 'trans', 'tires', 'weight', 'turbo', 'nitrous'];
 export const PERF_LABEL: Record<PerfKind, string> = { engine: 'Engine', trans: 'Transmission', tires: 'Tyres', weight: 'Weight', turbo: 'Turbo', nitrous: 'Nitrous' };
 /** A car's performance set-up: a tier per part + its gearing (missing gearing = balanced). */
-export type Tune = Record<PerfKind, Tier> & { gearing?: Gearing };
+export type Tune = Record<PerfKind, Tier> & { gearing?: Gearing; /** custom ratio per gear — used with Transmission T5 (V0.17.0) */ ratios?: number[] };
+/** Gear ratio tuning (owner Q192, V0.17.0): unlocked by Transmission T5. Each gear may move up to ±spread from the stock T5 ratio, in
+ *  steps of `step`, and must stay at least `minStep` taller (lower ratio) than the gear before it. */
+export const RATIO_TUNING = { spread: 0.25, step: 0.05, minStep: 0.03 };
+/** Make a ratio set legal against the stock ratios: same length, each within ±spread of stock, every gear below the one before. */
+export function legalRatios(stock: number[], want: number[] | undefined): number[] {
+  if (!want || want.length !== stock.length) return stock.slice();
+  const S = RATIO_TUNING, out: number[] = [];
+  stock.forEach((s, i) => {
+    let r = Math.min(s * (1 + S.spread), Math.max(s * (1 - S.spread), want[i]));
+    if (i > 0) r = Math.min(r, out[i - 1] * (1 - S.minStep));
+    out.push(+r.toFixed(3));
+  });
+  return out;
+}
 export const STOCK_TUNE: Tune = { engine: 1, trans: 1, tires: 1, weight: 1, turbo: 1, nitrous: 1 };
 export const MAX_TUNE: Tune = { engine: 5, trans: 5, tires: 5, weight: 5, turbo: 5, nitrous: 5 };
 /** Every part at one tier (tests, the Strip). */

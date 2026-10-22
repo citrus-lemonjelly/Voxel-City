@@ -1,7 +1,8 @@
 // Upgrades panel: performance tiers T1–T5 for the car being worked on (league parts; boss cars can't be upgraded) —
 // engine, transmission, tyres, weight, turbo (Tuning Update) — plus the car's free gearing choice.
 import { SaveV1, carTiers } from '../../save/save';
-import { TIERS, Tier, PerfKind, PERF_KINDS, PERF_LABEL, PART_TABLE, ENGINE, TRANSMISSION, TIRES, WEIGHT, TURBO, NITROUS, GEARINGS, Gearing, LEAGUE_EFFECT } from '../../data/parts';
+import { TIERS, Tier, PerfKind, PERF_KINDS, PERF_LABEL, PART_TABLE, ENGINE, TRANSMISSION, TIRES, WEIGHT, TURBO, NITROUS, GEARINGS, Gearing, LEAGUE_EFFECT, RATIO_TUNING, legalRatios } from '../../data/parts';
+import { carStats } from '../../game/stats';
 import { CARS, carName } from '../../data/cars';
 import { DEV } from '../devConsole';
 import { ui, Wire, dynoState } from './shared';
@@ -25,7 +26,25 @@ function effect(kind: PerfKind, carId: string, t: Tier): string {
 }
 
 /** A set-up's key: every part's tier (not the gearing — the test runs all three). */
-const tuneKey = (t: Record<string, unknown>) => PERF_KINDS.map(k => t[k]).join('');
+const tuneKey = (t: Record<string, unknown>) => PERF_KINDS.map(k => t[k]).join('') + (t.trans === 5 && Array.isArray(t.ratios) ? ':' + (t.ratios as number[]).join(',') : '');
+
+/** Gear ratios drop-down (owner Q192, V0.17.0): unlocked by owning Transmission T5. Each gear: − / + (a lower ratio = a taller
+ *  gear: more speed, less pull), its ratio, a bar against the stock ratio and the top speed in that gear at the redline. */
+const ORD = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th'];
+let ratioOpen = false, keepScroll = -1;
+function ratiosHtml(W: string, T: { owned: Record<string, number[]>; equipped: Record<string, any> }): string {
+  if (!T.owned.trans.includes(5)) return `<div class="ratio-lock g-note">Gear ratios — unlocks with Transmission T5</div>`;
+  const lg = CARS[W].league, stock = TRANSMISSION[lg][4].ratios, cur = legalRatios(stock, T.equipped.ratios), fitted = T.equipped.trans === 5;
+  const st = carStats(W, { ...T.equipped, trans: 5 }), k = st.redline * Math.PI / 30 * st.wheelRadiusM / st.finalDrive * 2.237, S = RATIO_TUNING;
+  const tuned = cur.some((r, i) => Math.abs(r - stock[i]) > 0.001);
+  const rows = cur.map((r, i) => {
+    const pct = (r / stock[i] - (1 - S.spread)) / (2 * S.spread) * 100, mph = Math.round(k / st.trans.ratios[i]), ch = Math.abs(r - stock[i]) > 0.001;
+    const info = `${ORD[i]} gear · ratio ${r.toFixed(2)} (stock ${stock[i].toFixed(2)}) · tops out at ${mph} mph · lower = taller gear: more speed, less pull`;
+    return `<div class="ratio-row" data-info="${att(info)}"><span>${ORD[i]}</span><button class="tier rb" data-ratio="${i}" data-d="-1" aria-label="${ORD[i]} taller">−</button><b class="${ch ? 'ch' : ''}">${r.toFixed(2)}</b><button class="tier rb" data-ratio="${i}" data-d="1" aria-label="${ORD[i]} shorter">+</button><i class="rbar"><u style="left:${pct.toFixed(1)}%"></u></i><em>${mph} mph</em></div>`;
+  }).join('');
+  return `<details class="ratios" id="ratioBox"${ratioOpen ? ' open' : ''}><summary class="hd">Gear ratios${tuned ? ' · tuned' : ''}</summary>${rows}
+    <div class="ratio-foot"><span class="g-note">${fitted ? '− taller gear (more speed) · + shorter gear (more pull). Test run shows the result.' : 'Fit Transmission T5 to race on these ratios.'}</span><button class="btn ghost" id="ratioReset" ${tuned ? '' : 'disabled'}>Reset</button></div></details>`;
+}
 const fmt = (x: number) => isNaN(x) ? '—' : x.toFixed(2) + ' s';
 /** Test run (owner C11, V0.16.0): 0–60 / 600 m / 800 m on each gearing for the parts fitted now; the gearing you use is marked,
  *  the quickest 800 m is green, and after a change the 800 m shows the difference from the run before. */
@@ -60,12 +79,23 @@ export function upgradesHtml(save: SaveV1, close: string): string {
   };
   return `<div class="g-panel g-upg blk">${close}<h2 class="hd">Upgrades <small class="g-sub">League ${lg} parts · ${carName(W)}${W !== save.carId ? ' (in your garage)' : ''}</small></h2>
       ${dynoHtml(W, T, gear)}
-      <div class="upg-grid">${PERF_KINDS.map(k => `<div class="upg"><h3 class="hd">${PERF_LABEL[k]}</h3><div class="tiers">${TIERS.map(t => tierBtn(k, t)).join('')}</div></div>`).join('')}
+      <div class="upg-grid">${PERF_KINDS.map(k => `<div class="upg"><h3 class="hd">${PERF_LABEL[k]}</h3><div class="tiers">${TIERS.map(t => tierBtn(k, t)).join('')}</div></div>${k === 'trans' ? ratiosHtml(W, T) : ''}`).join('')}
       ${gearRow}</div>
       <div class="upg-info g-note" id="upgInfo">${UPG_HINT}</div></div>`;
 }
 
 export const wireUpgrades: Wire = (el, save, on, redraw) => {
+  const panel = el.querySelector<HTMLElement>('.g-upg');
+  if (panel && keepScroll >= 0) { panel.scrollTop = keepScroll; keepScroll = -1; }        // stay put while tuning ratios
+  el.querySelector<HTMLDetailsElement>('#ratioBox')?.addEventListener('toggle', e => { ratioOpen = (e.target as HTMLDetailsElement).open; });
+  const ratioSave = (r: number[] | null) => { const W = ui.work || save.carId; keepScroll = panel?.scrollTop ?? -1; on.onRatios(r, W); };
+  el.querySelectorAll<HTMLButtonElement>('[data-ratio]').forEach(b => b.addEventListener('click', () => {
+    const W = ui.work || save.carId, T = carTiers(save, W), stock = TRANSMISSION[CARS[W].league][4].ratios, cur = legalRatios(stock, T.equipped.ratios);
+    const i = +b.dataset.ratio!, want = cur.slice(); want[i] = +(cur[i] + +b.dataset.d! * RATIO_TUNING.step).toFixed(3);
+    const next = legalRatios(stock, want);
+    ratioSave(next.every((r, j) => Math.abs(r - stock[j]) < 0.001) ? null : next);
+  }));
+  el.querySelector('#ratioReset')?.addEventListener('click', () => ratioSave(null));
   el.querySelector('#dynoBtn')?.addEventListener('click', () => {
     const W = ui.work || save.carId, T = carTiers(save, W), key = tuneKey(T.equipped);
     const prev = dynoState.car === W && dynoState.rows.length ? { key: dynoState.key, rows: dynoState.rows } : undefined;

@@ -26,6 +26,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.17.0', date: '2026-10-22', title: 'Tune every gear', header: 'Gearbox Update',
+    added: [
+      'Gear ratio tuning: own Transmission T5 and a Gear ratios drop-down opens under the Transmission row. Tune each gear on its own — − for a taller gear (more speed), + for a shorter one (more pull) — and see each gear\'s top speed.',
+      'Each gear can move up to 25% from stock and always stays taller than the gear before it. Reset puts the stock ratios back. Saved per car.',
+      'Test run uses your tuned ratios, so you can tune and test straight away.',
+    ],
+  },
+  {
     version: '0.16.2', date: '2026-10-22', title: 'Hypercar gearing and a cleaner engine sound',
     changed: [
       'League S gearboxes are taller with progressive spacing: a maxed hypercar now uses its 8 gears across the whole run (8th comes at about 7.5 s, not 4) and stops sitting on the rev limiter — it is quicker too.',

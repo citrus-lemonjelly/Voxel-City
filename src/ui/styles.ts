@@ -180,6 +180,19 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .g-upg .tiers{gap:4px}.g-upg .tier{padding:0;height:28px;justify-content:center}.g-upg .tier b{font-size:12px}
 .g-upg .tier.gear{padding:0}.g-upg .tier.gear b{font-size:11px}
 .g-upg .upg-info{min-height:32px;padding:6px 8px;background:#1e2129;color:#cfd4de;font-size:12px;line-height:1.35}
+/* Upgrades ▸ Gear ratios drop-down (owner Q192, V0.17.0): one row per gear under the Transmission row */
+.g-upg .ratio-lock{margin:-1px 0 1px 116px;font-size:11px}
+.g-upg .ratios{margin:-1px 0 2px 116px;background:#1e2129;box-shadow:inset 2px 2px 0 #121418,inset -2px -2px 0 #2c313d;padding:4px 8px 6px}
+.g-upg .ratios summary{cursor:pointer;list-style:none;font-size:11px;color:var(--accent);padding:3px 0;letter-spacing:.06em}
+.g-upg .ratios summary::-webkit-details-marker{display:none}
+.g-upg .ratios summary::before{content:'▸ ';color:#9aa3b5}.g-upg .ratios[open] summary::before{content:'▾ '}
+.g-upg .ratio-row{display:grid;grid-template-columns:30px 24px 40px 24px 1fr 58px;align-items:center;gap:5px;margin:3px 0;font-size:12px}
+.g-upg .ratio-row span{color:#9aa3b5;font-weight:700}.g-upg .ratio-row b{text-align:center;font-variant-numeric:tabular-nums}.g-upg .ratio-row b.ch{color:var(--accent)}
+.g-upg .ratio-row .rb{height:22px;padding:0}.g-upg .ratio-row .rb b{font-size:12px}
+.g-upg .ratio-row em{font-style:normal;text-align:right;color:#cfd4de;font-variant-numeric:tabular-nums}
+.g-upg .rbar{position:relative;height:6px;background:#2c313d}.g-upg .rbar::after{content:'';position:absolute;left:50%;top:-2px;width:2px;height:10px;background:#5a5f6d}
+.g-upg .rbar u{position:absolute;top:-1px;width:6px;height:8px;margin-left:-3px;background:var(--accent)}
+.g-upg .ratio-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:5px}.g-upg .ratio-foot .btn{font-size:11px;padding:5px 10px}
 /* Upgrades ▸ Test run (owner C11, V0.16.0) */
 .dyno{display:flex;flex-direction:column;gap:6px;margin-top:4px}.dyno .dyno-go{align-self:flex-start;font-size:13px;padding:7px 14px}
 .dyno table{width:100%;border-collapse:collapse;font:600 12px system-ui;font-variant-numeric:tabular-nums}

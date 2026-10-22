@@ -149,5 +149,13 @@ export function garageActions(ctx: GarageActionContext) {
     show(`${GEARING_BY_ID[g].label} gearing`);
   }
 
-  return { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setGearing };
+  /** Gear ratio tuning (owner Q192, V0.17.0): save a car's own T5 ratios (null = back to stock). Quiet — no toast per click. */
+  function setRatios(ratios: number[] | null, carId = ctx.save().carId) {
+    const save = ctx.save(); if (!save.cars[carId]) return;
+    const T = carId === save.carId ? save : save.cars[carId];
+    if (ratios) T.equipped.ratios = ratios; else delete T.equipped.ratios;
+    writeSave(save); show();
+  }
+
+  return { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setGearing, setRatios };
 }

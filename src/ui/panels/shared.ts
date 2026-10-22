@@ -17,6 +17,8 @@ export interface GarageHandlers {
   onBuyOrEquip(kind: PerfKind, tier: Tier, carId: string): void;
   /** Upgrades: Short / Balanced / Long gearing for a car (free) */
   onGearing(g: Gearing, carId: string): void;
+  /** Gear ratio tuning (V0.17.0): a car's own T5 ratios, or null for stock */
+  onRatios(ratios: number[] | null, carId: string): void;
   /** Garage (owner 2026-10-19): ★ a car */
   onFav(id: string): void;
   onRace(): void;

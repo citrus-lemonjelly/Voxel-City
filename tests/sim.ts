@@ -21,7 +21,7 @@ import { stripRung, stripBand, STRIP, levelReward } from '../src/game/strip';
 import { dyno } from '../src/game/dyno';
 import { wetStage } from '../src/data/stages';
 import { PART_LEAGUE } from '../src/data/economy';
-import { TRANSMISSION } from '../src/data/parts';
+import { TRANSMISSION, legalRatios, RATIO_TUNING } from '../src/data/parts';
 
 declare const process: { exit(code: number): never };
 const stage = STAGES.downtown_grid;
@@ -390,6 +390,17 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
     for (let i = 0; i < 120 * 60 && !race.done; i++) { race.step(1 / 120); if (rr.gear !== g) { g = rr.gear; at.push(race.raceTime - rr.launchTime); } }
     const gaps = at.map((t, i) => i ? t - at[i - 1] : t), top = at[at.length - 1];
     check(at.length === 7 && top >= 6 && Math.min(...gaps) >= 0.55 && r.finish! > 0, `maxed hypercar spreads its 7 shifts over the run (8th at ${top.toFixed(1)} s, shortest gear ${Math.min(...gaps).toFixed(2)} s)`);
+  }
+  { // gear ratio tuning (owner Q192, V0.17.0)
+    const stock = TRANSMISSION.S[4].ratios, wild = legalRatios(stock, stock.map((r, i) => i % 2 ? r * 3 : r * 0.1)), S = RATIO_TUNING;
+    const legal = wild.every((r, i) => r >= stock[i] * (1 - S.spread) - 0.001 && r <= stock[i] * (1 + S.spread) + 0.001 && (i === 0 || r <= wild[i - 1] * (1 - S.minStep) + 0.001));   // ratios are kept to 3 decimals
+    const tall = stock.map(r => r * 0.8), used = carStats('hyper', { ...MAX_TUNE, ratios: tall }, stage), notT5 = carStats('hyper', { ...MAX_TUNE, trans: 4, ratios: tall }, stage);
+    check(legal && used.trans.ratios[3] === legalRatios(stock, tall)[3] && notT5.trans.ratios[3] === TRANSMISSION.S[3].ratios[3],
+      `gear ratios: any input is clamped to ±${S.spread * 100}% of stock and kept descending; used only with Transmission T5`);
+    const extremes = [stock.map(r => r * 0.75), stock.map(r => r * 1.25)].map(rs => dyno('hyper', { ...MAX_TUNE, ratios: rs }, stage)[1].t800), base = dyno('hyper', MAX_TUNE, stage)[1].t800;
+    const rv = makeRival('hyper', { ...MAX_TUNE, ratios: stock.map(r => r * 0.9) }, stage, 31337, 800, [0.04, 0.21]);
+    check(extremes.every(t => t > 0 && t < 20) && rv.expect >= rv.yours + 0.04 - 1e-6,
+      `gear ratios: extreme tunes still finish (all taller ${extremes[0].toFixed(2)} · stock ${base.toFixed(2)} · all shorter ${extremes[1].toFixed(2)} s) and rivals match your tuned car`);
   }
   check(TRANSMISSION.A[4].ratios.length === 7 && TRANSMISSION.S[4].ratios.length === 8 && TRANSMISSION.D[4].ratios.length === 6,
     `gearboxes (owner): League A tops out at 7 gears, League S at 8 (D–B keep 6) — ${TRANSMISSION.S.map(t => t.ratios.length).join('/')} gears in S`);
