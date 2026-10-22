@@ -11,7 +11,7 @@ export function raceMenuHtml(save: SaveV1, opp: OpponentDef, stage: StageDef): s
   if (!ui.raceMenu) return '';
   const car = CARS[save.carId];
   return `<div class="g-racemenu">
-      <button class="g-mode blk" id="streetRace"><span class="hd">${stage.races[save.raceDiff]}</span><span class="g-mode-sub">Street Race · ${stage.name} · ${save.raceDist} m · ${DIFFICULTY[save.raceDiff].label}<br>vs ${opp.name} · ${carName(opp.carId)} · win +${racePay(car.league, save.raceDiff, true).result.toLocaleString()} VX</span><span class="g-go">Go ▸</span></button>
+      <button class="g-mode blk" id="streetRace"><span class="hd">${stage.races[save.raceDiff]}</span><span class="g-mode-sub">Street Race · ${stage.name} · ${save.raceDist} m · ${DIFFICULTY[save.raceDiff].label}<br>vs ${opp.name} · ${carName(opp.carId)} · win +${racePay(car.league, save.raceDiff, true, save.raceDist).result.toLocaleString()} VX</span><span class="g-go">Go ▸</span></button>
       <div class="g-pick"><div class="g-dist seg" role="group" aria-label="Difficulty">${(Object.keys(DIFFICULTY) as Difficulty[]).map(d => `<button class="${save.raceDiff === d ? 'on' : ''}" data-diff="${d}">${DIFFICULTY[d].label}</button>`).join('')}</div>
         <div class="g-dist seg" role="group" aria-label="Race length">${RACE_DISTS.map(d => `<button class="${save.raceDist === d ? 'on' : ''}" data-dist="${d}">${d} m</button>`).join('')}</div></div>
       ${stripCard(save)}

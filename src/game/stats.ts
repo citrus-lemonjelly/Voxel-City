@@ -1,6 +1,6 @@
 // Effective car stats = base car data + equipped performance tiers. Pure functions (testable headless).
 import { CARS, CarDef } from '../data/cars';
-import { ENGINE, TRANSMISSION, TIRES, WEIGHT, TURBO, NITROUS, legalRatios, LEAGUE_EFFECT, TransmissionTier, LAUNCH, SPOOL, Tune, fullTune, GEARING_BY_ID } from '../data/parts';
+import { ENGINE, TRANSMISSION, TIRES, WEIGHT, TURBO, NITROUS, legalRatios, usesCustom, LEAGUE_EFFECT, TransmissionTier, LAUNCH, SPOOL, Tune, fullTune, GEARING_BY_ID } from '../data/parts';
 import { StageDef } from '../data/stages';
 
 export interface CarStats {
@@ -34,8 +34,9 @@ export function carStats(carId: string, tuneIn: Partial<Tune>, stage?: StageDef)
   const wt = WEIGHT[car.league][tune.weight - 1], turbo = TURBO[car.league][tune.turbo - 1], nos = NITROUS[car.league][tune.nitrous - 1], k = LEAGUE_EFFECT[car.league], gain = (car.engineGain ?? 1) * k;
   const base = TRANSMISSION[car.league][tune.trans - 1], f = car.feel || {};
   // T5 boxes take your own ratios when you have tuned them (owner Q192, V0.17.0); gearing still moves the top gear
-  const own = tune.trans === 5 && tune.ratios?.length === base.ratios.length ? legalRatios(base.ratios, tune.ratios) : base.ratios;
-  const gear = GEARING_BY_ID[tune.gearing ?? 'balanced'], ratios = own.map((r, i, a) => i === a.length - 1 ? r * gear.top : r);
+  // gear setup (owner, V0.17.1): your own T5 ratios OR a preset gearing — never both. Custom ratios replace the gearing entirely.
+  const custom = usesCustom(tune), own = custom ? legalRatios(base.ratios, tune.ratios) : base.ratios;
+  const gear = GEARING_BY_ID[custom ? 'balanced' : tune.gearing ?? 'balanced'], ratios = own.map((r, i, a) => i === a.length - 1 ? r * gear.top : r);
   const trans: TransmissionTier = { ...base, ratios, shiftTime: base.shiftTime * (f.shift ?? 1), zoneWidth: base.zoneWidth * (f.window ?? 1) };
   const lc = (LAUNCH.perfectMin + LAUNCH.perfectMax) / 2, lh = (LAUNCH.perfectMax - LAUNCH.perfectMin) / 2 * (f.launch ?? 1) * tyre.launchMult;
   const gripMult = 1 + (tyre.gripMult - 1) * k;

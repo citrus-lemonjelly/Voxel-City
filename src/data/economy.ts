@@ -40,7 +40,7 @@ export const ECONOMY = {
   startingVoxels: 5_000,
   /** League D Medium win; other leagues × LEAGUE_SCALE, other difficulties × DIFFICULTY.pay.
    *  Owner Q106: leagues should take time — ~30 Medium wins buy a league's cheapest car, ~170 max out its upgrades. */
-  winPayout: 600,
+  winPayout: 450,   // V0.17.1: 600 → 450 with the real (faster) race loop
   /** a loss pays this share of the win */
   lossShare: 0.25,
   /** bonuses, as a share of the win payout */
@@ -53,12 +53,15 @@ export const ECONOMY = {
 export const DIFFICULTY: Record<Difficulty, { label: string; gap: [number, number]; pay: number }> = {
   easy:   { label: 'Easy',   gap: [0.30, 0.55], pay: 0.6 },
   medium: { label: 'Medium', gap: [0.04, 0.21], pay: 1.0 },
-  hard:   { label: 'Hard',   gap: [0.01, 0.07], pay: 1.8 },
+  hard:   { label: 'Hard',   gap: [0.01, 0.07], pay: 1.3 },   // V0.17.1: 1.8 → 1.3 (with the faster race loop it paid far too much)
 };
 const round = (n: number, to = 10) => Math.round(n / to) * to;
 /** VX paid for a Street Race (or a Strip race) result. */
-export function racePay(league: EcoLeague, diff: Difficulty, won: boolean) {
-  const win = ECONOMY.winPayout * LEAGUE_SCALE[league] * DIFFICULTY[diff].pay;
+/** Longer races pay more so they earn about the same VX a minute as 800 m (owner 2026-10-22: 1200 m ≈ 40 % longer). */
+// V0.17.1: shorter tracks pay less (600 m was the quickest money — a race every ~10 s)
+export const DIST_PAY: Record<number, number> = { 600: 0.8, 700: 0.9, 800: 1, 1200: 1.4 };
+export function racePay(league: EcoLeague, diff: Difficulty, won: boolean, distM = 800) {
+  const win = ECONOMY.winPayout * LEAGUE_SCALE[league] * DIFFICULTY[diff].pay * (DIST_PAY[distM] ?? 1);
   return { result: round(won ? win : win * ECONOMY.lossShare), perfectShift: round(win * ECONOMY.perfectShiftBonus), perfectLaunch: round(win * ECONOMY.perfectLaunchBonus), newBest: round(win * ECONOMY.newBestBonus) };
 }
 
@@ -73,7 +76,7 @@ export const PART_PRICES = {
 export type PartKind = keyof typeof PART_PRICES;
 /** Economy pass (owner Q181, V0.16.0): part prices per league on top of LEAGUE_SCALE, so each league takes its target time with
  *  every part (nitrous included) — D was 4.1 h (target 2–3), S 2.9 h (target 3–6). `npm run economy` shows the result. */
-export const PART_LEAGUE: Record<EcoLeague, number> = { D: 0.66, C: 1, B: 1, A: 1, S: 1.1 };
+export const PART_LEAGUE: Record<EcoLeague, number> = { D: 0.66, C: 1, B: 1, A: 1, S: 1.25 };   // V0.17.1: S 1.1 → 1.25
 export const partPrice = (kind: PartKind, tier: number, league: EcoLeague) => round(PART_PRICES[kind][tier - 1] * LEAGUE_SCALE[league] * PART_LEAGUE[league], 50);
 
 // ---------------- Visual parts (cosmetic, owner 2026-10-19) ----------------
@@ -161,12 +164,12 @@ export const STRIP_REWARDS = {
 /** Typing only — the car you drive is looks (Q124); pay scales with its league like Street Races. */
 export const TYPING = {
   /** win pay in League D at Medium; × LEAGUE_SCALE × DIFFICULTY.pay */
-  winPayout: 1_000,
+  winPayout: 1_025,   // V0.17.1: 1,000 → 1,025 — Street Races now count the real (quicker) race loop, Typing stays level with them
   /** share of the win pay for 1st … 5th */
   place: [1, 0.6, 0.4, 0.3, 0.25],
   /** league boost (owner Q148): Street Races get shorter in higher leagues, so a 40 wpm typist earns about the same per
    *  minute in both race types (check with `npm run economy`) */
-  leagueBoost: { D: 1, C: 1.2, B: 1.25, A: 1.35, S: 1.5 } as Record<EcoLeague, number>,
+  leagueBoost: { D: 1, C: 1.23, B: 1.3, A: 1.43, S: 1.71 } as Record<EcoLeague, number>,
   /** bonuses as a share of the win pay */
   newBestBonus: 0.25, accuracyBonus: 0.25, accuracyAt: 0.98,
   /** typing speed assumed before your first race, and how many recent races make your average */
@@ -190,18 +193,27 @@ export const PACING = {
   targetHours: { D: [2, 3], C: [3, 4], B: [3, 6], A: [3, 6], S: [3, 6] } as Record<EcoLeague, [number, number]>,
   /** stock 800 m time per league (s, from the sim checks) — races get shorter in higher leagues */
   raceSec: { D: 24.3, C: 19.4, B: 17.6, A: 15.5, S: 11.8 } as Record<EcoLeague, number>,
-  /** countdown + roll-out past the line + results and menus (s) */
-  dragOverhead: 17, dragWinRate: 0.7, perfectShiftsWin: 4, perfectShiftsLoss: 2, perfectLaunchRate: 0.6,
+  /** countdown + roll-out past the line + results and menus (s). V0.17.1: 17 → 7 — players hit Race again right away (owner: a
+   *  friend fit 5–6 hypercar races in a minute) */
+  dragOverhead: 7, dragWinRate: 0.7, perfectShiftsWin: 4, perfectShiftsLoss: 2, perfectLaunchRate: 0.6,
+  /** the fastest earner: Hard every time, wins nearly all, every shift and launch Perfect, a quicker (upgraded) car, no pause */
+  grinder: { winRate: 0.95, perfectShare: 1, launchRate: 1, raceShare: 0.7, overhead: 4, dist: 600 },
   /** Typing Race: speed, Medium passage length (chars), countdown + results (s) */
   wpm: 40, typingChars: 190, typingOverhead: 13, typingWinRate: 0.5, typingOtherPlace: 2, accuracyRate: 0.6,
 };
 /** VX a minute from Street Races (Medium) for the typical player. */
-export function dragPerMin(l: EcoLeague) {
-  const P = PACING, w = racePay(l, 'medium', true), lo = racePay(l, 'medium', false);
-  const win = w.result + P.perfectShiftsWin * w.perfectShift + P.perfectLaunchRate * w.perfectLaunch;
-  const loss = lo.result + P.perfectShiftsLoss * w.perfectShift + P.perfectLaunchRate * w.perfectLaunch;
-  return (P.dragWinRate * win + (1 - P.dragWinRate) * loss) / (P.raceSec[l] + P.dragOverhead) * 60;
+export function dragPerMin(l: EcoLeague, who: 'typical' | 'grinder' = 'typical') {
+  const P = PACING, G = P.grinder, hard = who === 'grinder', d: Difficulty = hard ? 'hard' : 'medium', m = hard ? G.dist : 800, w = racePay(l, d, true, m), lo = racePay(l, d, false, m);
+  // perfect-shift pay is a pool split over the car's shifts (V0.17.1), so it's counted as a share of the 4-shift reference
+  const ps = (n: number) => n * w.perfectShift;
+  const win = w.result + (hard ? ps(4 * G.perfectShare) : ps(P.perfectShiftsWin)) + (hard ? G.launchRate : P.perfectLaunchRate) * w.perfectLaunch;
+  const loss = lo.result + (hard ? ps(4 * G.perfectShare) : ps(P.perfectShiftsLoss)) + (hard ? G.launchRate : P.perfectLaunchRate) * w.perfectLaunch;
+  const rate = hard ? G.winRate : P.dragWinRate, sec = hard ? P.raceSec[l] * G.raceShare + G.overhead : P.raceSec[l] + P.dragOverhead;
+  return (rate * win + (1 - rate) * loss) / sec * 60;
 }
+/** Perfect-shift pay per Perfect shift for a car with this many shifts: the same total (4 × the reference) whatever the gearbox
+ *  (V0.17.1 — an 8-speed used to earn 7 bonuses to a 5-speed's 4). */
+export const perfectShiftPay = (perShift: number, shifts: number) => round(perShift * 4 / Math.max(4, shifts));
 /** VX a minute from Typing Races (Medium) for the typical player at `wpm`. */
 export function typingPerMin(l: EcoLeague, wpm = PACING.wpm) {
   const P = PACING, best = typingPay(l, 'medium', 1, false, 1);

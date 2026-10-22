@@ -26,6 +26,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.17.1', date: '2026-10-22', title: 'Fairer pay, a 1200 m track and a deeper muscle-car rumble',
+    added: [
+      'A 1200 m track: pick it beside 600 / 700 / 800 m. It pays ×1.4 and keeps its own best time.',
+      'Gear setup switch (with Transmission T5): Preset gearing (Short / Balanced / Long) OR Custom ratios — one or the other, never both.',
+      'Gear ratio bars can be dragged left and right, as well as the − / + buttons.',
+    ],
+    changed: [
+      'Race pay is lower: Hard pays ×1.3 (was ×1.8), every win pays a quarter less, and shorter tracks pay less (600 m ×0.8, 700 m ×0.9). A maxed hypercar on Hard now earns about 45k a race instead of 120k+.',
+      'Perfect-shift pay is shared over your shifts: a 7- or 8-speed earns the same Perfect-shift total as a 5-speed, not almost double.',
+      'League S upgrades cost a bit more (×1.25).',
+      'Typing Race pay moved up a little so it still earns the same per minute as a Street Race.',
+      'Muscle cars have a new V8 voice: a low, even rumble with a gentle lope at idle — no high whine, no crackle.',
+      'All other engines are smoother and lower (no wobble, no buzzing top end).',
+    ],
+    fixed: [
+      'A small pop when an engine sound started.',
+    ],
+  },
+  {
     version: '0.17.0', date: '2026-10-22', title: 'Tune every gear', header: 'Gearbox Update',
     added: [
       'Gear ratio tuning: own Transmission T5 and a Gear ratios drop-down opens under the Transmission row. Tune each gear on its own — − for a taller gear (more speed), + for a shorter one (more pull) — and see each gear\'s top speed.',

@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { stripRung, stripBand, STRIP, levelReward } from '../src/game/strip';
 import { dyno } from '../src/game/dyno';
 import { wetStage } from '../src/data/stages';
-import { PART_LEAGUE } from '../src/data/economy';
+import { PART_LEAGUE, DIST_PAY, racePay as racePayD } from '../src/data/economy';
 import { TRANSMISSION, legalRatios, RATIO_TUNING } from '../src/data/parts';
 
 declare const process: { exit(code: number): never };
@@ -401,6 +401,19 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
     const rv = makeRival('hyper', { ...MAX_TUNE, ratios: stock.map(r => r * 0.9) }, stage, 31337, 800, [0.04, 0.21]);
     check(extremes.every(t => t > 0 && t < 20) && rv.expect >= rv.yours + 0.04 - 1e-6,
       `gear ratios: extreme tunes still finish (all taller ${extremes[0].toFixed(2)} · stock ${base.toFixed(2)} · all shorter ${extremes[1].toFixed(2)} s) and rivals match your tuned car`);
+  }
+  { // gear setup (owner, V0.17.1): preset gearing OR custom ratios — never both
+    const stock = TRANSMISSION.S[4].ratios, mine = stock.map(r => r * 0.85);
+    const preset = carStats('hyper', { ...MAX_TUNE, ratios: mine, gearMode: 'preset', gearing: 'long' }, stage), custom = carStats('hyper', { ...MAX_TUNE, ratios: mine, gearMode: 'custom', gearing: 'long' }, stage);
+    const longTop = carStats('hyper', { ...MAX_TUNE, gearing: 'long' }, stage).trans.ratios.at(-1)!, mineTop = legalRatios(stock, mine).at(-1)!;
+    check(preset.trans.ratios[2] === stock[2] && preset.trans.ratios.at(-1) === longTop && custom.trans.ratios[2] === legalRatios(stock, mine)[2] && custom.trans.ratios.at(-1) === mineTop,
+      'gear setup: Preset uses the Short/Balanced/Long box and ignores your ratios; Custom uses your ratios and ignores the preset');
+  }
+  { // 1200 m track (owner, V0.17.1)
+    const ok = CATALOG_ORDER.every(id => { const race = new Race(1200), r = race.add('p', carStats(id, MAX_TUNE, stage), new AIController(1, [0.3, 0.3], 7, false)); for (let i = 0; i < 120 * 90 && !race.done; i++) race.step(1 / 120); return r.finish !== undefined; });
+    const wins = ['hyper', 'panda_civix', 'muscle'].map(id => { const me = simTime(id, MAX_TUNE, stage, 1, [0.3, 0.3], 7, 1200, false); let w = 0; for (let s = 1; s <= 6; s++) if (me < makeRival(id, MAX_TUNE, stage, s * 7919, 1200, [0.04, 0.21]).expect) w++; return w; });
+    check(ok && wins.every(w => w === 6) && racePay('D', 'medium', true, 1200).result > racePay('D', 'medium', true, 800).result,
+      `1200 m: every car finishes it; a perfect run beats Medium rivals (${wins.join(' / ')} of 6 for hyper / Civix / muscle); it pays ×${DIST_PAY[1200]}`);
   }
   check(TRANSMISSION.A[4].ratios.length === 7 && TRANSMISSION.S[4].ratios.length === 8 && TRANSMISSION.D[4].ratios.length === 6,
     `gearboxes (owner): League A tops out at 7 gears, League S at 8 (D–B keep 6) — ${TRANSMISSION.S.map(t => t.ratios.length).join('/')} gears in S`);

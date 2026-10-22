@@ -19,6 +19,8 @@ export interface GarageHandlers {
   onGearing(g: Gearing, carId: string): void;
   /** Gear ratio tuning (V0.17.0): a car's own T5 ratios, or null for stock */
   onRatios(ratios: number[] | null, carId: string): void;
+  /** Gear setup (V0.17.1): preset gearing or custom ratios */
+  onGearMode(mode: 'preset' | 'custom', carId: string): void;
   /** Garage (owner 2026-10-19): ★ a car */
   onFav(id: string): void;
   onRace(): void;

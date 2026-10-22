@@ -31,7 +31,7 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/
 .upg-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:5px}.upg-hd h3{margin:0;font-size:13px;flex:none;width:104px}
 .upg-hd .desc{margin:0;min-height:0;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .g-upg .tier{padding:4px 2px;font-size:11px;gap:0}.g-upg .tier b{font-size:14px}
-.tiers.g3{grid-template-columns:repeat(3,1fr)}.g-upg .tier.gear{padding:7px 2px}.g-upg .tier.gear b{font-size:13px;text-transform:uppercase}
+.tiers.g3{grid-template-columns:repeat(3,1fr)}.tiers.g2{grid-template-columns:repeat(2,1fr)}.g-upg .tier.gear{padding:7px 2px}.g-upg .tier.gear b{font-size:13px;text-transform:uppercase}
 .tiers{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .tier{border:0;padding:8px 2px;cursor:pointer;background:var(--panel2);color:var(--text);box-shadow:0 0 0 2px var(--edge);font:700 12px system-ui;display:flex;flex-direction:column;align-items:center;gap:2px}
 .tier b{font:900 16px "Courier New",monospace}
@@ -190,8 +190,10 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .g-upg .ratio-row span{color:#9aa3b5;font-weight:700}.g-upg .ratio-row b{text-align:center;font-variant-numeric:tabular-nums}.g-upg .ratio-row b.ch{color:var(--accent)}
 .g-upg .ratio-row .rb{height:22px;padding:0}.g-upg .ratio-row .rb b{font-size:12px}
 .g-upg .ratio-row em{font-style:normal;text-align:right;color:#cfd4de;font-variant-numeric:tabular-nums}
-.g-upg .rbar{position:relative;height:6px;background:#2c313d}.g-upg .rbar::after{content:'';position:absolute;left:50%;top:-2px;width:2px;height:10px;background:#5a5f6d}
-.g-upg .rbar u{position:absolute;top:-1px;width:6px;height:8px;margin-left:-3px;background:var(--accent)}
+.g-upg .rbar{position:relative;height:18px;cursor:ew-resize;touch-action:none;background:linear-gradient(#2c313d,#2c313d) 0 50%/100% 6px no-repeat}
+.g-upg .rbar::after{content:'';position:absolute;left:50%;top:4px;width:2px;height:10px;background:#5a5f6d}
+.g-upg .rbar u{position:absolute;top:3px;width:8px;height:12px;margin-left:-4px;background:var(--accent);box-shadow:inset -2px -2px 0 #b8901c}
+.g-upg .rbar:hover u,.g-upg .rbar.drag u{background:#ffe27a}
 .g-upg .ratio-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:5px}.g-upg .ratio-foot .btn{font-size:11px;padding:5px 10px}
 /* Upgrades ▸ Test run (owner C11, V0.16.0) */
 .dyno{display:flex;flex-direction:column;gap:6px;margin-top:4px}.dyno .dyno-go{align-self:flex-start;font-size:13px;padding:7px 14px}

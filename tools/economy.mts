@@ -32,6 +32,14 @@ table('Hours to finish a league (buy its cheapest car + max it; the Strip pays a
     return [l, f(cheapestCar(l)), f(upgradeCost(l)), f(stripCash(l)), (upgradeCost(l) / (KINDS.length * 4) / rate).toFixed(1), h.toFixed(1), `${lo}–${hi}`, h < lo ? 'TOO FAST' : h > hi ? 'TOO SLOW' : 'ok'];
   }));
 
+// V0.17.1 (owner: a friend made 120k+ a race, 5–6 races a minute): the fastest possible earner — Hard, every shift Perfect, no pause
+table('Fastest grinder (Hard, all Perfect, Race again at once) — hours for the same league goal',
+  ['League', 'VX per race', 'Races / min', 'VX / min', 'Hours', 'vs typical'],
+  (LEAGUES as Lg[]).map(l => {
+    const G = P.grinder, sec = P.raceSec[l] * G.raceShare + G.overhead, rate = dragPerMin(l, 'grinder'), need = cheapestCar(l) + upgradeCost(l) - stripCash(l) - E.ECONOMY.startingVoxels * +(l === 'D');
+    return [l, f(rate * sec / 60), (60 / sec).toFixed(1), f(rate), (Math.max(0, need) / rate / 60).toFixed(1), `${(dragPerMin(l, 'grinder') / dragPerMin(l)).toFixed(1)}× faster`];
+  }));
+
 const vxIds = Object.keys(E.COSMETIC_PRICES).filter(id => E.COSMETIC_PRICES[id].currency !== 'crowns');
 table('Cosmetics (VX parts, league prices) in minutes of that league\'s earnings', ['League', 'Cheapest part', 'Dearest part', 'Every VX part'],
   (LEAGUES as Lg[]).map(l => { const p = vxIds.map(id => E.cosmeticPrice(id, l).price), r = dragPerMin(l);

@@ -149,6 +149,12 @@ export function garageActions(ctx: GarageActionContext) {
     show(`${GEARING_BY_ID[g].label} gearing`);
   }
 
+  /** Gear setup (owner, V0.17.1): preset gearing or custom ratios — one or the other. */
+  function setGearMode(mode: 'preset' | 'custom', carId = ctx.save().carId) {
+    const save = ctx.save(); if (!save.cars[carId]) return;
+    const T = carId === save.carId ? save : save.cars[carId];
+    T.equipped.gearMode = mode; writeSave(save); show(mode === 'custom' ? 'Custom gear ratios' : 'Preset gearing');
+  }
   /** Gear ratio tuning (owner Q192, V0.17.0): save a car's own T5 ratios (null = back to stock). Quiet — no toast per click. */
   function setRatios(ratios: number[] | null, carId = ctx.save().carId) {
     const save = ctx.save(); if (!save.cars[carId]) return;
@@ -157,5 +163,5 @@ export function garageActions(ctx: GarageActionContext) {
     writeSave(save); show();
   }
 
-  return { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setGearing, setRatios };
+  return { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setGearing, setRatios, setGearMode };
 }

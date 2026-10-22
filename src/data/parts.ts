@@ -100,7 +100,10 @@ export type PerfKind = 'engine' | 'trans' | 'tires' | 'weight' | 'turbo' | 'nitr
 export const PERF_KINDS: PerfKind[] = ['engine', 'trans', 'tires', 'weight', 'turbo', 'nitrous'];
 export const PERF_LABEL: Record<PerfKind, string> = { engine: 'Engine', trans: 'Transmission', tires: 'Tyres', weight: 'Weight', turbo: 'Turbo', nitrous: 'Nitrous' };
 /** A car's performance set-up: a tier per part + its gearing (missing gearing = balanced). */
-export type Tune = Record<PerfKind, Tier> & { gearing?: Gearing; /** custom ratio per gear — used with Transmission T5 (V0.17.0) */ ratios?: number[] };
+export type Tune = Record<PerfKind, Tier> & { gearing?: Gearing; /** custom ratio per gear — used with Transmission T5 (V0.17.0) */ ratios?: number[];
+  /** preset gearing (Short / Balanced / Long) OR custom ratios — one or the other (owner, V0.17.1). Missing: custom if ratios were saved */ gearMode?: 'preset' | 'custom' };
+/** Which gear setup a tune uses. Custom needs Transmission T5 fitted; otherwise the preset gearing applies. */
+export const usesCustom = (t: Partial<Tune>) => t.trans === 5 && (t.gearMode ?? (t.ratios?.length ? 'custom' : 'preset')) === 'custom';
 /** Gear ratio tuning (owner Q192, V0.17.0): unlocked by Transmission T5. Each gear may move up to ±spread from the stock T5 ratio, in
  *  steps of `step`, and must stay at least `minStep` taller (lower ratio) than the gear before it. */
 export const RATIO_TUNING = { spread: 0.25, step: 0.05, minStep: 0.03 };

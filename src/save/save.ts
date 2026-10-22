@@ -58,8 +58,9 @@ export interface SaveV1 {
   /** Login calendar (owner Q151): days claimed so far (0–28, then a new month) and the date of the last claim. */
   cal?: { n: number; last: string; month: number };
 }
-export type RaceDist = 600 | 700 | 800;
-export const RACE_DISTS: RaceDist[] = [600, 700, 800];
+export type RaceDist = 600 | 700 | 800 | 1200;
+/** Street Race lengths; 1200 m added in V0.17.1 (owner) — a long run where top speed and the tall gears matter */
+export const RACE_DISTS: RaceDist[] = [600, 700, 800, 1200];
 /** Per-car drag-race record (owner Q138), counted from V0.6.1. */
 export interface CarRecord { races: number; wins: number; best: Record<number, number | null> }
 /** Performance tiers bought, per part (Tuning Update: tyres, weight, turbo join engine + transmission). */
@@ -120,7 +121,7 @@ export const freshCar = (paint = '', opts: Record<string, string> = {}): CarStat
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 
 export function freshSave(): SaveV1 {
-  return { raceDiff: 'medium', partsOwned: [], decals: [], stripClaimed: {}, strip: { D: 0, C: 0, B: 0, A: 0, S: 0 }, best: { 600: null, 700: null, 800: null }, raceDist: 800, crowns: 0, cars: { [STARTER_CAR]: freshCar() }, version: 1, voxels: ECONOMY.startingVoxels, carId: STARTER_CAR, owned: stockOwned(), equipped: stockEquipped(), bestTime: null, races: 0, wins: 0, settings: { ...DEFAULT_SETTINGS }, paddles: freshPaddles(), pedals: { owned: [STANDARD_PEDAL], equipped: STANDARD_PEDAL }, perfectShifts: 0 };
+  return { raceDiff: 'medium', partsOwned: [], decals: [], stripClaimed: {}, strip: { D: 0, C: 0, B: 0, A: 0, S: 0 }, best: { 600: null, 700: null, 800: null, 1200: null }, raceDist: 800, crowns: 0, cars: { [STARTER_CAR]: freshCar() }, version: 1, voxels: ECONOMY.startingVoxels, carId: STARTER_CAR, owned: stockOwned(), equipped: stockEquipped(), bestTime: null, races: 0, wins: 0, settings: { ...DEFAULT_SETTINGS }, paddles: freshPaddles(), pedals: { owned: [STANDARD_PEDAL], equipped: STANDARD_PEDAL }, perfectShifts: 0 };
 }
 
 export function loadSave(): SaveV1 {
@@ -129,10 +130,11 @@ export function loadSave(): SaveV1 {
     if (!raw) return freshSave();
     const data = JSON.parse(raw);
     if (data && data.version === 1) {
-      const s: SaveV1 = { ...freshSave(), ...data, settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) }, paddles: { ...freshPaddles(), ...(data.paddles || {}) }, pedals: { owned: [STANDARD_PEDAL], equipped: STANDARD_PEDAL, ...(data.pedals || {}) } };
+      // best times: a new distance (1200 m, V0.17.1) starts empty in older saves
+      const s: SaveV1 = { ...freshSave(), ...data, best: { ...freshSave().best, ...(data.best || {}) }, settings: { ...DEFAULT_SETTINGS, ...(data.settings || {}) }, paddles: { ...freshPaddles(), ...(data.paddles || {}) }, pedals: { owned: [STANDARD_PEDAL], equipped: STANDARD_PEDAL, ...(data.pedals || {}) } };
       for (const c of Object.values(s.cars)) c.parts ??= {};   // saves from before visual parts
       s.strip = { D: 0, C: 0, B: 0, A: 0, S: 0, ...(data.strip || {}) }; s.stripClaimed = { ...(data.stripClaimed || {}) };
-      if (!data.best) s.best = { 600: null, 700: null, 800: s.bestTime ?? null };   // saves from before 600/700 m races
+      if (!data.best) s.best = { 600: null, 700: null, 800: s.bestTime ?? null, 1200: null };   // saves from before 600/700 m races
       // saves from before car buying (Q79): the one car they had keeps its parts
       if (!data.cars) s.cars = { [s.carId]: { owned: clone(s.owned), equipped: clone(s.equipped), paint: '', opts: {}, parts: {} } };
       if (!CARS[s.carId] || !s.cars[s.carId]) { s.carId = STARTER_CAR; s.cars[STARTER_CAR] ??= freshCar(); Object.assign(s, clone(stockFor(s))); }
