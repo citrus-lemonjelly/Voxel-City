@@ -19,7 +19,8 @@
     "sync": "node tools/sync.mjs",
     "layout": "node tests/layout.mjs",
     "edit": "node tools/edit.mjs",
-    "drift-lab": "tsx tools/drift-lab.mts"
+    "drift-lab": "tsx tools/drift-lab.mts",
+    "numbers": "node tools/numbers.mjs"
   },
   "dependencies": {
     "three": "0.170.0"

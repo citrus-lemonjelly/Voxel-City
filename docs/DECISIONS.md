@@ -103,6 +103,15 @@ Carries forward the status taxonomy from `VOXEL_CITY_READOUT_V1.md`. Claude Code
 
 | # | Decision | Status | Date | Notes |
 |---|---|---|---|---|
+| X12 | Before any Medium or Big change: a short "what could break · how it will be checked" table | Agreed | 2026-10-22 | Owner Q204. |
+| X11 | Asking template `docs/ASK_TEMPLATE.md` (Goal · Where · Look & feel · Done when · Must not change · Size); `/feature` skill fills it from a one-line ask | Agreed | 2026-10-22 | Owner Q203 + D2 (S91). |
+| X10 | Every visible change comes with screenshots (PC + phone) sent straight to the owner | Agreed | 2026-10-22 | Owner Q202. Builds on X3. |
+| X9 | CLAUDE.md "Where we left off" stays 5–10 lines; older history moves to `docs/ROADMAP.md` §G | Agreed | 2026-10-22 | Owner Q201 — every session reads CLAUDE.md first, so shorter = faster start. |
+| X8 | End-of-session wrap-up with the `/wrapup` skill: decisions + answers logged, "Where we left off" updated, open Q's listed, work committed | Agreed | 2026-10-22 | Owner Q200 + D1 (S91). |
+| X7 | Cloud sessions work and push only on their own `claude/…` branch; never push `main` or ship from the cloud | Agreed | 2026-10-22 | Owner Q199. CLAUDE.md "Cloud sessions". How the branch reaches `main`: Q205 (open). |
+| X6 | Plain words in replies; any unavoidable coding term gets a short explanation in brackets | Agreed | 2026-10-22 | Owner Q198. |
+| X5 | Every reply opens with a 3-line summary: Done · Need from you · Next | Agreed | 2026-10-22 | Owner Q197. |
+| X4 | Standing requests: prompt feedback in every reply; unclear asks are pushed back with Q# questions, not guessed; look for skills/tools to build; 2–4 fresh ideas per reply | Agreed | 2026-10-22 | Owner (C2: 2–4 ideas confirmed). CLAUDE.md "Working with the owner". |
 | X3 | Every open question comes with its reference render/GIF attached and captioned with the question number | Agreed | 2026-10-16 | Owner request. |
 | X2 | Standing workflow for every run: analyze → discuss → questions & suggestions → gate for review. Nothing proceeds past a gate until the owner reviews. | Agreed | 2026-10-16 | Applies without being restated. |
 | X1 | Every screen (menu, garage, car gallery, upgrades, results, etc.) is designed one at a time: discuss → design → render → owner approval → next screen | Agreed | 2026-10-16 | Step 1 delivers functional placeholder screens; each is then redesigned under this process. |
@@ -233,10 +242,12 @@ One car (TBD, U4) · one static garage screen · Downtown Grid · hold-release l
 | S88 | Drift scenes (V0.18.0) | Night always, rain 40 %. Four districts (names placeholders): Downtown (city), Harbour (containers, cranes, water), The Ridge (pines, rock cuttings, armco), Neon Row (neon, arcades). `render/driftView.ts` rasterises the road to 0.55 m voxel tiles (red/white kerbs in turns), chevrons + armco on every turn outside, tyre stacks on tight ones; props from `render/driftProps.ts` in a front row + two back rows (24–55 m, 60–110 m), placed only where a 1 m occupancy grid is free. Chase camera follows the road heading so the drift angle shows. |
 | S89 | Drift HUD + controls (V0.18.0) | The Street Race HUD (gauge, − / + paddles, gas pedal, lights, progress strip) with the Drift button in the pedal bay beside the gas pedal (owner Q194 A, 2026-10-22: keep it there); the gauge shows the rev band while sliding. Four button looks (`ui/driftButton.ts`: Handbrake — the default, owner Q195 — Pedal, Puck, Key; Settings ▸ Keybinds ▸ Drift; `__vc.driftButtons()` review sheet). Keys (own set): Space gas, Shift drift, ↑ / ↓ shift, Esc leave. Settings now has Display · Audio · Keybinds header bars. Phone layout: later (owner). |
 | S90 | Drift rival, parts, pay (V0.18.0) | Ghost rival (E7): your car at AI skill 1 sets your perfect score; a league car near your level is driven at the skill that lands its score `DRIFT_GAP` below it (Easy 32–48 %, Medium 10–22 %, Hard 3–9 %); its run is replayed as a see-through car. Drift parts (E6, drift only): Drift tyres (band +1.2 % per tier), Differential (revs ×0.95…0.82, speed kept +2 % per tier), Steering lock (+3° per tier); prices `DRIFT_PART_PRICES`, not in the league goal. Pay `driftPay`: k 1.16 × league factor (D 0.93 · C 1.19 · B 1.2 · A 1.28 · S 1.55) — Drift ÷ Street per minute 0.92–1.03; bonuses Perfect entry 3 %, clean run 10 %, new best 10 %. |
+| S91 | Workflow tools (owner D1–D3, 2026-10-22) | **`npm run numbers`** (`tools/numbers.mjs`, also printed by `npm run sync`): next free version / S / Q across this PC, `main` and every other GitHub branch; lists each branch's numbers not on `main` yet and warns when two places used the same one (the Q164–Q181 overlap). **`/feature`** skill (`.claude/skills/feature`): one-line idea → feature card per `docs/ASK_TEMPLATE.md`, gaps as Q# questions, no building. **`/wrapup`** skill (`.claude/skills/wrapup`): end-of-session hand-over (DECISIONS, ROADMAP, short CLAUDE.md, commit). |
 | S14 | Near side | Kept low (≤ 4 blocks) so it never covers the cars' wheels or the HUD. Options: Curb (red/white race curb, bollards, cones, hedges), Barrier (K-rail with VOX hazard bands), Mixed (barriers near start and finish, curb in between). | Pending owner pick. |
 
 ## Open (next discussion)
 
+- **Q205 (2026-10-22):** how work from cloud sessions (`claude/…` branches) reaches `main` — a pull request the owner merges with one click, or a PC session pulls the branch and ships it.
 - **District map (owner 2026-10-19):** a 3D voxel map connecting all **6 districts**, where the game modes are held — Street Races, the Strip, Typing Race and future modes each live in a district, so a league takes time and has other things to do besides grinding one mode.
 - **Typing Race extras:** phones / tablets with an on-screen keyboard (Q129, later); more passages per tier; nitro refills / upgrades (to discuss); its own district on the city map.
 - **Strip completion rewards (owner Q104):** to come.
@@ -250,6 +261,7 @@ One car (TBD, U4) · one static garage screen · Downtown Grid · hold-release l
 
 ## Change log
 
+- 2026-10-22 — Working rules X4–X12 (owner Q197–Q204, C2); workflow tools S91 (`npm run numbers`, `/feature`, `/wrapup`, `docs/ASK_TEMPLATE.md`). Q205 opened (how cloud branches reach `main`). Docs/tools only, no game version.
 - 2026-10-22 — V0.16.2 shipped. V0.17.0 "Gearbox Update" built: per-gear ratio tuning with Transmission T5 (S83, owner Q192).
 - 2026-10-22 — V0.16.1 shipped. V0.16.2 built: S/A gear spacing, muscle-car sound fix (S82).
 - 2026-10-22 — V0.16.0 shipped. V0.16.1 built: end-game balance fix (reaction-time launch, no-nitrous reference), 7/8-speed A/S gearboxes (S81).

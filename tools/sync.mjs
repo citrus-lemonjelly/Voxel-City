@@ -3,9 +3,9 @@
 //   npm run sync            report only
 //   npm run sync -- --pull  also bring GitHub's changes in when that can be done without a merge (fast-forward)
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { numbersReport } from './numbers.mjs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const git = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8' }).trim();
 const tryGit = (...a) => { try { return git(...a); } catch { return ''; } };
@@ -25,18 +25,9 @@ if (incoming.length) {
   console.log(both.length ? `! both sides changed ${both.length} file(s): ${both.join(', ')}` : 'no overlapping files');
 }
 
-// next free numbers, looking at both this PC and GitHub
-const read = (rev, f) => rev ? tryGit('show', `${rev}:${f}`) : (() => { try { return readFileSync(resolve(root, f), 'utf8'); } catch { return ''; } })();
-const vn = v => v.split('.').reduce((a, x) => a * 1000 + +x, 0);
-const versions = ['', 'origin/main'].map(r => (read(r, 'src/data/changelog.ts').match(/version: '(\d+\.\d+\.\d+)'/) || [])[1]).filter(Boolean);
-const live = (() => { try { return JSON.parse(read('origin/main', 'build/version.json')).version; } catch { return '?'; } })();
-const maxNum = (re, files) => Math.max(0, ...['', 'origin/main'].flatMap(r => files.flatMap(f => [...read(r, f).matchAll(re)].map(m => +m[1]))));
-const docs = ['docs/DECISIONS.md', 'docs/ROADMAP.md', 'CLAUDE.md'];
-const topV = versions.sort((a, b) => vn(b) - vn(a))[0] || '?';
+// next free numbers, looking at this PC, GitHub's main and every other branch on GitHub (tools/numbers.mjs)
 console.log('\n== Numbers ==');
-console.log(`live on the website: V${live} · newest in patch notes (here or GitHub): V${topV}`);
-if (versions.length === 2 && versions[0] !== versions[1]) console.log(`! this PC says V${versions[0]}, GitHub says V${versions[1]}`);
-console.log(`next decision row: S${maxNum(/\bS(\d{2,3})\b/g, docs) + 1} · next question: Q${maxNum(/\bQ(\d{2,3})\b/g, docs) + 1}`);
+numbersReport().forEach(l => console.log(l));
 
 if (process.argv.includes('--pull') && incoming.length) {
   if (outgoing.length || dirty.length) console.log('\n! not pulling: this PC has its own changes — merge by hand (or ask Claude) so nothing is lost');

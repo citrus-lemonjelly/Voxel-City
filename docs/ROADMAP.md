@@ -151,3 +151,20 @@ Proposed pieces:
 | `docs/reference/tuning-update/upgrades.png` | V0.11.0 Upgrades panel (stock / after buying) |
 | `docs/reference/tuning-update/Q175_nitrous_badge.png` | Nitrous badge mockup (states + placement) |
 | `docs/DECISIONS.md` S66 | Tuning Update numbers and reasoning |
+
+---
+
+## §G History (moved from CLAUDE.md "Where we left off", newest first)
+
+- 2026-10-22 — V0.17.1 shipped (V8 voice S84, gear setup switch + 1200 m S85, pay downtune S86).
+- 2026-10-22 — Live: **V0.17.0 "Gearbox Update"** (per-gear ratio tuning with Transmission T5, S83). Before it: V0.16.0 "Feel Update" (S79:
+  sound `src/game/sound.ts`, nitrous, voxel effects + rain `src/render/fx.ts`, Upgrades ▸ Test run `src/game/dyno.ts`),
+  V0.16.1 (end-game balance, A/S 7/8 gears, S81), V0.16.2 (gear spacing, S82), V0.15.0 "Phone Typing Update" (S78).
+- 2026-10-21 — Live before this push: V0.11.0 "Tuning Update" (shipped from another session — tyres, weight, turbo, gearing; S66; read
+  `docs/ROADMAP.md` for its open questions). This PC's unshipped work was merged on top and renumbered after it:
+  V0.12.0 "Pedal Update" (Pedal mode S72, phone race screen S73, voxel Race button S74) · V0.13.0 "Style Update" (Bevel+ look,
+  Menu + side rail, built-in pixel font, S75) · V0.13.1 (race screen look, menu closes on outside click, S76) · V0.14.0 "Phone
+  Update" (every screen fits phones via fitUI / `--ui-s`, panels over buttons, Settings by Notes, camera by Race, car info in
+  Profile, compact Strip with automatic rewards, S77). Check phones with the shot tool's `touch; size:844x390` (also 667x375, 932x430).
+- Note: the two sessions' Q numbers overlap (both used Q164–Q181) and ROADMAP's planned version numbers (V0.11.1, V0.11.2,
+  V0.12.0 "Build & Tune") are now taken — give those plans new numbers after V0.14.0.

@@ -32,10 +32,34 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
   skills/tools go in the ideas list with an effort label and are built once the owner agrees. Keep CLAUDE.md and skills current.
 - **Steady ideas:** every reply's ideas list carries 2–4 fresh ideas (game features, polish, tools, workflow) — not repeats of
   earlier replies. Ideas the owner likes but doesn't start yet go in the Idea backlog at the bottom of this file.
+- **3-line summary first (Q197):** every reply opens with three lines — **Done:** what was done · **Need from you:** answers /
+  checks / "say ship" · **Next:** what happens after. The detailed §-sections come below it.
+- **Plain words (Q198):** no coding terms in replies. If one can't be avoided, explain it in a few words in brackets.
+- **Show, don't tell (Q202):** every change you can see in the game comes with screenshots — PC and phone (`touch; size:844x390`) —
+  sent straight to the owner (in the cloud: attach them to the reply; on the PC: give the PNG paths).
+- **What could break (Q204):** before any Medium or Big change, a short table: what could break · how it will be checked.
+- **Asking template (Q203):** `docs/ASK_TEMPLATE.md` (Goal · Where · Look & feel · Done when · Must not change · Size). For a short
+  or vague ask, use the **`/feature`** skill to fill it in and ask only about the gaps.
+- **Wrap-up (Q200):** at the end of a session (or when the owner says wrap up), run the **`/wrapup`** skill: decisions + answers
+  logged, "Where we left off" updated, open Q numbers listed, work committed.
+- **Numbers never reused:** take versions, S-rows and Q-numbers from `npm run numbers` (checks this PC and every branch on GitHub).
 
-## Commands (run them yourself here — this is the owner's PC)
+## Cloud sessions (Q199)
+A session is in the cloud when it runs from the Claude app / claude.ai (env `CLAUDE_CODE_REMOTE=true`, branch `claude/…`).
+- Work, commit and push **only on the session's `claude/…` branch**. Never push to `main`, never run `npm run ship` / `release`:
+  the website only changes from `main`. Tell the owner the work is on that branch and **not live**.
+- Start with `npm install` if `node_modules` is missing, then `npm run sync` as usual. Chromium for smoke / layout / shot is
+  pre-installed (don't run `playwright install`). The normal edit tool works here; `tools/edit.mjs` is for the owner's PC.
+- Send screenshots and files to the owner in the chat — the owner can't open paths inside the cloud machine.
+- Getting the work live: the owner (or a PC session) merges the branch into `main`, then ships from the PC.
+
+## Commands (run them yourself — on the owner's PC; cloud sessions: see above)
 - **Start every session with `npm run sync`**: shows what GitHub has that this PC doesn't (another session may have shipped),
   files both sides changed, the live version and the next free version / S-row / Q-number. `-- --pull` fast-forwards when safe.
+- `npm run numbers` (`-- --local` offline) — next free version / S / Q across this PC, `main` and every other GitHub branch;
+  lists numbers not on `main` yet per branch and warns (`!`) when two places used the same one. `sync` prints it too.
+- Skills: **`/feature`** (one-line idea → feature card + gap questions, no building) · **`/wrapup`** (end-of-session hand-over) ·
+  `voxel-city-release` (build → check → ship routine).
 - `npm run typecheck` — TypeScript check
 - `npm test` — sim checks (seconds)
 - `npm run collide` — collision check, every car × every part + part pairs (seconds)
@@ -81,28 +105,20 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
   button in the pedal bay); button looks `src/ui/driftButton.ts` (`__vc.driftButtons()` sheet); drift parts in `parts.ts` (`driftKitOf`),
   pay `driftPay` in `economy.ts`. URL: `?course=downtown|harbour|ridge|neon`, `?dbtn=brake|pedal|puck|key`, `?weather=rain|clear`.
 - Key bindings: `src/game/keys.ts`. Update notice: `src/game/updates.ts`. Car Lab (dev only, `?dev` → test console → Car Lab): `src/ui/carLab.ts`.
-- Tools: `tools/release.mjs`, `tools/collide.mjs` (+ `collide-entry.ts`), `tools/shot.mjs`, `tests/smoke.mjs`, `tests/sim.ts`; owner launcher `Run Smoke Test.cmd`.
+- Tools: `tools/release.mjs`, `tools/collide.mjs` (+ `collide-entry.ts`), `tools/shot.mjs`, `tools/sync.mjs` + `tools/numbers.mjs`, `tests/smoke.mjs`, `tests/sim.ts`; owner launcher `Run Smoke Test.cmd`.
+  Skills: `.claude/skills/` (`voxel-city-release`, `feature`, `wrapup`); asking template `docs/ASK_TEMPLATE.md`.
 - Decisions log: `docs/DECISIONS.md` (S-numbered rows). Patch notes doc is generated: `docs/CHANGELOG.md`.
 - Test URL flags: `?dev` (test console), `?fast=N` (clock ×N), `?autoplay`, `?lab` (Car Lab), `?phone` (phone race screen on a PC).
 - Garage tabs sit in the side rail behind the **Menu** button (`#menuBtn`); `tests/smoke.mjs` and `tools/shot.mjs` open it themselves.
 - Drive modes (Classic / Pedal, S72): `Controller.pedal` in `src/game/race.ts`; phone race HUD (S73): `Hud.buildPhone` in `src/ui/hud.ts`.
 
-## Where we left off (2026-10-21)
-- Live before this push: V0.11.0 "Tuning Update" (shipped from another session — tyres, weight, turbo, gearing; S66; read
-  `docs/ROADMAP.md` for its open questions). This PC's unshipped work was merged on top and renumbered after it:
-  V0.12.0 "Pedal Update" (Pedal mode S72, phone race screen S73, voxel Race button S74) · V0.13.0 "Style Update" (Bevel+ look,
-  Menu + side rail, built-in pixel font, S75) · V0.13.1 (race screen look, menu closes on outside click, S76) · V0.14.0 "Phone
-  Update" (every screen fits phones via fitUI / `--ui-s`, panels over buttons, Settings by Notes, camera by Race, car info in
-  Profile, compact Strip with automatic rewards, S77). Check phones with the shot tool's `touch; size:844x390` (also 667x375, 932x430).
-- Note: the two sessions' Q numbers overlap (both used Q164–Q181) and ROADMAP's planned version numbers (V0.11.1, V0.11.2,
-  V0.12.0 "Build & Tune") are now taken — give those plans new numbers after V0.14.0.
-- Live: **V0.17.0 "Gearbox Update"** (per-gear ratio tuning with Transmission T5, S83). Before it: V0.16.0 "Feel Update" (S79:
-  sound `src/game/sound.ts`, nitrous, voxel effects + rain `src/render/fx.ts`, Upgrades ▸ Test run `src/game/dyno.ts`),
-  V0.16.1 (end-game balance, A/S 7/8 gears, S81), V0.16.2 (gear spacing, S82), V0.15.0 "Phone Typing Update" (S78).
-- V0.17.1 shipped 2026-10-22 (V8 voice S84, gear setup switch + 1200 m S85, pay downtune S86).
-- Live: **V0.18.0 "Drift Update"** (shipped 2026-10-22, S87–S90; Q194 A button beside the gas pedal, Q195 Handbrake default): Drift mode (drag → 3–5 drifts → drag, four night districts, ghost rival,
-  drift parts, four Drift button looks), Settings header bars Display · Audio · Keybinds. Phone Drift layout: later (owner).
-- **Next:** owner tries Drift; open Q196 (district names); then ROADMAP items. Run heavy checks one at a time.
+## Where we left off (2026-10-22) — keep to 5–10 lines; older lines go to `docs/ROADMAP.md` §G History (/wrapup)
+- Live: **V0.18.0 "Drift Update"** (shipped 2026-10-22, S87–S90; Q194 A button beside the gas pedal, Q195 Handbrake default): Drift
+  mode (drag → 3–5 drifts → drag, four night districts, ghost rival, drift parts, four Drift button looks), Settings header bars.
+- Not shipped: working rules X4–X12 (Q197–Q204) + tools S91 (`npm run numbers`, `/feature`, `/wrapup`) on branch
+  `claude/confident-heisenberg-obet90` — docs/tools only, no game change.
+- Open questions: Q196 (Drift district names), Q205 (how cloud branches reach `main`); older open ones in `docs/ROADMAP.md` §B2.
+- **Next:** owner tries Drift; answer Q196 / Q205; then ROADMAP items. Phone Drift layout: later (owner). Run heavy checks one at a time.
 - Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
   weighted time of day (Small) · garage decor shop with Crowns (Big) · Body Shop "undo" (Small) · saved looks per car (Medium) ·
   rival plate text (Small) · split main.ts further (Typing Race, race setup) (Medium) · Drift on phones (Medium).
