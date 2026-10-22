@@ -88,9 +88,9 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
   sound `src/game/sound.ts`, nitrous, voxel effects + rain `src/render/fx.ts`, Upgrades ▸ Test run `src/game/dyno.ts`),
   V0.16.1 (end-game balance, A/S 7/8 gears, S81), V0.16.2 (gear spacing, S82), V0.15.0 "Phone Typing Update" (S78).
 - V0.17.1 shipped 2026-10-22 (V8 voice S84, gear setup switch + 1200 m S85, pay downtune S86).
-- Built, not shipped: **V0.18.0 "Drift Update"** (S87–S90): Drift mode (drag → 3–5 drifts → drag, four night districts, ghost rival,
+- Live: **V0.18.0 "Drift Update"** (shipped 2026-10-22, S87–S90; Q194 A button beside the gas pedal, Q195 Handbrake default): Drift mode (drag → 3–5 drifts → drag, four night districts, ghost rival,
   drift parts, four Drift button looks), Settings header bars Display · Audio · Keybinds. Phone Drift layout: later (owner).
-- **Next:** owner picks the Drift button look + placement and the district names; then ROADMAP items. Run heavy checks one at a time.
+- **Next:** owner tries Drift; open Q196 (district names); then ROADMAP items. Run heavy checks one at a time.
 - Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
   weighted time of day (Small) · garage decor shop with Crowns (Big) · Body Shop "undo" (Small) · saved looks per car (Medium) ·
   rival plate text (Small) · split main.ts further (Typing Race, race setup) (Medium) · Drift on phones (Medium).
