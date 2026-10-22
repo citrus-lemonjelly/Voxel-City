@@ -45,6 +45,8 @@ export class Hud {
   shiftBtn!: HTMLElement;
   /** The downshift paddle (pointer target). */
   downBtn!: HTMLElement;
+  /** The nitrous badge (pointer target; only when the car has nitrous). */
+  nosBtn?: HTMLElement;
   /** The gas pedal (pointer target) — launch control only; it leaves once the car has launched. */
   gasBtn!: HTMLElement;
   private pedalPod!: HTMLElement; private pedalEl!: HTMLElement; private pedalGone = false; private goneAt = 0; private pedalStays = false;
@@ -60,7 +62,7 @@ export class Hud {
   private paddleEl!: HTMLElement; private downEl!: HTMLElement; private plusRects: Element[] = []; private skin!: PaddleSkin;
   private last = { gear: '', mph: -1, zone: '', grade: '', count: '' };
 
-  constructor(root: HTMLElement, private race: Race, private player: Racer, private opp: Racer, opts: { oppName: string; paddle: string; paint?: string; showKeyHint: boolean; paddleShape?: 'arc' | 'tab'; pedal?: PedalStyle; /** bound key names (Settings ▸ Controls) */ keys?: { gas: string; up?: string; down: string };
+  constructor(root: HTMLElement, private race: Race, private player: Racer, private opp: Racer, opts: { oppName: string; paddle: string; paint?: string; showKeyHint: boolean; paddleShape?: 'arc' | 'tab'; pedal?: PedalStyle; /** bound key names (Settings ▸ Controls) */ keys?: { gas: string; up?: string; down: string; nitrous?: string };
     /** Pedal mode: the pedal stays all race (owner 2026-10-21) */ drive?: 'classic' | 'pedal'; /** top-down car pictures for the progress bar */ icons?: { me: string; them: string }; /** phone race screen */ phone?: boolean; /** phone: pedal on the left */ swap?: boolean }) {
     root.innerHTML = '';
     this.gaugeMax = Math.ceil(player.stats.redline / 1000);
@@ -71,7 +73,7 @@ export class Hud {
     this.el = h(`<div class="overlay hud2${phone ? ' phone' : ''}${phone && opts.swap ? ' swap' : ''}">
       <div id="lights" class="blk"><i></i><i></i><i></i></div>
       <div id="hint" class="blk">${hint}</div>
-      <div class="race-strip"><div class="road"></div><div class="car them${opts.icons ? ' pic' : ''}">${opts.icons ? `<img src="${opts.icons.them}" alt="">` : ''}</div><div class="car me${opts.icons ? ' pic' : ''}">${opts.icons ? `<img src="${opts.icons.me}" alt="">` : ''}</div></div>
+      <div class="race-strip"><div class="road"></div><div class="flag"></div><div class="car them${opts.icons ? ' pic' : ''}">${opts.icons ? `<img src="${opts.icons.them}" alt="">` : ''}</div><div class="car me${opts.icons ? ' pic' : ''}">${opts.icons ? `<img src="${opts.icons.me}" alt="">` : ''}</div></div>
       <div class="cluster"></div>
     </div>`);
     root.appendChild(this.el);
@@ -133,6 +135,11 @@ export class Hud {
     // ---- grade + countdown (block lettering above the gauge / centre screen) ----
     const over = svgEl('svg', { width: 520, height: 46, class: 'grade' }, this.el); this.gradeG = svgEl('g', {}, over);
     const cnt = svgEl('svg', { width: 200, height: 170, class: 'count' }, this.el); this.countG = svgEl('g', {}, cnt);
+    // nitrous badge (owner Q175 A, V0.16.0): voxel circle with a blue bottle, top-left of the gauge; key label under it
+    if (player.stats.nitro.seconds > 0) {
+      this.nosBtn = h(`<button class="nos-badge" aria-label="Nitrous" style="left:${GXO + 2}px;top:2px">${nosArt()}${opts.showKeyHint ? `<i class="nos-key">${opts.keys?.nitrous ?? '1'}</i>` : ''}</button>`);
+      cluster.appendChild(this.nosBtn);
+    }
     if (phone || !plate) { this.buildPhone(cluster, skin, opts.pedal || 'alloy'); return; }
     // ---- paddles: shape + skin, tucked partly behind the gauge (owner Q33/Q36/Q39); left = downshift (owner) ----
     const px = GXO + CX + r.ox, py = CY + r.oy, pxl = GXO + CX - reach;
@@ -237,6 +244,12 @@ export class Hud {
       this.setPlateWidth(this.plateW.full + (this.plateW.compact - this.plateW.full) * e);
       if (k >= 1) this.goneAt = 0;
     }
+    // nitrous badge
+    if (this.nosBtn) {
+      const firing = r.nitro > 0, left = firing ? r.nitro / s.nitro.seconds : r.nitroUsed ? 0 : 1;
+      this.nosBtn.classList.toggle('firing', firing); this.nosBtn.classList.toggle('used', r.nitroUsed && !firing);
+      this.nosBtn.style.setProperty('--nos', String(left));
+    }
     // gauge
     const frac = Math.min(1, r.rpm / (this.gaugeMax * 1000));
     const red0 = s.redline / (this.gaugeMax * 1000);
@@ -266,7 +279,7 @@ export class Hud {
     // grade (steady, fades out — never flashes) and countdown
     const ev = r.lastEvent;
     let grade = '';
-    if (ev && t - ev.t < 0.9) grade = (/launch|Bog|Downshift|Over-rev|Too early|Grip back/i.test(ev.text) ? ev.text : `${ev.text} shift`).toUpperCase();
+    if (ev && t - ev.t < 0.9) grade = (/launch|Bog|Downshift|Over-rev|Too early|Grip back|Nitrous/i.test(ev.text) ? ev.text : `${ev.text} shift`).toUpperCase();
     else if (this.race.green && !r.launched) grade = 'GO!';
     if (grade !== this.last.grade) {
       const col = /PERFECT|GO!/.test(grade) ? COL.zone : /GOOD/.test(grade) ? '#5aa9ff' : /DOWNSHIFT|GRIP/.test(grade) ? COL.lit : '#f2a43a';
@@ -375,4 +388,15 @@ function drawPedal(style: PedalStyle, k: PaddleSkin, cell: number): SVGElement {
 function keyLabel(text: string, key: string, cx: number, top: number) {
   const kw = key.length > 4 ? 58 : 46;
   return `<div class="keylabel" style="left:${Math.round(cx - 50)}px;top:${top}px"><span>${text}</span><i style="width:${kw}px">${key}</i></div>`;
+}
+
+/** Nitrous badge art (Q175 A mockup): a 12 × 12 voxel ring with a blue bottle; the bottle's blue drains from the top while it burns
+ *  (CSS var --nos = share left). Ring colour comes from the badge's state class. */
+function nosArt(): string {
+  const ring = ['000011110000', '001111111100', '011000000110', '010000000010', '110000000011', '110000000011', '110000000011', '110000000011', '010000000010', '011000000110', '001111111100', '000011110000'];
+  const px: string[] = [];
+  ring.forEach((row, y) => [...row].forEach((b, x) => { if (b === '1') px.push(`<rect class="nr" x="${x}" y="${y}" width="1" height="1"/>`); }));
+  return `<svg viewBox="0 0 12 12" shape-rendering="crispEdges"><circle cx="6" cy="6" r="4.6" fill="#14161c"/>${px.join('')}
+    <rect class="nb-empty" x="4.5" y="3.5" width="3" height="5"/><rect class="nb" x="4.5" y="3.5" width="3" height="5" style="transform-origin:6px 8.5px;transform:scaleY(var(--nos,1))"/>
+    <rect x="5.5" y="2.5" width="1" height="1" fill="#cfd4de"/><rect x="5.5" y="2" width="1.5" height=".6" fill="#8a919b"/><rect class="nshine" x="5" y="4" width=".6" height="2.5"/></svg>`;
 }

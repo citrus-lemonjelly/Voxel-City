@@ -26,6 +26,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.16.0', date: '2026-10-22', title: 'Sound, smoke, rain and nitrous', header: 'Feel Update',
+    added: [
+      'Sound: engine notes that rise with the revs, shift clunks, launch screech, a chime on Perfect shifts, countdown beeps, Typing Race key clicks and a win / lose jingle. Settings ▸ Sound: Off, Low or Full.',
+      'Nitrous: a new upgrade (T2–T5). One shot per race — press 1, or tap the bottle badge by the gauge. Stronger and longer at higher tiers. Some rivals carry it too.',
+      'Voxel effects: tyre smoke on the launch and in wheelspin, a backfire flame on Perfect shifts, a blue flame while nitrous burns, dust at the finish.',
+      'Rain in about one race in four: falling rain, a wet shiny road and spray from the wheels (looks only — grip is the same).',
+      'A camera kick on the launch, a wider view while nitrous burns, and a slow-motion photo finish when the race is too close to call.',
+      'Upgrades ▸ Test run: race your set-up on an empty strip and see 0–60, 600 m and 800 m on each gearing — after a change it shows how much quicker you got.',
+    ],
+    changed: [
+      'The Upgrades panel is compact: part names down the left, T1–T5 beside them. Point at a tier to see what it does and what it costs.',
+      'The race progress bar uses the same track and chequered flag as the Typing Race.',
+    ],
+  },
+  {
     version: '0.15.0', date: '2026-10-22', title: 'Type on your phone', header: 'Phone Typing Update',
     added: [
       'Typing Race on phones: the phone keyboard opens when the race starts, and the screen fits above it. Tap the race to bring the keyboard back.',

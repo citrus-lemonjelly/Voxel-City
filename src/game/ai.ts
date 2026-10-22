@@ -26,6 +26,8 @@ export class AIController implements Controller {
     if (race.t >= COUNTDOWN + this.reaction) return false;            // release = launch
     return frac < this.launchTarget;                                   // feather the throttle around the target
   }
+  /** Nitrous (V0.16.0): rivals that carry it fire it 4 s after the launch, between shifts — once the tyres have stopped spinning, so the boost is not wasted and every car gets the same help (keeps maxed cars within 0.2 s, sim). */
+  nitrous(r: Racer): boolean { return r.launchTimer > 4 && r.shifting <= 0; }
   shift(r: Racer): boolean {
     const t = r.stats.trans;
     if (this.shiftTargets.length <= r.gear) this.shiftTargets[r.gear] = t.zoneCentre + gauss(this.rng) * (1 - this.skill) * 0.22;

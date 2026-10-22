@@ -66,6 +66,16 @@ const TURBO_D: TurboTier[] = [
     { tier: 4, boost: 0.18, lowLoss: 0.05, massAdd: 0.04, price: 0, label: 'Big single turbo' },
     { tier: 5, boost: 0.25, lowLoss: 0.06, massAdd: 0.05, price: 0, label: 'Twin turbo' },
 ];
+/** Nitrous (owner Q176 A / Q180 A, V0.16.0): one shot per race on key 1 — extra power for a couple of seconds, stronger and
+ *  longer at higher tiers; the bottle adds a little weight. T1 = no nitrous. */
+export interface NitrousTier { tier: Tier; boost: number; seconds: number; massAdd: number; price: number; label: string }
+const NITROUS_D: NitrousTier[] = [
+    { tier: 1, boost: 0.00, seconds: 0.0, massAdd: 0.000, price: 0, label: 'No nitrous' },
+    { tier: 2, boost: 0.12, seconds: 1.6, massAdd: 0.006, price: 0, label: 'Small shot' },
+    { tier: 3, boost: 0.15, seconds: 2.0, massAdd: 0.008, price: 0, label: 'Street kit' },
+    { tier: 4, boost: 0.19, seconds: 2.3, massAdd: 0.010, price: 0, label: 'Wet kit' },
+    { tier: 5, boost: 0.24, seconds: 2.6, massAdd: 0.012, price: 0, label: 'Twin bottles' },
+];
 /** Where the turbo comes on, as a share of redline: none below `from`, full boost from `full` up (smooth between). */
 export const SPOOL = { from: 0.45, full: 0.80 };
 
@@ -85,16 +95,16 @@ export const GEARING_BY_ID = Object.fromEntries(GEARINGS.map(g => [g.id, g])) as
  *  Scales the power, grip, weight and turbo effects; transmissions are the same everywhere. */
 export const LEAGUE_EFFECT: Record<PartLeague, number> = { D: 1, C: 0.38, B: 0.6, A: 1, S: 1 };
 
-/** Every performance part a car can upgrade (U1). Nitrous comes in its own update. */
-export type PerfKind = 'engine' | 'trans' | 'tires' | 'weight' | 'turbo';
-export const PERF_KINDS: PerfKind[] = ['engine', 'trans', 'tires', 'weight', 'turbo'];
-export const PERF_LABEL: Record<PerfKind, string> = { engine: 'Engine', trans: 'Transmission', tires: 'Tyres', weight: 'Weight', turbo: 'Turbo' };
+/** Every performance part a car can upgrade (U1); nitrous since V0.16.0. */
+export type PerfKind = 'engine' | 'trans' | 'tires' | 'weight' | 'turbo' | 'nitrous';
+export const PERF_KINDS: PerfKind[] = ['engine', 'trans', 'tires', 'weight', 'turbo', 'nitrous'];
+export const PERF_LABEL: Record<PerfKind, string> = { engine: 'Engine', trans: 'Transmission', tires: 'Tyres', weight: 'Weight', turbo: 'Turbo', nitrous: 'Nitrous' };
 /** A car's performance set-up: a tier per part + its gearing (missing gearing = balanced). */
 export type Tune = Record<PerfKind, Tier> & { gearing?: Gearing };
-export const STOCK_TUNE: Tune = { engine: 1, trans: 1, tires: 1, weight: 1, turbo: 1 };
-export const MAX_TUNE: Tune = { engine: 5, trans: 5, tires: 5, weight: 5, turbo: 5 };
+export const STOCK_TUNE: Tune = { engine: 1, trans: 1, tires: 1, weight: 1, turbo: 1, nitrous: 1 };
+export const MAX_TUNE: Tune = { engine: 5, trans: 5, tires: 5, weight: 5, turbo: 5, nitrous: 5 };
 /** Every part at one tier (tests, the Strip). */
-export const allAt = (t: Tier, gearing?: Gearing): Tune => ({ engine: t, trans: t, tires: t, weight: t, turbo: t, ...(gearing ? { gearing } : {}) });
+export const allAt = (t: Tier, gearing?: Gearing): Tune => ({ engine: t, trans: t, tires: t, weight: t, turbo: t, nitrous: t, ...(gearing ? { gearing } : {}) });
 /** Fill in parts missing from an older save / rival (stock) — returns a full tune. */
 export const fullTune = (t: Partial<Tune> | undefined): Tune => ({ ...STOCK_TUNE, ...(t || {}) });
 
@@ -107,8 +117,9 @@ export const TRANSMISSION = perLeague(TRANS_D, 'trans');
 export const TIRES = perLeague(TIRES_D, 'tires');
 export const WEIGHT = perLeague(WEIGHT_D, 'weight');
 export const TURBO = perLeague(TURBO_D, 'turbo');
+export const NITROUS = perLeague(NITROUS_D, 'nitrous');
 /** A part's tier row (label + price) for any kind. */
-export const PART_TABLE: Record<PerfKind, Record<PartLeague, { tier: Tier; price: number; label: string }[]>> = { engine: ENGINE, trans: TRANSMISSION, tires: TIRES, weight: WEIGHT, turbo: TURBO };
+export const PART_TABLE: Record<PerfKind, Record<PartLeague, { tier: Tier; price: number; label: string }[]>> = { engine: ENGINE, trans: TRANSMISSION, tires: TIRES, weight: WEIGHT, turbo: TURBO, nitrous: NITROUS };
 
 // Launch window (hold to rev, release on green): RPM at release as a fraction of redline (R9).
 export const LAUNCH = { perfectMin: 0.55, perfectMax: 0.72, goodPad: 0.10, bogPenalty: 0.55, spinSeconds: 0.7, spinGrip: 0.55 };

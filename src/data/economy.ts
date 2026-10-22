@@ -68,6 +68,7 @@ export function racePay(league: EcoLeague, diff: Difficulty, won: boolean) {
 export const PART_PRICES = {
   engine: [0, 4_000, 8_000, 14_000, 22_000], trans: [0, 4_500, 9_000, 15_500, 24_000],
   tires: [0, 2_400, 4_800, 8_400, 13_200], weight: [0, 2_800, 5_600, 9_800, 15_400], turbo: [0, 4_000, 8_000, 14_000, 22_000],
+  nitrous: [0, 3_000, 6_000, 10_500, 16_500],   // V0.16.0 — first guess, to be timed in the economy pass (Q181)
 };
 export type PartKind = keyof typeof PART_PRICES;
 export const partPrice = (kind: PartKind, tier: number, league: EcoLeague) => round(PART_PRICES[kind][tier - 1] * LEAGUE_SCALE[league], 50);

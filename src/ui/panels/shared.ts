@@ -8,6 +8,7 @@ import { Difficulty } from '../../data/economy';
 import { lookParts, PartSlot } from '../../data/visualParts';
 import { CarLook, STOCK_LOOK } from '../../render/carBuilder';
 import { GarageView } from '../../render/scene';
+import type { DynoRow } from '../../game/dyno';
 
 export const h = (html: string) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild as HTMLElement; };
 export const fmtTime = (s: number) => s.toFixed(3) + ' s';
@@ -66,6 +67,8 @@ export type Wire = (el: HTMLElement, save: SaveV1, on: GarageHandlers, redraw: (
 export type Panel = 'profile' | 'garage' | 'upgrades' | 'parts' | 'catalog' | 'daily' | 'calendar' | 'settings' | 'strip' | 'notes' | null;
 /** UI state that survives re-renders (buying a part re-draws the screen). */
 // work = the car Parts / Upgrades act on (the one in use, or the one picked in the Garage); back = panel to return to
+/** Last test run in Upgrades (C11): which car + set-up it was for, its rows, and the run before it (for the before → after). */
+export const dynoState: { car: string; key: string; rows: DynoRow[]; prev?: { key: string; rows: DynoRow[] } } = { car: '', key: '', rows: [] };
 export const ui = { kmode: 'drag' as 'drag' | 'typing', capture: '' as string, kmsg: '', panel: null as Panel, back: null as Panel, work: '', gsel: '', dial: false, favOnly: false, gtab: 'cars' as 'cars' | 'boss', sellArm: '', raceMenu: false, part: { slot: 'paint' as PartSlot | 'paint', sel: '' }, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
 /** Scroll positions kept between re-renders (strip: -1 = not set yet; stripFocus = centre on your level next time). */
 export const scroll = { cat: 0, part: 0, gar: 0, strip: -1, stripFocus: false };

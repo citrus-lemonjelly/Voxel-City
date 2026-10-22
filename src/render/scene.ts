@@ -1,5 +1,6 @@
 // Renderer, lighting and the two Step 1 views: garage showroom (static garage screen, G1) and the race (CSR-style side view).
 import * as THREE from 'three';
+import { VoxelFx, Rain } from './fx';
 import { RoomEnvironment } from '../../vendor/addons/RoomEnvironment.js';
 import { makeMaterials, Materials } from './voxel';
 import { CarModel, CarLook, CAR_L, CAR_W } from './carBuilder';
@@ -37,6 +38,9 @@ export const GARAGE_CAMS: Record<GarageCam, { label: string; k: number; m: numbe
 /** Where a thumbnail camera points: the whole car, or close-ups for the Parts screen. */
 /** Background for see-through car pictures: a near-black no car paint uses, cut out after rendering. */
 const KEY = '#010203';
+export type Weather = 'clear' | 'rain';
+/** What the race effects need to know about a car each frame (main.ts builds it from the racer). */
+export interface FxCar { launched: boolean; launchTimer: number; spin: boolean; nitro: boolean; v: number; finished: boolean; ev?: { text: string; t: number } }
 export type ThumbView = 'front' | 'rear' | 'tail' | 'hood' | 'wheel' | 'side' | 'nose' | 'low' | 'sill' | 'top' | 'strip';
 
 export class World {
@@ -239,7 +243,40 @@ export class World {
   }
 
   // ---------- race ----------
-  setupRace(stageDef: StageDef, distanceM: number, playerLook: CarLook, oppLook: CarLook, opts: { time?: TimeOfDay; near?: NearStyle } = {}) {
+  // ---------- race effects (owner C2 / C3 / C5, V0.16.0) ----------
+  private fx = new VoxelFx();
+  private rain?: Rain;
+  private weather: Weather = 'clear';
+  private kick = 0; private kicked = false; private fxT = 0; private nosFov = 0;
+  private fxSeen: { ev: number; done: boolean }[] = [{ ev: -1, done: false }, { ev: -1, done: false }];
+  /** Every frame after updateRace: tyre smoke, backfire, nitrous flame, rain spray, finish dust, the launch camera kick. */
+  raceEffects(cars: FxCar[], dt: number) {
+    if (this.mode !== 'race' || !this.player || !this.opponent) return;
+    this.fxT += dt;
+    this.fx.update(dt);                                              // move the old cubes first, so new ones start right at the car
+    const every = this.lite ? 2 : 1, tick = Math.round(this.fxT * 60) % every === 0;
+    [this.player, this.opponent].forEach((model, i) => {
+      const c = cars[i]; if (!c) return;
+      const seen = this.fxSeen[i], gx = model.group.position.x, gz = model.group.position.z, rear = gx + model.L * 0.82, back = gx + model.L;
+      const v = c.v / METERS_PER_BLOCK, wheels = [gz + 3, gz + model.W - 3], pipe = gz + model.W * 0.3;
+      if (tick && c.launched && (c.launchTimer < 0.9 || c.spin)) for (const z of wheels) this.fx.emit('smoke', rear, 2, z, c.spin ? 4 : 2, v);
+      if (tick && c.nitro) this.fx.emit('nitro', back + 1, 4, pipe, 4, v);
+      if (tick && this.weather === 'rain' && c.v > 4) for (const z of wheels) this.fx.emit('spray', rear + 2, 1, z, 1, v);
+      if (c.ev && c.ev.t !== seen.ev) { seen.ev = c.ev.t; if (c.ev.text === 'Perfect') this.fx.emit('flame', back + 1, 4, pipe, 24, v); }
+      if (c.finished && !seen.done) { seen.done = true; this.fx.emit('dust', rear, 2, gz + model.W / 2, 26, v); }
+    });
+    // launch kick: a quick shake and a small pull back, fading in half a second
+    const me = cars[0];
+    if (me?.launched && !this.kicked) { this.kicked = true; this.kick = 1; }
+    if (this.kick > 0.01) { this.raceCam.position.y += Math.sin(this.fxT * 55) * this.kick * 1.4; this.raceCam.position.x += this.kick * 8; this.kick *= Math.exp(-5 * dt); }
+    // nitrous: the view widens a little while it burns
+    this.nosFov += ((me?.nitro ? 5 : 0) - this.nosFov) * (1 - Math.exp(-6 * dt));
+    if (this.nosFov > 0.05 && this.camMode !== 'chase') { this.raceCam.fov = 30 + this.nosFov; this.raceCam.updateProjectionMatrix(); }
+    this.fx.update(0);
+    this.rain?.update(dt, this.camX);
+  }
+
+  setupRace(stageDef: StageDef, distanceM: number, playerLook: CarLook, oppLook: CarLook, opts: { time?: TimeOfDay; near?: NearStyle; weather?: Weather } = {}) {
     const s = this.raceScene;
     const time: TimeOfDay = opts.time || (stageDef.timeOfDay as TimeOfDay) || 'day';
     const L = LIGHTING[time];
@@ -259,6 +296,20 @@ export class World {
     this.sun.shadow.bias = -0.0004; this.sun.shadow.normalBias = 0.6;
     s.add(this.sun, this.sun.target);
     this.renderer.toneMappingExposure = L.exposure;
+    // effects + weather (C2 / C5): rain greys the sky, dims the sun, pulls the fog in and lays a wet sheen on the road
+    this.weather = opts.weather ?? 'clear'; this.kick = 0; this.kicked = false; this.nosFov = 0; this.fxT = 0;
+    this.fxSeen = [{ ev: -1, done: false }, { ev: -1, done: false }];
+    this.fx.clear(); s.add(this.fx.mesh);
+    this.rain = undefined;
+    if (this.weather === 'rain') {
+      const grey = new THREE.Color(SKY[time].horizon).lerp(new THREE.Color('#5d6573'), 0.65);
+      s.background = grey; s.fog = new THREE.Fog(grey, L.fog[0] * 0.45, L.fog[1] * 0.5);
+      this.hemi.intensity *= 0.8; this.sun.intensity *= 0.45;
+      this.rain = new Rain(this.lite ? 350 : 700); s.add(this.rain.mesh);
+      const len = distanceM / METERS_PER_BLOCK + 1400, wet = new THREE.Mesh(new THREE.PlaneGeometry(len, 130),
+        new THREE.MeshStandardMaterial({ color: '#1c2028', roughness: 0.08, metalness: 0.75, transparent: true, opacity: 0.38, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+      wet.rotation.x = -Math.PI / 2; wet.position.set(400 - len / 2, 0.3, 40); wet.renderOrder = 1; s.add(wet);
+    }
     this.stage = new Stage(stageDef, distanceM / METERS_PER_BLOCK, this.mats, time, opts.near || 'mixed');
     s.add(this.stage.group);
     this.player = new CarModel(playerLook, this.mats); this.player.group.position.z = LANE_Z[0]; s.add(this.player.group);

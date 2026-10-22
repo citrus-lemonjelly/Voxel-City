@@ -14,6 +14,8 @@ export interface Controller {
   shift(r: Racer, race: Race): boolean;
   /** Return true once to request a downshift (owner: recover from an upshift made too early). AI never downshifts. */
   downshift?(r: Racer, race: Race): boolean;
+  /** Return true once to fire the nitrous (V0.16.0; one shot per race, only after the launch). */
+  nitrous?(r: Racer, race: Race): boolean;
   /** Pedal mode (owner 2026-10-21): the gas is held the whole race (let go = coast), a tap of shift-up on green drops
    *  the clutch, and lifting off during wheelspin brings the grip back. Missing/false = Classic (the car pulls by itself). */
   pedal?: boolean;
@@ -43,6 +45,9 @@ export interface Racer {
   lastEvent?: { text: string; t: number };
   /** Pedal mode: lifted off during launch wheelspin, so the tyres have grip again. */
   gripBack?: boolean;
+  /** nitrous: seconds of burn left, and whether this race's one shot is gone */
+  nitro: number;
+  nitroUsed: boolean;
 }
 
 export const COUNTDOWN = 3.0;        // seconds of lights before green
@@ -70,7 +75,7 @@ export class Race {
   get raceTime() { return Math.max(0, this.t - COUNTDOWN); }
 
   add(id: string, stats: CarStats, ctl: Controller): Racer {
-    const r: Racer = { id, stats, ctl, x: 0, v: 0, gear: 0, rpm: stats.idleRpm, wasHeld: false, launched: false, launchTime: 0, launchTimer: 0, shifting: 0, shiftDir: 1, downshifts: 0, boost: 0, shifts: [] };
+    const r: Racer = { id, stats, ctl, x: 0, v: 0, gear: 0, rpm: stats.idleRpm, wasHeld: false, launched: false, launchTime: 0, launchTimer: 0, shifting: 0, shiftDir: 1, downshifts: 0, boost: 0, shifts: [], nitro: 0, nitroUsed: false };
     this.racers.push(r);
     return r;
   }
@@ -104,7 +109,9 @@ export class Race {
     }
     const lifted = r.wasHeld && !held;
     r.wasHeld = held;
-    const throttle = r.ctl.pedal && !held ? 0 : 1;                      // Classic: always full gas after the launch
+    const throttle = r.ctl.pedal && !held ? 0 : 1;
+    if (r.nitro > 0) r.nitro = Math.max(0, r.nitro - dt);
+    else if (!r.nitroUsed && s.nitro.seconds > 0 && r.ctl.nitrous?.(r, this)) { r.nitroUsed = true; r.nitro = s.nitro.seconds; r.lastEvent = { text: 'Nitrous', t: this.t }; }                      // Classic: always full gas after the launch
     if (r.ctl.pedal && lifted && r.launchGrade === 'Wheelspin' && r.launchTimer < LAUNCH.spinSeconds && !r.gripBack) { r.gripBack = true; r.lastEvent = { text: 'Grip back', t: this.t }; }
     r.launchTimer += dt;
 
@@ -143,6 +150,7 @@ export class Race {
       let tq = torqueAt(s, r.rpm);
       if (r.gear > 0) { const f = r.rpm / s.redline; if (f < LUG.below) tq *= Math.max(LUG.floor, 1 - LUG.slope * (LUG.below - f)); }
       if (r.boost > 0) { tq *= 1 + s.trans.perfectBoost; r.boost -= dt; }
+      if (r.nitro > 0) tq *= 1 + s.nitro.boost;                              // nitrous burning
       drive = throttle * tq * s.trans.ratios[r.gear] * s.finalDrive * DRIVELINE / s.wheelRadiusM;
       let traction = s.tractionN;
       if (r.gear <= 1) { drive *= s.pull; traction *= s.pull; }       // gearing: Short pulls harder in 1st and 2nd, Long softer

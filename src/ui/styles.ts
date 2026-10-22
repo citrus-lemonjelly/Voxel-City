@@ -173,10 +173,32 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .hud2 .paddle-hit:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 .hud2 .keyhint{position:absolute;pointer-events:none;text-align:center;color:#eeeae0;font:600 13px system-ui;text-shadow:0 1px 0 #000,0 0 4px #000}
 .hud2 .grade{position:absolute;left:50%;bottom:250px;transform:translateX(-50%);filter:drop-shadow(0 3px 0 #000a)}
-/* race progress bar (owner 2026-10-22, V0.15.0): top centre, strictly a dotted line with the two cars — drawn from above in
+/* compact Upgrades (owner 2026-10-22): one row per part — name on the left, small T1–T5 buttons beside it */
+.g-upg .upg-grid{display:flex;flex-direction:column;gap:5px}
+.g-upg .upg{display:grid;grid-template-columns:108px 1fr;align-items:center;gap:8px}
+.g-upg .upg h3{margin:0;font-size:11px;letter-spacing:.06em}
+.g-upg .tiers{gap:4px}.g-upg .tier{padding:0;height:28px;justify-content:center}.g-upg .tier b{font-size:12px}
+.g-upg .tier.gear{padding:0}.g-upg .tier.gear b{font-size:11px}
+.g-upg .upg-info{min-height:32px;padding:6px 8px;background:#1e2129;color:#cfd4de;font-size:12px;line-height:1.35}
+/* Upgrades ▸ Test run (owner C11, V0.16.0) */
+.dyno{display:flex;flex-direction:column;gap:6px;margin-top:4px}.dyno .dyno-go{align-self:flex-start;font-size:13px;padding:7px 14px}
+.dyno table{width:100%;border-collapse:collapse;font:600 12px system-ui;font-variant-numeric:tabular-nums}
+.dyno th{text-align:left;font:700 11px system-ui;letter-spacing:.08em;text-transform:uppercase;color:#7d8290;padding:3px 6px}
+.dyno td{padding:4px 6px;background:#1e2129}.dyno tr.cur td{color:var(--accent)}.dyno td.best{color:var(--good)}
+.dyno em{font-style:normal;font-size:11px;margin-left:4px}.dyno em.up{color:var(--good)}.dyno em.down{color:var(--bad)}
+/* nitrous badge (owner Q175 A, V0.16.0): ready = grey ring, firing = yellow ring + the bottle drains, used = greyed out */
+.hud2 .nos-badge{position:absolute;z-index:3;width:54px;height:54px;padding:0;border:0;background:none;cursor:pointer;touch-action:none;filter:drop-shadow(0 3px 0 #000a)}
+.hud2 .nos-badge svg{display:block;width:100%;height:100%}
+.hud2 .nos-badge .nr{fill:#5a5f6d}.hud2 .nos-badge .nb{fill:#3b8cff}.hud2 .nos-badge .nb-empty{fill:#232733}.hud2 .nos-badge .nshine{fill:#bfe0ff}
+.hud2 .nos-badge.firing .nr{fill:#f2c230}
+.hud2 .nos-badge.used{opacity:.45;cursor:default}.hud2 .nos-badge.used .nb{fill:#5a5f6d}.hud2 .nos-badge.used .nshine{display:none}
+.hud2 .nos-key{position:absolute;left:50%;bottom:-17px;transform:translateX(-50%);font:800 9px system-ui;font-style:normal;color:#22252c;background:#eeeae0;padding:1px 6px;box-shadow:0 2px 0 #8a909b}
+/* race progress bar (owner 2026-10-22, V0.15.0): top centre, a line with the two cars — drawn from above in
    their own paint — moving along it (your car a little in front). No panel, no gap text. Start lights and hint sit under it. */
 .hud2 .race-strip{position:absolute;left:50%;top:14px;transform:translateX(-50%);width:660px;height:64px;pointer-events:none}
-.hud2 .race-strip .road{position:absolute;left:0;right:0;top:31px;height:3px;background:repeating-linear-gradient(90deg,#eeeae0 0 6px,transparent 6px 14px);filter:drop-shadow(0 1px 0 #000c)}
+/* the same track and flag as the Typing Race bar (.ty-prog, owner 2026-10-22): a solid slate line, chequered flag at the finish */
+.hud2 .race-strip .road{position:absolute;left:0;right:0;top:31px;height:3px;background:#3a3f4dcc}
+.hud2 .race-strip .flag{position:absolute;right:-6px;top:24px;width:8px;height:16px;background:repeating-linear-gradient(#eee 0 4px,#111 4px 8px)}
 .hud2 .race-strip .car{position:absolute;width:62px;height:28px;filter:drop-shadow(0 2px 0 #000a)}
 .hud2 .race-strip .them{top:11px;background:#eeeae0}.hud2 .race-strip .me{top:22px;background:#d23a2a;z-index:1}
 .hud2 .race-strip .car img{display:block;width:100%;height:100%;transform:scaleX(-1)}.hud2 .race-strip .car.pic{background:none}

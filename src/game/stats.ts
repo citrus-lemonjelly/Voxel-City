@@ -1,6 +1,6 @@
 // Effective car stats = base car data + equipped performance tiers. Pure functions (testable headless).
 import { CARS, CarDef } from '../data/cars';
-import { ENGINE, TRANSMISSION, TIRES, WEIGHT, TURBO, LEAGUE_EFFECT, TransmissionTier, LAUNCH, SPOOL, Tune, fullTune, GEARING_BY_ID } from '../data/parts';
+import { ENGINE, TRANSMISSION, TIRES, WEIGHT, TURBO, NITROUS, LEAGUE_EFFECT, TransmissionTier, LAUNCH, SPOOL, Tune, fullTune, GEARING_BY_ID } from '../data/parts';
 import { StageDef } from '../data/stages';
 
 export interface CarStats {
@@ -23,20 +23,22 @@ export interface CarStats {
   lowLoss: number;
   /** gearing: drive multiplier in 1st and 2nd gear */
   pull: number;
+  /** nitrous (V0.16.0): extra power share while it burns, and how long one shot lasts (0 = none) */
+  nitro: { boost: number; seconds: number };
   tune: Tune;
 }
 
 export function carStats(carId: string, tuneIn: Partial<Tune>, stage?: StageDef): CarStats {
   const car = CARS[carId], tune = fullTune(car.unique ? { gearing: tuneIn.gearing } : tuneIn);   // boss cars: parts as they come, gearing free
   const eng = ENGINE[car.league][tune.engine - 1], tyre = TIRES[car.league][tune.tires - 1];
-  const wt = WEIGHT[car.league][tune.weight - 1], turbo = TURBO[car.league][tune.turbo - 1], k = LEAGUE_EFFECT[car.league], gain = (car.engineGain ?? 1) * k;
+  const wt = WEIGHT[car.league][tune.weight - 1], turbo = TURBO[car.league][tune.turbo - 1], nos = NITROUS[car.league][tune.nitrous - 1], k = LEAGUE_EFFECT[car.league], gain = (car.engineGain ?? 1) * k;
   const base = TRANSMISSION[car.league][tune.trans - 1], f = car.feel || {};
   const gear = GEARING_BY_ID[tune.gearing ?? 'balanced'], ratios = base.ratios.map((r, i, a) => i === a.length - 1 ? r * gear.top : r);
   const trans: TransmissionTier = { ...base, ratios, shiftTime: base.shiftTime * (f.shift ?? 1), zoneWidth: base.zoneWidth * (f.window ?? 1) };
   const lc = (LAUNCH.perfectMin + LAUNCH.perfectMax) / 2, lh = (LAUNCH.perfectMax - LAUNCH.perfectMin) / 2 * (f.launch ?? 1) * tyre.launchMult;
   const gripMult = 1 + (tyre.gripMult - 1) * k;
   const launch = { perfectMin: lc - lh, perfectMax: lc + lh, goodPad: LAUNCH.goodPad * (f.launch ?? 1) * tyre.launchMult };
-  const massKg = car.massKg * (1 - (1 - wt.massMult) * k + turbo.massAdd * k);
+  const massKg = car.massKg * (1 - (1 - wt.massMult) * k + turbo.massAdd * k + nos.massAdd * k);
   const redline = car.redline + eng.redlineAdd;
   const grip = stage ? stage.modifiers.gripMult : 1;
   return {
@@ -56,6 +58,7 @@ export function carStats(carId: string, tuneIn: Partial<Tune>, stage?: StageDef)
     boost: turbo.boost * (car.turboGain ?? car.engineGain ?? 1) * k,
     lowLoss: turbo.lowLoss * (car.turboGain ?? car.engineGain ?? 1) * k,
     pull: gear.pull,
+    nitro: { boost: nos.boost * k, seconds: nos.seconds },          // the same bottle on every car (league strength only), so maxed cars stay close
     tune,
   };
 }

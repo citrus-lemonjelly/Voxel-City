@@ -1,5 +1,5 @@
 // Voxel City — Step 1 vertical slice: Garage Terminal → race → results → race again.
-import { World } from './render/scene';
+import { World, Weather, FxCar } from './render/scene';
 import { prewarmVehicles, TimeOfDay } from './render/stage';
 import { STOCK_LOOK, CarLook } from './render/carBuilder';
 import { CSS } from './ui/styles';
@@ -11,7 +11,7 @@ import { watchForUpdates, reloadInto, RemoteBuild } from './game/updates';
 import { loadSave, writeSave, SaveV1, addCar, RaceDist } from './save/save';
 import { STAGES, START_STAGE } from './data/stages';
 import { ECONOMY, DIFFICULTY, racePay, Difficulty, partPrice, cosmeticPrice } from './data/economy';
-import { Tier } from './data/parts';
+import { Tier, LAUNCH } from './data/parts';
 import { CARS, carBody, carName, carPaint, League } from './data/cars';
 import { makeRival, Rival } from './game/rivals';
 import { lookParts, randomParts } from './data/visualParts';
@@ -31,6 +31,7 @@ import { dailyEvent } from './game/daily';
 import { partFits } from './render/bodies';
 import { garageActions } from './game/garageActions';
 import { BEVEL_CSS } from './ui/themeBevel';
+import { startSound, setSoundLevel, raceSound, raceReset, engineStop, keyClick, nitroSound, uiTick, winSound } from './game/sound';
 
 const params = new URLSearchParams(location.search);
 const AUTOPLAY = params.has('autoplay');          // test hook: the player car drives itself
@@ -74,6 +75,11 @@ world.setCameraPreset(save.settings.camera);
 /** Light graphics (owner E4, V0.15.0): phones by default; Settings ▸ Graphics can force Full or Light anywhere. */
 const gfxLite = () => save.settings.gfx === 'light' || (save.settings.gfx !== 'full' && PHONE);
 world.setLite(gfxLite());
+// sound (owner C1, V0.16.0): browsers only allow it after a tap or key press; menu buttons tick
+setSoundLevel(save.settings.sound ?? 'full');
+addEventListener('pointerdown', startSound, true); addEventListener('keydown', startSound, true);
+document.addEventListener('click', e => { if ((e.target as Element).closest?.('#garage button, #results button, #typing-res button')) uiTick(); }, true);
+let engineOn = false;
 world.setBlur(save.settings.blur);
 if (params.get('cam')) world.camMode = params.get('cam') as any;
 if (params.get('elev')) world.camFrame.elev = +params.get('elev')!;
@@ -101,7 +107,7 @@ const oppLook = (): CarLook => ({ ...STOCK_LOOK, body: carBody(opp.carId).profil
 function rivalParts(carId: string, seed: number) { const body = carBody(carId).profile ?? 'civix'; return randomParts(makeRng(seed ^ 0x5eed), 0.45, (s, v) => partFits(body, s, v)); }
 
 // ---------------- input: SPACE or the on-screen Shift button ----------------
-const input = { held: false, shiftQueued: false, downQueued: false };
+const input = { held: false, shiftQueued: false, downQueued: false, nosQueued: false };
 let playerRacer: Racer | null = null;
 /** Pedal mode (owner 2026-10-21): gas is only gas, held the whole race; shift-up has its own key and launches on green. */
 const pedalMode = () => save.settings.drive === 'pedal';
@@ -121,6 +127,7 @@ window.addEventListener('keydown', e => {
   if (keyMatches(e.code, K.gas)) { e.preventDefault(); if (!e.repeat) press(); }
   else if (keyMatches(e.code, K.up) && screen === 'race') { e.preventDefault(); if (!e.repeat) paddlePress(); }
   else if (keyMatches(e.code, K.down) && screen === 'race') { e.preventDefault(); if (!e.repeat) downPress(); }
+  else if (keyMatches(e.code, K.nitrous) && screen === 'race') { e.preventDefault(); if (!e.repeat && playerRacer?.launched) input.nosQueued = true; }   // nitrous (V0.16.0)
 });
 window.addEventListener('keyup', e => {
   if (screen === 'typing') return;
@@ -134,6 +141,7 @@ class PlayerController implements Controller {
   held() { return input.held; }
   shift() { const q = input.shiftQueued; input.shiftQueued = false; return q; }
   downshift() { const q = input.downQueued; input.downQueued = false; return q; }
+  nitrous() { const q = input.nosQueued; input.nosQueued = false; return q; }
 }
 
 // ---------------- screens ----------------
@@ -161,6 +169,16 @@ function showGarage(toast?: string) {
 const { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setGearing } =
   garageActions({ save: () => save, world, show: msg => showGarage(msg), lookFor, playerLook });
 
+/** Weather (owner C5, V0.16.0): rain in about one race in four; ?weather=rain / clear forces it. Looks only — grip is unchanged. */
+function raceWeather(): Weather { const w = params.get('weather'); return w === 'rain' || w === 'clear' ? w : Math.random() < 0.25 ? 'rain' : 'clear'; }
+const fxOf = (r: Racer): FxCar => ({ launched: r.launched, launchTimer: r.launchTimer, spin: r.launchGrade === 'Wheelspin' && r.launchTimer < LAUNCH.spinSeconds && !r.gripBack,
+  nitro: r.nitro > 0, v: r.v, finished: r.finish !== undefined, ev: r.lastEvent });
+/** Photo finish (owner C3, V0.16.0): when both cars are in the last 30 m and less than 0.12 s apart, the clock runs at a third. */
+function photoFinish(): number {
+  if (!race || !playerRacer || !oppRacer || playerRacer.finish !== undefined || oppRacer.finish !== undefined) return 1;
+  const L = race.distanceM, a = playerRacer, b = oppRacer, v = Math.max(5, (a.v + b.v) / 2);
+  return a.x > L - 30 && b.x > L - 30 && Math.abs(a.x - b.x) / v < 0.12 ? 0.33 : 1;
+}
 /** Time of day for a race (owner 2026-10-20): random every race, unless ?time= or the test console forces one. */
 function raceTime(): TimeOfDay {
   const forced = urlTime || devTime();
@@ -175,6 +193,7 @@ function setSetting(key: string, value: string) {
   if (key === 'camera') world.setCameraPreset(value as any);
   if (key === 'blur') world.setBlur(value as any);
   if (key === 'gfx') world.setLite(gfxLite());
+  if (key === 'sound') setSoundLevel(value as any);
   if (key === 'spin') world.autoSpin = value !== 'off';
   if (key === 'door') world.setGarageDoor(value !== 'closed');
   if (key === 'gcam') world.setGarageCam(value as any);
@@ -217,24 +236,26 @@ function rewardPop(r: ReturnType<typeof levelReward>) {
 function startStrip() { const r = stripNext(); if (!r) return showGarage('This league\'s Strip is complete'); startRace('strip', r); }
 
 function startRace(kind: 'street' | 'strip' = 'street', stripR?: Rung) {
+  raceReset();
   screen = 'race'; document.getElementById('vc-update')?.remove();   // never interrupt a race — the notice comes back after it
   rung = kind === 'strip' ? (stripR ?? stripNext()) : null;
   if (rung) opp = rung.rival; else rollRival();
-  input.held = false; input.shiftQueued = false; input.downQueued = false;
+  input.held = false; input.shiftQueued = false; input.downQueued = false; input.nosQueued = false;
   const dist = rung ? rung.dist : save.raceDist;
   race = new Race(dist);
   playerRacer = race.add('player', carStats(save.carId, save.equipped, stage), AUTOPLAY || (DEV.enabled && DEV.autoDrive) ? new AIController(1, [0.15, 0.15], 3) : new PlayerController(pedalMode()));
   oppRacer = race.add(opp.id, carStats(opp.carId, opp.tune, stage), new AIController(devOppSkill() ?? opp.skill, opp.reaction, opp.seed));
-  world.setupRace(stage, dist, playerLook(), oppLook(), { time: raceTime(), near: save.settings.nearSide });
+  world.setupRace(stage, dist, playerLook(), oppLook(), { time: raceTime(), near: save.settings.nearSide, weather: raceWeather() });
   // the "Space or click" hint shows for the player's first 3 races (owner Q29)
   const DK = keysOf(save.settings).drag;
-  hud = new Hud(ui, race, playerRacer, oppRacer, { keys: { gas: keyName(DK.gas), up: keyName(DK.up), down: keyName(DK.down) }, drive: pedalMode() ? 'pedal' : 'classic', phone: PHONE, icons: { me: world.thumbnail(playerLook(), 124, 56, 'strip', 'clear'), them: world.thumbnail(oppLook(), 124, 56, 'strip', 'clear') }, swap: save.settings.pedalSide === 'left', oppName: opp.name, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3 && !PHONE, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
+  hud = new Hud(ui, race, playerRacer, oppRacer, { keys: { gas: keyName(DK.gas), up: keyName(DK.up), down: keyName(DK.down), nitrous: keyName(DK.nitrous) }, drive: pedalMode() ? 'pedal' : 'classic', phone: PHONE, icons: { me: world.thumbnail(playerLook(), 124, 56, 'strip', 'clear'), them: world.thumbnail(oppLook(), 124, 56, 'strip', 'clear') }, swap: save.settings.pedalSide === 'left', oppName: opp.name, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3 && !PHONE, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
   const btn = hud.shiftBtn;
   btn.addEventListener('pointerdown', e => { e.preventDefault(); btn.setPointerCapture(e.pointerId); paddlePress(); });
   btn.addEventListener('pointerup', paddleRelease); btn.addEventListener('pointercancel', paddleRelease);
   const gas = hud.gasBtn;
   gas.addEventListener('pointerdown', e => { e.preventDefault(); gas.setPointerCapture(e.pointerId); if (!playerRacer?.launched || pedalMode()) { input.held = true; hud?.setGas(true); } });
   gas.addEventListener('pointerup', release); gas.addEventListener('pointercancel', release);
+  hud.nosBtn?.addEventListener('pointerdown', e => { e.preventDefault(); if (playerRacer?.launched) input.nosQueued = true; });   // tap the badge (phones)
   const dbtn = hud.downBtn;
   dbtn.addEventListener('pointerdown', e => { e.preventDefault(); dbtn.setPointerCapture(e.pointerId); downPress(); });
   dbtn.addEventListener('pointerup', downRelease); dbtn.addEventListener('pointercancel', downRelease);
@@ -246,6 +267,7 @@ function finishRace() {
   screen = 'results';
   const me = playerRacer, them = oppRacer;
   const won = me.finish! < them.finish!;
+  winSound(won);
   const perfects = me.shifts.filter(s => s.grade === 'Perfect').length;
   const dist = race.distanceM as RaceDist, prevBest = save.best[dist];
   const newBest = prevBest === null || me.finish! < prevBest;
@@ -294,7 +316,8 @@ let acc = 0, last = performance.now();
 function frame(now: number) {
   const dt = Math.min(MAX_DT, (now - last) / 1000) * FAST; last = now;
   if (screen === 'race' && race && playerRacer && oppRacer) {
-    acc += dt;
+    raceSound(playerRacer, oppRacer, race, input.held); engineOn = true;
+    acc += dt * photoFinish();
     while (acc >= STEP) {
       if (!paused) { playerRacer.px = playerRacer.x; oppRacer.px = oppRacer.x; race.step(STEP); }
       acc -= STEP;
@@ -303,11 +326,13 @@ function frame(now: number) {
     const al = paused ? 1 : acc / STEP;
     const lerp = (r: Racer) => (r.px ?? r.x) + (r.x - (r.px ?? r.x)) * al;
     world.updateRace(lerp(playerRacer), lerp(oppRacer), playerRacer.v, oppRacer.v, dt, race.t);
+    world.raceEffects([fxOf(playerRacer), fxOf(oppRacer)], dt);
     hud?.update();
     buzzCheck(playerRacer);
     world.setTree(Math.min(3, Math.floor(race.t)), race.green);
     if (race.done && !paused) { finishedAt ||= now; if ((now - finishedAt) * FAST > 1200) finishRace(); }
   }
+  if (screen !== 'race' && engineOn) { engineStop(); engineOn = false; }
   if (screen === 'typing') typingFrame(dt, now);
   else if (tyKb) { tyKb.remove(); tyKb = null; }                   // phone keyboard box only lives during the Typing Race
   if (!(NO_RENDER && screen === 'race')) world.render(dt);
@@ -368,13 +393,14 @@ function leaveTyping() { ty = null; showGarage('Left the Typing Race'); }
 function typingNitro() {
   if (!ty) return;
   const t = typingClock();
-  if (t >= 0 && ty.run.nitro(t) === 'nitro') { ty.hud.setText(ty.run.pos, ty.run.typo); ty.hud.setNitro(ty.run.nitros); ty.hud.flash('NITRO!'); if (ty.run.done && !ty.doneAt) ty.doneAt = performance.now(); }
+  if (t >= 0 && ty.run.nitro(t) === 'nitro') { nitroSound(); ty.hud.setText(ty.run.pos, ty.run.typo); ty.hud.setNitro(ty.run.nitros); ty.hud.flash('NITRO!'); if (ty.run.done && !ty.doneAt) ty.doneAt = performance.now(); }
 }
 function typedChar(ch: string) {
   if (!ty) return;
   const t = typingClock();
   if (t < 0 || ty.run.done) return;                                  // keys before GO don't count
-  ty.run.key(ch, t);
+  const res = ty.run.key(ch, t);
+  if (res !== 'ignored') keyClick(res === 'ok');
   ty.hud.setText(ty.run.pos, ty.run.typo);
   if (ty.run.done && !ty.doneAt) ty.doneAt = performance.now();
 }

@@ -70,7 +70,10 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
   Profile, compact Strip with automatic rewards, S77). Check phones with the shot tool's `touch; size:844x390` (also 667x375, 932x430).
 - Note: the two sessions' Q numbers overlap (both used Q164–Q181) and ROADMAP's planned version numbers (V0.11.1, V0.11.2,
   V0.12.0 "Build & Tune") are now taken — give those plans new numbers after V0.14.0.
-- Live: **V0.14.0** (shipped 2026-10-22). Built, not shipped: **V0.15.0 "Phone Typing Update"** (S78): phone keyboard Typing Race,
+- Live: **V0.15.0** (shipped 2026-10-22). Built, not shipped: **V0.16.0 "Feel Update"** (S79): sound (`src/game/sound.ts`),
+  nitrous part + badge, voxel effects + rain (`src/render/fx.ts`, `?weather=rain`), camera moments, Upgrades ▸ Test run
+  (`src/game/dyno.ts`), compact Upgrades. Open: economy pass with nitrous priced in (Q181).
+- Earlier: **V0.15.0 "Phone Typing Update"** (S78): phone keyboard Typing Race,
   home-screen install (icons: `node tools/make-icons.mjs`), Settings ▸ Graphics (light on phones), Strip reward pop-up, PC side rail
   always shown + sub-tabs along the bottom, dotted race progress bar with top-down cars. Shot tool: `jsfile:PATH` for long page code.
 - **Next:** owner review of V0.15.0; then ROADMAP items (renumber its versions after V0.15.0). Run heavy checks one at a time.

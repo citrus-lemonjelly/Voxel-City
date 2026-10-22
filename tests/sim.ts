@@ -18,6 +18,7 @@ import { COSMETIC_PRICES } from '../src/data/economy';
 // @ts-ignore — node built-in (no @types/node in this repo)
 import { readFileSync } from 'node:fs';
 import { stripRung, stripBand, STRIP, levelReward } from '../src/game/strip';
+import { dyno } from '../src/game/dyno';
 
 declare const process: { exit(code: number): never };
 const stage = STAGES.downtown_grid;
@@ -121,12 +122,12 @@ for (const l of used) {
   notes.push(`${l}: stock ±${spread1.toFixed(2)} → T5 ±${spread5.toFixed(2)} · 600 m ${best600} · 800 m ${best800}`);
 }
 check(stockSmall, `pricier cars start only slightly quicker (${notes.map(n => n.split(' → ')[0]).join(' | ')})`);
-check(converge, `fully upgraded cars in a league (every part T5, best gearing) finish 800 m within 0.2 s of each other`);
+check(converge, `fully upgraded cars in a league (every part T5, best gearing) finish 800 m within 0.2 s of each other (${notes.map(n => n.split(": ")[0] + " " + n.split(" → ")[1].split(" · ")[0]).join(" | ")})`);
 check(character, `dash cars win 600 m, long-run cars win 800 m with engine + gearbox maxed (${notes.map(n => n.split(' · ').slice(1).join(' / ')).join(' | ')})`);
 check(times.hyper <= 12, `hypercar clears 800 m in 12 s or less on stock parts (${times.hyper.toFixed(2)} s, owner Q89)`);
 // random rivals (owner Q87): same league, never faster than your perfect run, close enough that mistakes lose
-const configs: [string, Tune][] = [['panda_civix', STOCK_TUNE], ['classic', { engine: 3, trans: 2, tires: 2, weight: 1, turbo: 3, gearing: 'short' }], ['muscle', STOCK_TUNE],
-  ['rally', { engine: 4, trans: 5, tires: 3, weight: 4, turbo: 2 }], ['tuner', { ...MAX_TUNE, gearing: 'long' }], ['hyper', { engine: 2, trans: 4, tires: 1, weight: 5, turbo: 1 }]];
+const configs: [string, Tune][] = [['panda_civix', STOCK_TUNE], ['classic', { engine: 3, trans: 2, tires: 2, weight: 1, turbo: 3, nitrous: 2, gearing: 'short' }], ['muscle', STOCK_TUNE],
+  ['rally', { engine: 4, trans: 5, tires: 3, weight: 4, turbo: 2, nitrous: 3 }], ['tuner', { ...MAX_TUNE, gearing: 'long' }], ['hyper', { engine: 2, trans: 4, tires: 1, weight: 5, turbo: 1, nitrous: 1 }]];
 let sameLeague = true, inWindow = true, perfectWins = 0, sloppyWins = 0, n = 0; const gaps: number[] = [];
 const rivalTunes = new Set<string>();
 for (const [id, tune] of configs) for (let k = 1; k <= 8; k++) {
@@ -354,5 +355,19 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   check(jump.early && jump.r.finish !== undefined, `pedal mode: a tap before green shows "Too early" and does not launch (the car still goes later)`);
   check(none.r.finish !== undefined && none.r.launchTime >= 3, `pedal mode: with no tap at all the car goes by itself ${none.r.launchTime.toFixed(1)} s after green, so the race always ends`);
   check(keysOf({}).drag.up === 'ArrowUp', 'pedal mode: shift up has its own key (default ↑)');
+}
+// ---- nitrous (V0.16.0) + test run ----
+{
+  const nosRun = (tier: Tier, fireAt: number) => { const race = new Race(800), ai = new AIController(1, [0.2, 0.2], 7); let fires = 0;
+    const ctl: Controller = { held: (r, rc) => ai.held(r, rc), shift: r => ai.shift(r), nitrous: r => { const go = r.launched && r.launchTimer >= fireAt; if (go) fires++; return go; } };
+    const r = race.add('p', carStats('panda_civix', { ...STOCK_TUNE, nitrous: tier }, stage), ctl); let burns = 0, was = 0;
+    for (let i = 0; i < 120 * 60 && !race.done; i++) { race.step(1 / 120); if (r.nitro > 0 && was <= 0) burns++; was = r.nitro; }
+    return { time: r.finish!, burns, used: r.nitroUsed }; };
+  const none = nosRun(1, 4), t2 = nosRun(2, 4), t5 = nosRun(5, 4);
+  check(none.burns === 0 && t2.burns === 1 && t5.burns === 1 && t5.used, `nitrous: one shot per race, none without the part (burns ${none.burns} / ${t2.burns} / ${t5.burns})`);
+  check(t5.time < t2.time && t2.time < none.time, `nitrous: higher tiers are quicker (none ${none.time.toFixed(2)} · T2 ${t2.time.toFixed(2)} · T5 ${t5.time.toFixed(2)} s)`);
+  const rows = dyno('panda_civix', STOCK_TUNE, stage), maxed = dyno('panda_civix', MAX_TUNE, stage);
+  check(rows.length === 3 && rows.every(r => r.t60 > 0 && r.t600 < r.t800) && maxed[1].t800 < rows[1].t800,
+    `test run: 0–60 / 600 m / 800 m on each gearing, maxed beats stock (balanced 800 m ${rows[1].t800.toFixed(2)} → ${maxed[1].t800.toFixed(2)} s)`);
 }
 process.exit(fail ? 1 : 0);
