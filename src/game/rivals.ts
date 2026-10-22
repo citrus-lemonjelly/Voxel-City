@@ -12,7 +12,7 @@ import { Tier, Tune, PERF_KINDS, GEARINGS, STOCK_TUNE, fullTune } from '../data/
 export interface Rival extends OpponentDef { seed: number; /** the rival's finish time (s), known ahead */ expect: number; /** your perfect-run time (s) */ yours: number }
 
 /** How close races are (seconds the rival finishes behind YOUR perfect run). Tune here. */
-export const MATCH = { minGap: 0.04, maxGap: 0.21, candidates: 64, /** your reference reaction off the green (s) — a sharp human */ reaction: 0.25 };
+export const MATCH = { minGap: 0.04, maxGap: 0.21, candidates: 64, /** your reference reaction off the green (s) — a good human incl. a little input delay (0.25 → 0.30 in V0.16.1) */ reaction: 0.30 };
 
 export const NAMES = ['Rico', 'Marisol', 'Kenji', 'Vee', 'Halden', 'Juno', 'Dax', 'Priya', 'Mateo', 'Sable', 'Oren', 'Lux', 'Tamsin', 'Bodie', 'Nia', 'Kaito',
   'Rhea', 'Cruz', 'Ines', 'Wren', 'Zeke', 'Amara', 'Fitz', 'Noor', 'Ozzie', 'Lena', 'Rafe', 'Suki', 'Teo', 'Yara'];
@@ -20,9 +20,9 @@ export const PAINTS = ['#d23a2a', '#f2a43a', '#f2c230', '#2f9a5a', '#1f8a8a', '#
 const TIERS: Tier[] = [1, 2, 3, 4, 5];
 
 /** Finish time of one racer over the stage (same fixed step as the game). */
-export function simTime(carId: string, tune: Partial<Tune>, stage: StageDef, skill: number, reaction: [number, number], seed: number, distanceM = stage.distanceM): number {
+export function simTime(carId: string, tune: Partial<Tune>, stage: StageDef, skill: number, reaction: [number, number], seed: number, distanceM = stage.distanceM, nitrous = true): number {
   const race = new Race(distanceM);
-  const r = race.add('x', carStats(carId, tune, stage), new AIController(skill, reaction, seed));
+  const r = race.add('x', carStats(carId, tune, stage), new AIController(skill, reaction, seed, nitrous));
   for (let i = 0; i < 120 * 90 && !race.done; i++) race.step(1 / 120);
   return r.finish ?? 999;
 }
@@ -57,7 +57,9 @@ export function rivalNear(league: string, target: number, floor: number, stage: 
 export function makeRival(carId: string, tune: Partial<Tune>, stage: StageDef, seed = (Date.now() & 0x7fffffff) || 1, distanceM = stage.distanceM,
   gap: [number, number] = [MATCH.minGap, MATCH.maxGap]): Rival {
   const rng = makeRng(seed);
-  const yours = simTime(carId, tune, stage, 1, [MATCH.reaction, MATCH.reaction], 7, distanceM);
+  // your reference: perfect shifts and launch, a sharp human's reaction, no nitrous (owner 2026-10-22: a maxed car driven perfectly
+  // must win — nitrous used well only widens the gap)
+  const yours = simTime(carId, tune, stage, 1, [MATCH.reaction, MATCH.reaction], 7, distanceM, false);
   const target = yours + gap[0] + rng() * (gap[1] - gap[0]);                    // difficulty sets the window (Easy / Medium / Hard)
   // parts are random per rival but stay near your level (±1 tier around your average), so a close match is always there
   const t = fullTune(tune), lvl = Math.round(PERF_KINDS.reduce((a, k) => a + t[k], 0) / PERF_KINDS.length);

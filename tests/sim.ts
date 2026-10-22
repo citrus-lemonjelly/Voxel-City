@@ -21,6 +21,7 @@ import { stripRung, stripBand, STRIP, levelReward } from '../src/game/strip';
 import { dyno } from '../src/game/dyno';
 import { wetStage } from '../src/data/stages';
 import { PART_LEAGUE } from '../src/data/economy';
+import { TRANSMISSION } from '../src/data/parts';
 
 declare const process: { exit(code: number): never };
 const stage = STAGES.downtown_grid;
@@ -96,7 +97,7 @@ check(fast.finish! > stay.finish!, `over-revving costs time (${fast.finish!.toFi
 const carTime = (id: string) => {
   const race = new Race(stage.distanceM); const r = race.add('p', carStats(id, STOCK_TUNE, stage), new AIController(1, [0.2, 0.2], 7));
   for (let i = 0; i < 120 * 60 && !race.done; i++) race.step(1 / 120);
-  return r.finish ?? 99;
+  return r.finish === undefined ? 99 : r.finish - r.launchTime;   // the car's time from its launch (the driver's reaction is not the car)
 };
 const times = Object.fromEntries(CATALOG_ORDER.map(id => [id, carTime(id)]));
 const line = CATALOG_ORDER.map(id => `${id} ${times[id].toFixed(2)}`).join(' · ');
@@ -141,7 +142,7 @@ for (const [id, tune] of configs) for (let k = 1; k <= 8; k++) {
   const them = race.add('r', carStats(rv.carId, rv.tune, stage), new AIController(rv.skill, rv.reaction, rv.seed));
   for (let i = 0; i < 120 * 90 && !race.done; i++) race.step(1 / 120);
   if (me.finish! < them.finish!) perfectWins++;
-  if (simTime(id, tune, stage, 0.7, [MATCH.reaction, MATCH.reaction + 0.1], k) < rv.expect) sloppyWins++;
+  if (simTime(id, tune, stage, 0.7, [MATCH.reaction, MATCH.reaction + 0.1], k, stage.distanceM, false) < rv.expect) sloppyWins++;   // skill only: no nitrous either side of the reference
   n++;
 }
 check(sameLeague, 'rivals always drive a car from your league');
@@ -373,6 +374,19 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
     `test run: 0–60 / 600 m / 800 m on each gearing, maxed beats stock (balanced 800 m ${rows[1].t800.toFixed(2)} → ${maxed[1].t800.toFixed(2)} s)`);
   const wet = dyno('panda_civix', STOCK_TUNE, wetStage(stage));
   check(wet[1].t800 > rows[1].t800 && wet[1].t800 - rows[1].t800 < 1.5, `rain (Q190 B): less grip makes the same car slower, but not hugely (dry ${rows[1].t800.toFixed(2)} → wet ${wet[1].t800.toFixed(2)} s)`);
+  // end game (owner 2026-10-22: a maxed hypercar with all-Perfect shifts kept losing). A human-like driver: perfect shifts and launch,
+  // a reaction of 0.30 s (a bit slower than the 0.25 s reference), no nitrous — must beat Medium rivals and most Hard ones.
+  const humanRun = (id: string, tune: Partial<Tune>, react: number) => { const race = new Race(800), r = race.add('p', carStats(id, tune, stage), new AIController(1, [react, react], 7, false));
+    for (let i = 0; i < 120 * 60 && !race.done; i++) race.step(1 / 120); return r; };
+  const ref = humanRun('hyper', MAX_TUNE, 0.25);
+  check(Math.abs(ref.launchTime - 0.25) < 0.03, `AI launches after its reaction time, not the instant it goes green (${ref.launchTime.toFixed(3)} s for a 0.25 s reaction)`);
+  for (const [id, lg] of [['hyper', 'S'], ['panda_civix', 'D'], ['muscle', 'C']] as [string, string][]) {
+    const me = humanRun(id, MAX_TUNE, 0.30).finish!; let med = 0, hard = 0; const n = 12;
+    for (let s = 1; s <= n; s++) { if (me < makeRival(id, MAX_TUNE, stage, s * 7919, 800, [0.04, 0.21]).expect) med++; if (me < makeRival(id, MAX_TUNE, stage, s * 104729, 800, [0.01, 0.07]).expect) hard++; }
+    check(med === n && hard >= n - 1, `end game ${lg}: maxed ${id}, perfect shifts, 0.30 s reaction, no nitrous wins Medium ${med}/${n} and Hard ${hard}/${n}`);
+  }
+  check(TRANSMISSION.A[4].ratios.length === 7 && TRANSMISSION.S[4].ratios.length === 8 && TRANSMISSION.D[4].ratios.length === 6,
+    `gearboxes (owner): League A tops out at 7 gears, League S at 8 (D–B keep 6) — ${TRANSMISSION.S.map(t => t.ratios.length).join('/')} gears in S`);
   check(PART_LEAGUE.D < 1 && PART_LEAGUE.S > 1, `economy pass (Q181): League D parts cheaper (×${PART_LEAGUE.D}), League S dearer (×${PART_LEAGUE.S})`);
 }
 process.exit(fail ? 1 : 0);

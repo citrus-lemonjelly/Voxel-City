@@ -26,6 +26,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.16.1', date: '2026-10-22', title: 'Fair end game and more gears',
+    changed: [
+      'League A cars now have up to 7 gears and League S cars up to 8 (stock 6- and 7-speeds), with closer ratios and quicker shifts.',
+      'Nitrous description says when to use it: once the tyres grip (3rd gear on) — fired at the launch it only spins the wheels.',
+    ],
+    fixed: [
+      'Rivals were matched as if you launched the instant the light went green, so even a perfect driver (all Perfect shifts, maxed car) kept losing, worst in the short League S races. Rivals are now matched to a realistic reaction — a perfect run wins again.',
+      'Rivals no longer leave the line before their own reaction time.',
+      'Your perfect-run reference no longer assumes perfect nitrous: using it well now puts you further ahead instead of being expected.',
+      'The last Strip boss in each league now loses to a perfect run by a clearer margin.',
+    ],
+  },
+  {
     version: '0.16.0', date: '2026-10-22', title: 'Sound, smoke, rain and nitrous', header: 'Feel Update',
     added: [
       'Sound: engine notes that rise with the revs, shift clunks, launch screech, a chime on Perfect shifts, countdown beeps, Typing Race key clicks and a win / lose jingle. Each kind of car sounds different — a muscle car rumbles, a tuner rasps, a hypercar screams.',

@@ -14,6 +14,8 @@ export interface Controller {
   shift(r: Racer, race: Race): boolean;
   /** Return true once to request a downshift (owner: recover from an upshift made too early). AI never downshifts. */
   downshift?(r: Racer, race: Race): boolean;
+  /** May this car launch yet? (V0.16.1) The AI waits out its reaction time after green; the player can always go. */
+  canLaunch?(r: Racer, race: Race): boolean;
   /** Return true once to fire the nitrous (V0.16.0; one shot per race, only after the launch). */
   nitrous?(r: Racer, race: Race): boolean;
   /** Pedal mode (owner 2026-10-21): the gas is held the whole race (let go = coast), a tap of shift-up on green drops
@@ -102,7 +104,9 @@ export class Race {
         else if (this.green && this.raceTime > PEDAL.autoLaunch) this.launch(r);
       } else {
         const released = r.wasHeld && !held;
-        if (this.green && (released || (!held && !r.wasHeld && this.raceTime > 0))) this.launch(r);
+        // balance fix (owner 2026-10-22, V0.16.1): the AI used to launch the instant the light went green (its feathering had it
+        // off the gas) — 0.01 s, where a person needs ~0.25 s — so even a perfect human started behind every rival it was matched to
+        if (this.green && (r.ctl.canLaunch?.(r, this) ?? true) && (released || (!held && !r.wasHeld && this.raceTime > 0))) this.launch(r);
       }
       r.wasHeld = held;
       return;

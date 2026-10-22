@@ -14,7 +14,8 @@ export class AIController implements Controller {
   private launchTarget: number;
   private reaction: number;
   private shiftTargets: number[] = [];
-  constructor(public skill: number, reaction: [number, number], seed = 1) {
+  /** useNitrous = false: the reference "your perfect run" drives without nitrous, so using it well is your edge (V0.16.1) */
+  constructor(public skill: number, reaction: [number, number], seed = 1, private useNitrous = true) {
     this.rng = makeRng(seed);
     const mid = (LAUNCH.perfectMin + LAUNCH.perfectMax) / 2;
     this.launchTarget = mid + gauss(this.rng) * (1 - skill) * 0.28;
@@ -27,7 +28,9 @@ export class AIController implements Controller {
     return frac < this.launchTarget;                                   // feather the throttle around the target
   }
   /** Nitrous (V0.16.0): rivals that carry it fire it 4 s after the launch, between shifts — once the tyres have stopped spinning, so the boost is not wasted and every car gets the same help (keeps maxed cars within 0.2 s, sim). */
-  nitrous(r: Racer): boolean { return r.launchTimer > 4 && r.shifting <= 0; }
+  nitrous(r: Racer): boolean { return this.useNitrous && r.launchTimer > 4 && r.shifting <= 0; }
+  /** Launch only once its reaction time after green has passed (V0.16.1). */
+  canLaunch(_r: Racer, race: Race): boolean { return race.raceTime >= this.reaction; }
   shift(r: Racer): boolean {
     const t = r.stats.trans;
     if (this.shiftTargets.length <= r.gear) this.shiftTargets[r.gear] = t.zoneCentre + gauss(this.rng) * (1 - this.skill) * 0.22;

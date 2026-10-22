@@ -13,7 +13,7 @@ import { STRIP_REWARDS, LEAGUE_SCALE } from '../data/economy';
 
 export const STRIP = { rungs: 60, bossEvery: 10, dists: [800, 600, 700] as const,
   /** easiest rung: this much slower than the league's slowest stock car (perfect run) */ easyPad: 0.8,
-  /** the final rival: league's quickest car at T5/T5 with this driving skill and reaction off the green (s) */ final: { reaction: [0.18, 0.21] as [number, number], /** a perfect run in the best car wins by at least this (s) */ margin: 0.02 },
+  /** the final rival: league's quickest car at T5/T5 with this driving skill and reaction off the green (s) */ final: { reaction: [0.18, 0.21] as [number, number], /** a perfect run in the best car wins by at least this (s; 0.05 since V0.16.1 so a human, not just the AI, can do it) */ margin: 0.05 },
   curve: 1.15,
 };
 
@@ -54,11 +54,11 @@ const bandCache = new Map<string, { easy: number; final: Rival }>();
 export function stripBand(league: League, dist: number, stage: StageDef) {
   const k = `${league}:${dist}`, hit = bandCache.get(k); if (hit) return hit;
   const ids = CATALOG_ORDER.filter(id => CARS[id].league === league), me: [number, number] = [MATCH.reaction, MATCH.reaction];
-  const easy = Math.max(...ids.map(id => simTime(id, STOCK_TUNE, stage, 1, me, 7, dist))) + STRIP.easyPad;
+  const easy = Math.max(...ids.map(id => simTime(id, STOCK_TUNE, stage, 1, me, 7, dist, false))) + STRIP.easyPad;
   const F = STRIP.final, seed = 0xf1a1 + dist;
   // the best a player can do here: the league's quickest car, maxed, on its best gearing for this length, driven perfectly
   const maxed: Record<string, Tune> = {}, best: Record<string, number> = {};
-  for (const id of ids) for (const g of GEARINGS) { const t = simTime(id, allAt(5, g.id), stage, 1, me, 7, dist); if (!(t >= best[id])) { best[id] = t; maxed[id] = allAt(5, g.id); } }
+  for (const id of ids) for (const g of GEARINGS) { const t = simTime(id, allAt(5, g.id), stage, 1, me, 7, dist, false); if (!(t >= best[id])) { best[id] = t; maxed[id] = allAt(5, g.id); } }
   const perfect = Math.min(...ids.map(id => best[id]));
   // final rival: maxed car, the most competent driver that a perfect run in the right car still beats (by ≥ F.margin)
   let final: Rival | null = null;

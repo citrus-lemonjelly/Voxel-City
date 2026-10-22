@@ -113,7 +113,18 @@ const priced = <T extends { price: number; tier: Tier }>(rows: T[], kind: PerfKi
 const LG: PartLeague[] = ['D', 'C', 'B', 'A', 'S'];
 const perLeague = <T extends { price: number; tier: Tier }>(rows: T[], kind: PerfKind) => Object.fromEntries(LG.map(l => [l, priced(rows, kind, l)])) as Record<PartLeague, T[]>;
 export const ENGINE = perLeague(ENGINE_D, 'engine');
-export const TRANSMISSION = perLeague(TRANS_D, 'trans');
+/** Gearboxes by league (owner 2026-10-22, V0.16.1): A cars go to 7 gears and S cars to 8 — gears per tier [T1…T5] below; D, C
+ *  and B keep the 5-speed → 6-speed boxes. Extra gears sit between the same first and top ratios (closer spacing), and the
+ *  shift gets quicker in step, so a race doesn't lose more time changing gear than a 6-speed would. */
+export const GEARS_BY_LEAGUE: Partial<Record<PartLeague, number[]>> = { A: [6, 6, 7, 7, 7], S: [7, 7, 8, 8, 8] };
+const SPEED_NAME: Record<number, string> = { 5: '5-speed', 6: '6-speed', 7: '7-speed', 8: '8-speed' };
+function moreGears(t: TransmissionTier, n: number): TransmissionTier {
+  const a = t.ratios[0], z = t.ratios[t.ratios.length - 1], have = t.ratios.length;
+  if (n <= have) return t;
+  const ratios = Array.from({ length: n }, (_, i) => +(a * Math.pow(z / a, i / (n - 1))).toFixed(3));
+  return { ...t, ratios, shiftTime: +(t.shiftTime * (have - 1) / (n - 1)).toFixed(3), label: t.label.replace(/[0-9]-speed/, SPEED_NAME[n]).replace('Short shifter', `Short shifter ${SPEED_NAME[n]}`) };
+}
+export const TRANSMISSION = Object.fromEntries(LG.map(l => [l, priced(TRANS_D, 'trans', l).map((t, i) => GEARS_BY_LEAGUE[l] ? moreGears(t, GEARS_BY_LEAGUE[l]![i]) : t)])) as Record<PartLeague, TransmissionTier[]>;
 export const TIRES = perLeague(TIRES_D, 'tires');
 export const WEIGHT = perLeague(WEIGHT_D, 'weight');
 export const TURBO = perLeague(TURBO_D, 'turbo');

@@ -20,7 +20,7 @@ function effect(kind: PerfKind, carId: string, t: Tier): string {
     case 'tires': { const x = TIRES[lg][t - 1]; return t === 1 ? `${x.label} — factory grip` : `${x.label} — +${pct((x.gripMult - 1) * k)}% grip, +${pct(x.launchMult - 1)}% launch window`; }
     case 'weight': { const x = WEIGHT[lg][t - 1]; return `${x.label} — ${t === 1 ? 'factory weight' : `−${pct((1 - x.massMult) * k)}% weight`}`; }
     case 'turbo': { const x = TURBO[lg][t - 1]; return t === 1 ? 'No turbo' : `${x.label} — +${pct(x.boost * tg * k)}% top-end power, +${pct(x.massAdd * k)}% weight`; }
-    case 'nitrous': { const x = NITROUS[lg][t - 1]; return t === 1 ? 'No nitrous' : `${x.label} — +${pct(x.boost * k)}% power for ${x.seconds.toFixed(1)} s, one shot a race (key 1)`; }
+    case 'nitrous': { const x = NITROUS[lg][t - 1]; return t === 1 ? 'No nitrous' : `${x.label} — +${pct(x.boost * k)}% power for ${x.seconds.toFixed(1)} s, one shot a race (key 1) — fire it once the tyres grip (3rd gear on), not at the launch`; }
   }
 }
 
