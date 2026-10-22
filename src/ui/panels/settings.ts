@@ -8,10 +8,15 @@ const SETTING_ROWS: [string, string, [string, string][]][] = [
   ['camera', 'Race camera', [['dynamic', 'Dynamic'], ['close', 'Dynamic close']]],
   ['nearSide', 'Near side', [['mixed', 'Mixed'], ['curb', 'Curb'], ['barrier', 'Barrier']]],
   ['blur', 'Speed blur', [['off', 'Off'], ['low', 'Low'], ['full', 'Full']]],
+  ['gfx', 'Graphics', [['auto', 'Auto'], ['full', 'Full'], ['light', 'Light']]],
 ];
 
+/** Phones (owner E3, V0.15.0): how to put the game on the home screen, so it opens full screen like an app (hidden once it is). */
+const homeTip = () => !document.documentElement.classList.contains('vc-phone') || matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches ? ''
+  : `<div class="next g-note"><b>Play full screen:</b> add Voxel City to your home screen — iPhone: Share ▸ Add to Home Screen · Android: ⋮ menu ▸ Add to Home screen / Install app.</div>`;
+
 export function settingsHtml(save: SaveV1, close: string): string {
-  return `<div class="g-panel blk">${close}<h2 class="hd">Settings</h2><div class="settings">${SETTING_ROWS.map(([key, label, opts]) => `<div class="setrow"><span>${label}</span><div class="seg">${opts.map(([v, t]) => `<button class="${(save.settings as any)[key] === v ? 'on' : ''}" data-set="${key}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>
+  return `<div class="g-panel blk">${close}<h2 class="hd">Settings</h2>${homeTip()}<div class="settings">${SETTING_ROWS.map(([key, label, opts]) => `<div class="setrow"><span>${label}</span><div class="seg">${opts.map(([v, t]) => `<button class="${((save.settings as any)[key] ?? (key === 'gfx' ? 'auto' : '')) === v ? 'on' : ''}" data-set="${key}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>
       ${controlsHtml(save)}</div>`;
 }
 

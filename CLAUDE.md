@@ -70,8 +70,10 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
   Profile, compact Strip with automatic rewards, S77). Check phones with the shot tool's `touch; size:844x390` (also 667x375, 932x430).
 - Note: the two sessions' Q numbers overlap (both used Q164–Q181) and ROADMAP's planned version numbers (V0.11.1, V0.11.2,
   V0.12.0 "Build & Tune") are now taken — give those plans new numbers after V0.14.0.
-- **Next (owner):** E1 phone keyboard for the Typing Race · E2 bigger text on phones · E3 add to home screen · E4 lighter graphics
-  on phones · E5 pop-up when a Strip reward includes a car or decal. Then ROADMAP items. Run heavy checks one at a time.
+- Live: **V0.14.0** (shipped 2026-10-22). Built, not shipped: **V0.15.0 "Phone Typing Update"** (S78): phone keyboard Typing Race,
+  home-screen install (icons: `node tools/make-icons.mjs`), Settings ▸ Graphics (light on phones), Strip reward pop-up, PC side rail
+  always shown + sub-tabs along the bottom, dotted race progress bar with top-down cars. Shot tool: `jsfile:PATH` for long page code.
+- **Next:** owner review of V0.15.0; then ROADMAP items (renumber its versions after V0.15.0). Run heavy checks one at a time.
 - Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
   weighted time of day (Small) · garage decor shop with Crowns (Big) · Body Shop "undo" (Small) · saved looks per car (Medium) ·
   rival plate text (Small) · split main.ts further (Typing Race, race setup) (Medium).

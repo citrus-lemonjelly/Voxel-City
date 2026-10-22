@@ -173,20 +173,24 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .hud2 .paddle-hit:focus-visible{outline:3px solid var(--accent);outline-offset:-3px}
 .hud2 .keyhint{position:absolute;pointer-events:none;text-align:center;color:#eeeae0;font:600 13px system-ui;text-shadow:0 1px 0 #000,0 0 4px #000}
 .hud2 .grade{position:absolute;left:50%;bottom:250px;transform:translateX(-50%);filter:drop-shadow(0 3px 0 #000a)}
-.hud2 .count{position:absolute;left:50%;top:100px;transform:translateX(-50%)}
-.hud2 .race-strip{position:absolute;left:24px;top:20px;width:440px;height:76px;background:#2b2e38e6;clip-path:polygon(0 8px,8px 8px,8px 0,calc(100% - 8px) 0,calc(100% - 8px) 8px,100% 8px,100% 100%,0 100%)}
-.hud2 .race-strip .road{position:absolute;left:16px;right:28px;top:46px;height:12px;background:#1d1f26}
-.hud2 .race-strip .tick{position:absolute;top:42px;width:3px;height:22px;background:#5a5f6d}
-.hud2 .race-strip .flag{position:absolute;right:14px;top:38px;width:14px;height:30px;background:repeating-conic-gradient(#111 0 25%,#f4f4f0 0 50%) 0 0/7px 7px}
-.hud2 .race-strip .car{position:absolute;top:46px;width:26px;height:12px}
-.hud2 .race-strip .car::before{content:"";position:absolute;left:6px;top:-6px;width:12px;height:6px;background:inherit;filter:brightness(.85)}
-.hud2 .race-strip .me{background:#d23a2a}.hud2 .race-strip .them{background:#eeeae0}
-.hud2 .race-strip .gap{position:absolute;left:16px;top:12px;font:700 16px system-ui;color:#eeeae0}
-.hud2 .race-strip .good{color:var(--good)}.hud2 .race-strip .bad{color:var(--amber)}
-#lights{position:absolute;top:22px;left:50%;transform:translateX(-50%);display:flex;gap:12px;padding:12px 14px}
+/* race progress bar (owner 2026-10-22, V0.15.0): top centre, strictly a dotted line with the two cars — drawn from above in
+   their own paint — moving along it (your car a little in front). No panel, no gap text. Start lights and hint sit under it. */
+.hud2 .race-strip{position:absolute;left:50%;top:14px;transform:translateX(-50%);width:660px;height:64px;pointer-events:none}
+.hud2 .race-strip .road{position:absolute;left:0;right:0;top:31px;height:3px;background:repeating-linear-gradient(90deg,#eeeae0 0 6px,transparent 6px 14px);filter:drop-shadow(0 1px 0 #000c)}
+.hud2 .race-strip .car{position:absolute;width:62px;height:28px;filter:drop-shadow(0 2px 0 #000a)}
+.hud2 .race-strip .them{top:11px;background:#eeeae0}.hud2 .race-strip .me{top:22px;background:#d23a2a;z-index:1}
+.hud2 .race-strip .car img{display:block;width:100%;height:100%;transform:scaleX(-1)}.hud2 .race-strip .car.pic{background:none}
+#lights{position:absolute;top:86px;left:50%;transform:translateX(-50%);display:flex;gap:12px;padding:12px 14px;transition:opacity .6s ease}
+#lights.gone{opacity:0;pointer-events:none}
+#hint{position:absolute;top:160px;left:50%;transform:translateX(-50%);font-size:15px;padding:8px 14px;white-space:nowrap}
+.hud2 .count{position:absolute;left:50%;top:214px;transform:translateX(-50%)}
+.hud2.phone .race-strip{transform:translateX(-50%) scale(.62);transform-origin:50% 0;top:6px}
+.hud2.phone #lights{transform:translateX(-50%) scale(.6);transform-origin:50% 0;top:52px}
+.hud2.phone #hint{top:92px;font-size:12px;padding:5px 10px}
+.hud2.phone .grade{bottom:auto;top:98px;transform:translateX(-50%) scale(.7);transform-origin:50% 0}
+.hud2.phone .count{top:122px;transform:translateX(-50%) scale(.5);transform-origin:50% 0}
 #lights i{width:42px;height:42px;background:#2b2e38;box-shadow:inset 0 0 0 3px #1a1c22}
 #lights i.red{background:#e0261c}#lights i.amber{background:#f2a43a}#lights i.green{background:#4ade80}
-#hint{position:absolute;top:100px;left:50%;transform:translateX(-50%);font-size:15px;padding:8px 14px;white-space:nowrap}
 /* phone race screen (owner 2026-10-21): "− +" pair and the pedal in the bottom corners, gauge in the middle, big thumb zones */
 .hud2.phone{-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
 .hud2.phone .cluster{bottom:6px}
@@ -201,11 +205,6 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .hud2 .ph-down{left:0}.hud2 .ph-up{left:16%}.hud2 .ph-gas{right:0;width:24%}
 .hud2.swap .ph-down{left:auto;right:16%}.hud2.swap .ph-up{left:auto;right:0}.hud2.swap .ph-gas{right:auto;left:0}
 .hud2 .ph-zone.gone{pointer-events:none}
-.hud2.phone .race-strip{transform:scale(.62);transform-origin:0 0;left:12px;top:10px}
-.hud2.phone #lights{transform:translateX(-50%) scale(.6);transform-origin:50% 0;top:8px}
-.hud2.phone #hint{top:58px;font-size:12px;padding:5px 10px}
-.hud2.phone .grade{bottom:auto;top:92px;transform:translateX(-50%) scale(.7);transform-origin:50% 0}
-.hud2.phone .count{top:100px;transform:translateX(-50%) scale(.55);transform-origin:50% 0}
 /* phones play sideways only (owner Q168) */
 #vc-rotate{display:none}
 @media (orientation:portrait){.vc-phone #vc-rotate{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:24px;background:#14161cf4}}
@@ -378,4 +377,16 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .g-title,.g-wallet,.g-util,.g-raceside{z-index:2}
 .g-panel,.cat-list,.pt-tabs,.cat-under,.gr-info,.strip-wrap,.g-racemenu{z-index:4}
 #garage>.g-sub{z-index:5}
+/* ---- Typing Race on phones (owner E1, V0.15.0): the hidden box that opens the phone keyboard (16 px so iPhones don't zoom),
+   Nitro + Leave buttons top-right, and "Tap to type" when the keyboard is closed ---- */
+#ty-kb{position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;border:0;padding:0;margin:0;font-size:16px;resize:none;pointer-events:none}
+#typing .ty-phone{position:absolute;right:28px;top:52px;display:flex;gap:8px}
+#typing .ty-phone .btn{font-size:14px;padding:8px 14px}
+#typing .ty-tap{position:absolute;left:50%;top:34%;transform:translateX(-50%);display:none;font-size:16px}
+#typing:not(.kb-on) .ty-tap{display:inline-flex}
+/* Strip reward pop-up (owner E5, V0.15.0): over the race results, scaled to fit like them */
+.reward-pop{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(var(--ui-s,1));z-index:20;display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 24px 18px;text-align:center;min-width:300px}
+.reward-pop .rp-title{color:var(--accent);font-size:14px;letter-spacing:.1em}
+.reward-pop .rp-car{width:296px;height:124px;image-rendering:pixelated}
+.reward-pop b.hd{font-size:18px}.reward-pop span{font-size:12px;color:var(--dim);margin-bottom:6px}
 `;

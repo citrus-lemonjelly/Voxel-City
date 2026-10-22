@@ -89,6 +89,8 @@ export interface Settings {
   door?: 'open' | 'closed';
   /** garage camera angle A–D (owner Q163, 2026-10-20); missing = d */
   gcam?: 'a' | 'b' | 'c' | 'd';
+  /** graphics (owner E4, V0.15.0): auto = light on phones, full on PCs. Missing = auto */
+  gfx?: 'auto' | 'full' | 'light';
   /** Drag Race controls (owner 2026-10-21): Classic = the car pulls by itself; Pedal = hold gas the whole race. Missing = classic */
   drive?: 'classic' | 'pedal';
   /** phone race screen (owner Q170): which side the gas pedal sits on. Missing = right */

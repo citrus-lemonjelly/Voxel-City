@@ -12,7 +12,8 @@ import { curSel, partLook } from './bodyShop';
 
 /** Garage sub-tabs: small buttons that pop up above the Garage button for the picked car. */
 export function subTabsHtml(save: SaveV1): string {
-  if (ui.panel !== 'garage' || !ui.gsel || !CARS[ui.gsel]) return '';      // owner V0.9.1: shown as soon as the Garage opens
+  // owner V0.9.1: shown as soon as the Garage opens; V0.15.0: on the home screen too (for the car you drive), beside Settings
+  if ((ui.panel !== 'garage' && ui.panel !== null) || !ui.gsel || !CARS[ui.gsel]) return '';
   const use = save.carId === ui.gsel, unique = !!CARS[ui.gsel].unique;
   return `<div class="g-sub blk"><b class="g-sub-name">${carName(ui.gsel)}</b>
     <button class="g-subtab drive" id="gDrive" ${use ? 'disabled' : ''}>${use ? 'Driving' : 'Drive'}</button>
@@ -86,8 +87,8 @@ export const wireMyCars: Wire = (el, save, on, redraw) => {
   el.querySelector('#gFavOnly')?.addEventListener('click', () => { ui.favOnly = !ui.favOnly; const ids = garageCars(save); if (ids.length && !ids.includes(ui.gsel)) { ui.gsel = ids[0]; on.onPreview(lookOf(save, ui.gsel)); } redraw(); });
   el.querySelector('#gDrive')?.addEventListener('click', () => { ui.dial = false; on.onUseCar(ui.gsel); });
   el.querySelector('#gParts')?.addEventListener('click', () => {
-    ui.work = ui.gsel; ui.back = 'garage'; ui.panel = 'parts'; ui.dial = false; scroll.part = 0;
+    ui.work = ui.gsel; ui.back = ui.panel === 'garage' ? 'garage' : null; ui.panel = 'parts'; ui.dial = false; scroll.part = 0;
     ui.part.sel = curSel(save); on.onPreview(partLook(save, ui.part.sel)); redraw();
   });
-  el.querySelector('#gUpg')?.addEventListener('click', () => { ui.work = ui.gsel; ui.back = 'garage'; ui.panel = 'upgrades'; ui.dial = false; on.onView('upgrades'); redraw(); });
+  el.querySelector('#gUpg')?.addEventListener('click', () => { ui.work = ui.gsel; ui.back = ui.panel === 'garage' ? 'garage' : null; ui.panel = 'upgrades'; ui.dial = false; on.onView('upgrades'); redraw(); });
 };

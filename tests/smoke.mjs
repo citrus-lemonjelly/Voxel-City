@@ -21,14 +21,14 @@ const t0 = Date.now(), res = []; let fails = 0;
 const ok = (name, cond, detail = '') => { res.push([name, !!cond]); if (!cond) fails++; console.log(`${cond ? 'PASS' : 'FAIL'} ${name} ${detail}`); };
 const ev = f => pg.evaluate(f);
 /** Garage tabs live in the side rail behind the Menu button (V0.12.0): open it first if it is closed. */
-const tab = async name => { if (await ev(() => !!document.querySelector('#menuBtn') && !document.querySelector('#garage.rail-open'))) await pg.click('#menuBtn'); await pg.click('[data-panel="' + name + '"]'); };
+const tab = async name => { if (await ev(() => getComputedStyle(document.querySelector('.g-bar')).visibility === 'hidden')) await pg.click('#menuBtn'); await pg.click('[data-panel="' + name + '"]'); };
 
 await pg.goto(pathToFileURL(resolve(root, 'build/index.html')).href + '?fast=4&autoplay&dev');
 await pg.waitForFunction(() => window.__vc && window.__vc.screen === 'garage');
 const v = await ev(() => [window.__vc.version, document.querySelector('#notesBtn span')?.textContent]);
 ok('garage loads, version shown', v[1] === `V${v[0]}`, v.join(' / '));
-await pg.click('#menuBtn'); ok('Menu button opens the side rail', await ev(() => !!document.querySelector('#garage.rail-open')));
-await pg.click('#menuBtn'); ok('Menu button closes it again', await ev(() => !document.querySelector('#garage.rail-open')));
+ok('PC: the side rail is always shown (no Menu button)', await ev(() => getComputedStyle(document.querySelector('.g-bar')).visibility === 'visible' && getComputedStyle(document.querySelector('#menuBtn')).display === 'none'));
+ok('home screen: Garage sub-tabs beside Settings', await ev(() => !!document.querySelector('#garage.home-mode > .g-sub #gParts')));
 ok('bottom bar: no separate Upgrades tab (it lives in Garage ▸ Upgrade)', await ev(() => !document.querySelector('[data-panel="upgrades"]')));
 for (const t of ['profile', 'garage', 'catalog', 'settings', 'daily', 'calendar']) {
   await tab(t); await pg.waitForTimeout(400);

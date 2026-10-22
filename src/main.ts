@@ -49,12 +49,15 @@ document.documentElement.classList.toggle('vc-phone', PHONE);
 /** Shrink-to-fit (owner 2026-10-21, V0.14.0): the menus, results and Typing Race screen are laid out for a window at least
  *  FIT.h tall and FIT.w wide; on anything smaller (a phone held sideways is ~390 px tall) the whole layer is scaled down to
  *  fit, so every screen shows in full. PCs stay at 1. styles: #garage / #results / #typing / #typing-res use --ui-s. */
-const FIT = { w: 1060, h: 560, min: 0.55 };
+//  Phones (owner E2, V0.15.0) lay out in a slightly smaller box (960 × 500), so everything — text too — is drawn ~12 % bigger.
+//  Uses the visible area (visualViewport), so with the phone keyboard open the Typing Race fits above it.
+const FIT = PHONE ? { w: 960, h: 500, min: 0.42 } : { w: 1060, h: 560, min: 0.42 };
 function fitUI() {
-  const s = Math.max(FIT.min, Math.min(1, innerHeight / FIT.h, innerWidth / FIT.w)), r = document.documentElement.style;
-  r.setProperty('--ui-s', String(s)); r.setProperty('--ui-w', innerWidth / s + 'px'); r.setProperty('--ui-h', innerHeight / s + 'px');
+  const vw = visualViewport?.width ?? innerWidth, vh = visualViewport?.height ?? innerHeight;
+  const s = Math.max(FIT.min, Math.min(1, vh / FIT.h, vw / FIT.w)), r = document.documentElement.style;
+  r.setProperty('--ui-s', String(s)); r.setProperty('--ui-w', vw / s + 'px'); r.setProperty('--ui-h', vh / s + 'px');
 }
-fitUI(); addEventListener('resize', fitUI); addEventListener('orientationchange', fitUI);
+fitUI(); addEventListener('resize', fitUI); addEventListener('orientationchange', fitUI); visualViewport?.addEventListener('resize', fitUI);
 document.body.insertAdjacentHTML('beforeend', `<div id="vc-rotate"><div class="blk"><svg width="128" height="64" viewBox="0 0 32 16" shape-rendering="crispEdges"><rect x="1" y="1" width="8" height="14" fill="#5a5f6d"/><rect x="2" y="3" width="6" height="10" fill="#14161c"/><rect x="11" y="7" width="5" height="2" fill="var(--accent)"/><rect x="15" y="5" width="1" height="6" fill="var(--accent)"/><rect x="16" y="6" width="1" height="4" fill="var(--accent)"/><rect x="17" y="7" width="1" height="2" fill="var(--accent)"/><rect x="19" y="4" width="12" height="8" fill="#eeeae0"/><rect x="21" y="5" width="8" height="6" fill="#14161c"/></svg><h2 class="hd">Turn your phone sideways</h2><p>Voxel City plays in landscape.</p></div></div>`);
 const stageEl = document.getElementById('stage')!, ui = document.getElementById('ui')!;
 const world = new World(stageEl);
@@ -68,6 +71,9 @@ const urlTime = params.get('time') as TimeOfDay | null;
 if (params.get('near')) save.settings.nearSide = params.get('near') as any;
 if (params.get('blur')) save.settings.blur = params.get('blur') as any;
 world.setCameraPreset(save.settings.camera);
+/** Light graphics (owner E4, V0.15.0): phones by default; Settings ▸ Graphics can force Full or Light anywhere. */
+const gfxLite = () => save.settings.gfx === 'light' || (save.settings.gfx !== 'full' && PHONE);
+world.setLite(gfxLite());
 world.setBlur(save.settings.blur);
 if (params.get('cam')) world.camMode = params.get('cam') as any;
 if (params.get('elev')) world.camFrame.elev = +params.get('elev')!;
@@ -168,6 +174,7 @@ function setSetting(key: string, value: string) {
   (save.settings as any)[key] = value; writeSave(save);
   if (key === 'camera') world.setCameraPreset(value as any);
   if (key === 'blur') world.setBlur(value as any);
+  if (key === 'gfx') world.setLite(gfxLite());
   if (key === 'spin') world.autoSpin = value !== 'off';
   if (key === 'door') world.setGarageDoor(value !== 'closed');
   if (key === 'gcam') world.setGarageCam(value as any);
@@ -192,6 +199,14 @@ function grantLevel(lg: League, n: number) {
   return r;
 }
 const rewardExtras = (r: ReturnType<typeof levelReward>) => `${r.crowns ? ` · +${r.crowns} Crowns` : ''}${r.decal ? ` · ${decalName(r.decal)} decal` : ''}${r.car ? ` · ${carName(r.car)} (League ${CARS[r.car].league}) — it's in your Catalog` : ''}`;
+/** Strip rewards that are more than money (owner E5, V0.15.0): a pop-up over the race results, so a new car or decal is
+ *  never missed. A car shows its picture (it is already in your garage by now). */
+function rewardPop(r: ReturnType<typeof levelReward>) {
+  const car = r.car ? `<img class="rp-car" src="${world.thumbnail(lookFor(r.car))}" alt=""><b class="hd">${carName(r.car)}</b><span>League ${CARS[r.car].league} car · it's in My cars now</span>` : '';
+  const decal = r.decal ? `<b class="hd">${decalName(r.decal)} decal</b><span>Fit it in the Body Shop ▸ Decals</span>` : '';
+  ui.insertAdjacentHTML('beforeend', `<div class="reward-pop blk" role="dialog" aria-label="Strip reward"><div class="rp-title hd">Strip reward</div>${car}${decal}<button class="btn" id="rpOk">Nice!</button></div>`);
+  ui.querySelector('#rpOk')!.addEventListener('click', () => ui.querySelector('.reward-pop')?.remove());
+}
 /** Saves from before V0.14.0 may hold cleared levels that were never claimed: add those rewards once, on load. */
 (function claimPendingStrip() {
   let vx = 0, n = 0;
@@ -213,7 +228,7 @@ function startRace(kind: 'street' | 'strip' = 'street', stripR?: Rung) {
   world.setupRace(stage, dist, playerLook(), oppLook(), { time: raceTime(), near: save.settings.nearSide });
   // the "Space or click" hint shows for the player's first 3 races (owner Q29)
   const DK = keysOf(save.settings).drag;
-  hud = new Hud(ui, race, playerRacer, oppRacer, { keys: { gas: keyName(DK.gas), up: keyName(DK.up), down: keyName(DK.down) }, drive: pedalMode() ? 'pedal' : 'classic', phone: PHONE, swap: save.settings.pedalSide === 'left', oppName: opp.name, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3 && !PHONE, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
+  hud = new Hud(ui, race, playerRacer, oppRacer, { keys: { gas: keyName(DK.gas), up: keyName(DK.up), down: keyName(DK.down) }, drive: pedalMode() ? 'pedal' : 'classic', phone: PHONE, icons: { me: world.thumbnail(playerLook(), 124, 56, 'strip', 'clear'), them: world.thumbnail(oppLook(), 124, 56, 'strip', 'clear') }, swap: save.settings.pedalSide === 'left', oppName: opp.name, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3 && !PHONE, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
   const btn = hud.shiftBtn;
   btn.addEventListener('pointerdown', e => { e.preventDefault(); btn.setPointerCapture(e.pointerId); paddlePress(); });
   btn.addEventListener('pointerup', paddleRelease); btn.addEventListener('pointercancel', paddleRelease);
@@ -260,6 +275,7 @@ function finishRace() {
   rollRival(true);                                                                   // next street race: a new rival
   setTimeout(showUpdate, 0);
   renderResults(ui, data, { again: doneRung ? () => { garageOpenStrip(); showGarage(); } : () => startRace(), garage: () => showGarage() }, doneRung ? 'The Strip ▸' : 'Race again');
+  if (lr && (lr.car || lr.decal)) rewardPop(lr);                       // owner E5: a new car or decal gets its own pop-up
   (window as any).__vc.lastResult = data;
 }
 
@@ -293,6 +309,7 @@ function frame(now: number) {
     if (race.done && !paused) { finishedAt ||= now; if ((now - finishedAt) * FAST > 1200) finishRace(); }
   }
   if (screen === 'typing') typingFrame(dt, now);
+  else if (tyKb) { tyKb.remove(); tyKb = null; }                   // phone keyboard box only lives during the Typing Race
   if (!(NO_RENDER && screen === 'race')) world.render(dt);
   dev.tick();
   requestAnimationFrame(frame);
@@ -304,7 +321,7 @@ function pose(playerM: number, oppM: number, speedMs = 30, t = 10) {
   race!.t = t; playerRacer!.x = playerRacer!.px = playerM; oppRacer!.x = oppRacer!.px = oppM; playerRacer!.v = oppRacer!.v = speedMs;
   playerRacer!.launched = oppRacer!.launched = t > 3;
 }
-(window as any).__vc = { get screen() { return screen; }, get typing() { return ty; }, startTyping, openLab, version: VERSION, get opp() { return opp; }, cars: CARS, levelReward, partPrice, cosmeticPrice, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
+(window as any).__vc = { get screen() { return screen; }, rewardPop: (n: number) => rewardPop(levelReward(CARS[save.carId].league, n)), get typing() { return ty; }, startTyping, openLab, version: VERSION, get opp() { return opp; }, cars: CARS, levelReward, partPrice, cosmeticPrice, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
   /** preview hook: rebuild the race HUD with another paddle shape/skin (review renders) */
   hudPreview: (shape: string, skin: string, pedalStyle?: string) => { if (race && playerRacer && oppRacer) { hud = new Hud(ui, race, playerRacer, oppRacer, { oppName: opp.name, paddle: skin, paint: playerLook().paint, showKeyHint: true, paddleShape: shape as any, pedal: (pedalStyle || params.get('pedal') || 'alloy') as any }); hud.update(); } }, startRace, showGarage, buyOrEquip, pose, setCam: (m: string) => (world.camMode = m as any), setSetting, world, setNoRender: (b: boolean) => (NO_RENDER = b), setPaused: (b: boolean) => (paused = b) };
 // test console (owner Q58): ?dev once turns it on for this browser; ` opens it
@@ -333,25 +350,61 @@ function startTyping() {
   const hudEl = ui; const names = lanes.map(r => r ? r.name : 'YOU');
   ty = { run: new TypingRun(text), rivals, start: performance.now(), vis: [0, 0, 0, 0, 0], vel: [0, 0, 0, 0, 0], doneAt: 0, diff, seed,
     hud: new TypingHud(hudEl, { text, names, you: TYPE_LANE, caption: `Typing Race · ${stage.name} · League ${league} · ${DIFFICULTY[diff].label}`, nitros: TYPING.nitros,
-      nitroKey: keyName(keysOf(save.settings).typing.nitro), leaveKey: keyName(keysOf(save.settings).typing.leave) }) };
+      nitroKey: PHONE ? 'button top-right' : keyName(keysOf(save.settings).typing.nitro), leaveKey: PHONE ? 'the Leave button' : keyName(keysOf(save.settings).typing.leave) }) };
   (ty as any).lanes = lanes;
+  if (PHONE) { const root = hudEl.querySelector<HTMLElement>('#typing'); if (root) phoneTyping(root); }
 }
 function typingKey(e: KeyboardEvent) {
   if (!ty) return;
-  const K = keysOf(save.settings).typing, t = typingClock();
-  if (keyMatches(e.code, K.leave)) { e.preventDefault(); ty = null; return showGarage('Left the Typing Race'); }
-  if (keyMatches(e.code, K.nitro)) {                                 // nitro (owner: Enter, so Space can't fire it by accident)
-    e.preventDefault();
-    if (t >= 0 && ty.run.nitro(t) === 'nitro') { ty.hud.setText(ty.run.pos, ty.run.typo); ty.hud.setNitro(ty.run.nitros); ty.hud.flash('NITRO!'); if (ty.run.done && !ty.doneAt) ty.doneAt = performance.now(); }
-    return;
-  }
+  const K = keysOf(save.settings).typing;
+  if (keyMatches(e.code, K.leave)) { e.preventDefault(); return leaveTyping(); }
+  if (keyMatches(e.code, K.nitro)) { e.preventDefault(); return typingNitro(); }   // owner: Enter, so Space can't fire it by accident
   if (e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1) return;
+  if (tyKb && e.target === tyKb) return;                             // phone keyboard: letters arrive through its text box (no double count)
   e.preventDefault();                                                // no page scroll on space, no quick-find on ' or /
+  typedChar(e.key);
+}
+function leaveTyping() { ty = null; showGarage('Left the Typing Race'); }
+function typingNitro() {
+  if (!ty) return;
+  const t = typingClock();
+  if (t >= 0 && ty.run.nitro(t) === 'nitro') { ty.hud.setText(ty.run.pos, ty.run.typo); ty.hud.setNitro(ty.run.nitros); ty.hud.flash('NITRO!'); if (ty.run.done && !ty.doneAt) ty.doneAt = performance.now(); }
+}
+function typedChar(ch: string) {
+  if (!ty) return;
+  const t = typingClock();
   if (t < 0 || ty.run.done) return;                                  // keys before GO don't count
-  ty.run.key(e.key, t);
+  ty.run.key(ch, t);
   ty.hud.setText(ty.run.pos, ty.run.typo);
   if (ty.run.done && !ty.doneAt) ty.doneAt = performance.now();
 }
+
+/** Phones (owner E1, V0.15.0): a hidden text box opens the phone's keyboard during the Typing Race and every letter typed into
+ *  it counts like a key press. Tapping the race brings the keyboard back; Nitro and Leave are buttons (no Enter / Esc on a
+ *  phone keyboard, though Enter still fires nitro where the keyboard has one). The box is removed when the race screen goes. */
+let tyKb: HTMLTextAreaElement | null = null, tyKbPrev = '';
+function phoneTyping(root: HTMLElement) {
+  const kb = document.createElement('textarea');
+  kb.id = 'ty-kb'; kb.spellcheck = false; kb.setAttribute('aria-label', 'Type here');
+  for (const [k, v] of [['autocomplete', 'off'], ['autocorrect', 'off'], ['autocapitalize', 'off'], ['enterkeyhint', 'send']]) kb.setAttribute(k, v);
+  document.body.appendChild(kb); tyKb = kb; tyKbPrev = '';
+  // read what was added since last time; if the keyboard rewrote the word (autocorrect), ignore it rather than type it twice
+  kb.addEventListener('input', () => {
+    const v = kb.value, add = v.startsWith(tyKbPrev) ? v.slice(tyKbPrev.length) : '';
+    tyKbPrev = v;
+    for (const ch of add) ch === '\n' ? typingNitro() : typedChar(ch);
+    if (v.length > 40 || v.includes('\n')) { kb.value = ''; tyKbPrev = ''; }
+  });
+  root.insertAdjacentHTML('beforeend', `<div class="ty-phone"><button class="btn ghost" id="tyNitroBtn">Nitro</button><button class="btn ghost" id="tyLeaveBtn">Leave</button></div><button class="ty-tap btn" id="tyTap">Tap to type</button>`);
+  const focus = () => kb.focus({ preventScroll: true });
+  root.querySelector('#tyNitroBtn')!.addEventListener('click', () => { typingNitro(); focus(); });
+  root.querySelector('#tyLeaveBtn')!.addEventListener('click', () => leaveTyping());
+  root.querySelector('#tyTap')!.addEventListener('click', focus);
+  kb.addEventListener('focus', () => root.classList.add('kb-on'));
+  kb.addEventListener('blur', () => root.classList.remove('kb-on'));
+  focus();                                                           // still inside the tap that started the race, so the keyboard opens
+}
+document.addEventListener('pointerdown', e => { if (tyKb && screen === 'typing' && !(e.target as Element).closest?.('button')) tyKb.focus({ preventScroll: true }); });
 function typingFrame(dt: number, now: number) {
   if (!ty) return;
   const t = typingClock(now), run = ty.run, lanes = (ty as any).lanes as (TypingRival | null)[], len = run.text.length;

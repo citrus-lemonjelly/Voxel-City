@@ -107,6 +107,12 @@ export const BEVEL_CSS = [
   B('.rail-open.catalog-mode .pt-list ~ .cat-under', `left:${528 + RAIL}px`),
   // ---- Garage sub-tabs (Drive · Body Shop · Upgrade · Sell): beside Menu · Notes · Cam (garage.ts moves them there) ----
   B('#garage>.g-sub', `position:absolute;left:238px;bottom:22px;transform:none;${PANEL}`),
+  // PCs (owner 2026-10-22, V0.15.0): rail always shown, no Menu button; the sub-tabs, a little smaller than the corner buttons,
+  // run along the bottom right beside Patch notes · Settings — on the home screen too. Phones keep the Menu layout as it was.
+  'html.ui-bevel:not(.vc-phone) .g-menubtn{display:none}',
+  'html.ui-bevel:not(.vc-phone) #garage>.g-sub{left:172px;padding:6px 7px}',
+  'html.ui-bevel:not(.vc-phone) #garage>.g-sub .g-subtab{height:34px}',
+  'html.ui-bevel.vc-phone .home-mode>.g-sub{display:none}',
   B('.g-sub-stem', 'display:none'),
   // ---- Race (bottom-right): one yellow block, a wheel and a gear that turn while the mouse is over it ----
   // Race + the small camera icon to its left share one corner box (garage.ts); the camera cycles the angles A–D
@@ -144,10 +150,8 @@ export const BEVEL_CSS = [
   B('.sl-go', 'font:700 11px system-ui;color:#14161c'),
   // ---- Typing Race panel grows to fit its text, so the stats row never gets cut off on short screens ----
   B('#typing .ty-panel', 'top:auto;max-height:calc(100% - 120px)'),
-  // ---- race screen (owner Q175, V0.13.1): race strip as a block with a sunken road; the start lights are sunken cells that
-  //      light up as lit blocks. The dash plate behind gauge + paddles + pedal is drawn in hud.ts with the same colours. ----
-  B('.hud2 .race-strip', `${PANEL};clip-path:none`),
-  B('.hud2 .race-strip .road', WELL),
+  // ---- race screen (owner Q175, V0.13.1): the start lights are sunken cells that light up as lit blocks (the progress bar is a
+  //      plain dotted line since V0.15.0, styles.ts). The dash plate behind gauge + paddles + pedal is drawn in hud.ts with the same colours. ----
   B('#lights i', WELL),
   B('#lights i.red', 'background:#e0261c;box-shadow:inset 3px 3px 0 #ff6a5c,inset -3px -3px 0 #8e1610'),
   B('#lights i.amber', 'background:#f2a43a;box-shadow:inset 3px 3px 0 #ffd08a,inset -3px -3px 0 #a8661a'),
@@ -157,6 +161,9 @@ export const BEVEL_CSS = [
   B('.g-go', 'color:#f2c230'),
   // ---- touch screens (owner E4, V0.13.1): a little bigger to tap. On phones the whole layer is also scaled to fit
   //      (styles.ts, V0.14.0), so these end up ~45 × 39 px on a sideways phone, and the side rail fits as on a PC. ----
+  // ---- phones (owner E2, V0.15.0): the smallest labels a size up, on top of the bigger phone scale (main.ts FIT) ----
+  ...['.setrow,.g-note,.seg button,.g-util>button,.g-tab,.sl-rw,.sl-card .hd,.g-grid span,.stat span,.g-league,.gr-rec,.pt-group,.cal-day,.g-mode-sub'].map(sel =>
+    sel.split(',').map(x => `html.vc-phone.ui-bevel ${x}`).join(',') + '{font-size:12.5px}'),
   `@media (pointer:coarse){${[
     B('.g-util>button', 'width:64px;height:56px'),
     B('.g-tab', 'width:88px;height:56px'),

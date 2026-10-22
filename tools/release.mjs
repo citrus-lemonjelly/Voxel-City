@@ -54,7 +54,7 @@ execFileSync(process.execPath, [resolve(root, 'tools/build.mjs')], { stdio: 'inh
 copyFileSync(resolve(root, 'build/VoxelCity.html'), resolve(root, 'VoxelCity.html'));
 
 // 4. what changed since the last release (hash manifest)
-const TRACK = ['src', 'tests', 'tools', 'docs', 'build/index.html', 'build/VoxelCity.html', 'build/version.json', 'package.json', 'README.md', 'VoxelCity.html', 'index.html', 'tsconfig.json'];
+const TRACK = ['src', 'tests', 'tools', 'docs', 'build/index.html', 'build/VoxelCity.html', 'build/version.json', 'build/manifest.webmanifest', 'build/icons', 'assets', 'package.json', 'README.md', 'VoxelCity.html', 'index.html', 'tsconfig.json'];
 const walk = p => { const a = resolve(root, p); if (!existsSync(a)) return []; if (statSync(a).isFile()) return [a]; return readdirSync(a).flatMap(n => n.startsWith('.') || n === 'e2e' ? [] : walk(relative(root, join(a, n)))); };
 const files = TRACK.flatMap(walk), hash = f => createHash('sha1').update(readFileSync(f)).digest('hex');
 const manPath = resolve(root, 'tools/release-manifest.json'), man = existsSync(manPath) ? JSON.parse(readFileSync(manPath, 'utf8')) : {};

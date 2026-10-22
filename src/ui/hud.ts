@@ -30,6 +30,8 @@ function blockText(g: Element, str: string, font: Record<string, string[]>, cell
 
 /** Gas pedal exit timing after the launch (owner Q56: slow enough to read, so nobody mistakes it for a button to spam).
  *  Keep in step with the .pedal-pod.gone transition in styles.ts. */
+/** Seconds after green that the start lights stay before fading away (owner 2026-10-22). */
+export const LIGHTS_STAY = 1.2;
 export const PEDAL_EXIT = { restMs: 500, dropMs: 900, foldDelayMs: 1300, foldMs: 700 };
 // Reserved (owner Q56): the nitrous badge — a small voxel circle with a blue voxel nitrous bottle — will sit at the
 // gauge's top-left, overlapping the downshift paddle. Owner will supply a rough drawing; nothing is drawn there yet.
@@ -51,15 +53,15 @@ export class Hud {
   private needle!: Element;
   private zoneBand!: Element;
   private gearG!: Element; private speedG!: Element; private gradeG!: Element; private countG!: Element;
-  private lights: HTMLElement[];
+  private lights: HTMLElement[]; private lightsEl!: HTMLElement;
   private hint: HTMLElement; private keyHint!: HTMLElement;
-  private me: HTMLElement; private them: HTMLElement; private gapEl: HTMLElement;
+  private me: HTMLElement; private them: HTMLElement;
   private gaugeMax: number;
   private paddleEl!: HTMLElement; private downEl!: HTMLElement; private plusRects: Element[] = []; private skin!: PaddleSkin;
   private last = { gear: '', mph: -1, zone: '', grade: '', count: '' };
 
   constructor(root: HTMLElement, private race: Race, private player: Racer, private opp: Racer, opts: { oppName: string; paddle: string; paint?: string; showKeyHint: boolean; paddleShape?: 'arc' | 'tab'; pedal?: PedalStyle; /** bound key names (Settings ▸ Controls) */ keys?: { gas: string; up?: string; down: string };
-    /** Pedal mode: the pedal stays all race (owner 2026-10-21) */ drive?: 'classic' | 'pedal'; /** phone race screen */ phone?: boolean; /** phone: pedal on the left */ swap?: boolean }) {
+    /** Pedal mode: the pedal stays all race (owner 2026-10-21) */ drive?: 'classic' | 'pedal'; /** top-down car pictures for the progress bar */ icons?: { me: string; them: string }; /** phone race screen */ phone?: boolean; /** phone: pedal on the left */ swap?: boolean }) {
     root.innerHTML = '';
     this.gaugeMax = Math.ceil(player.stats.redline / 1000);
     const phone = !!opts.phone, pedalMode = opts.drive === 'pedal', gasKey = opts.keys?.gas ?? 'SPACE';
@@ -69,17 +71,17 @@ export class Hud {
     this.el = h(`<div class="overlay hud2${phone ? ' phone' : ''}${phone && opts.swap ? ' swap' : ''}">
       <div id="lights" class="blk"><i></i><i></i><i></i></div>
       <div id="hint" class="blk">${hint}</div>
-      <div class="race-strip"><div class="gap"></div><div class="road"></div><div class="flag"></div><div class="car them"></div><div class="car me"></div></div>
+      <div class="race-strip"><div class="road"></div><div class="car them${opts.icons ? ' pic' : ''}">${opts.icons ? `<img src="${opts.icons.them}" alt="">` : ''}</div><div class="car me${opts.icons ? ' pic' : ''}">${opts.icons ? `<img src="${opts.icons.me}" alt="">` : ''}</div></div>
       <div class="cluster"></div>
     </div>`);
     root.appendChild(this.el);
     // scale the cluster with the window height (designed at 900 px tall)
     this.el.style.setProperty('--hud-scale', String(0.85 * Math.max(0.75, Math.min(1.3, (window.innerHeight || 900) / 900))));   // owner: a smidge smaller
+    this.lightsEl = this.el.querySelector<HTMLElement>('#lights')!;
     this.lights = [...this.el.querySelectorAll<HTMLElement>('#lights i')];
     this.hint = this.el.querySelector('#hint')!;
     const strip = this.el.querySelector('.race-strip')!;
-    for (let m = 100; m < race.distanceM; m += 100) strip.appendChild(h(`<div class="tick" style="left:calc(16px + ${m / race.distanceM} * (100% - 44px))"></div>`));
-    this.me = strip.querySelector('.me')!; this.them = strip.querySelector('.them')!; this.gapEl = strip.querySelector('.gap')!;
+    this.me = strip.querySelector('.me')!; this.them = strip.querySelector('.them')!;
     this.oppName = opts.oppName;
 
     const cluster = this.el.querySelector('.cluster') as HTMLElement;
@@ -225,6 +227,8 @@ export class Hud {
     // countdown lights (to be redesigned later, owner Q24)
     const lit = Math.min(3, Math.floor(t));
     this.lights.forEach((l, i) => { l.className = this.race.green ? 'green' : i < lit ? (i === 0 ? 'red' : 'amber') : ''; });
+    // owner 2026-10-22: once the race is under way the lights fade away (one smooth fade) to clear the top of the screen
+    this.lightsEl.classList.toggle('gone', this.race.green && this.race.raceTime > LIGHTS_STAY);
     if (r.launched) this.hint.style.display = 'none';
     if (r.launched && !this.pedalGone && !this.pedalStays) { this.pedalGone = true; this.goneAt = performance.now(); this.pedalEl.classList.remove('down'); this.pedalPod.classList.add('gone'); this.gasBtn.classList.add('gone'); }
     if (this.pedalGone && this.goneAt && this.plateFill) {                                // the bay folds in once, smoothly, after the pedal has dropped
@@ -257,13 +261,8 @@ export class Hud {
     const mph = Math.round(r.v * 2.237);
     if (mph !== this.last.mph) { const str = String(mph), w = (str.length * 6 - 1) * 2.5; blockText(this.speedG, str, F7, 2.5, COL.lit, CX + 14 - w, CY + 74); this.last.mph = mph; }
     // race strip
-    const L = this.race.distanceM, pos = (x: number) => `calc(16px + ${Math.min(1, x / L)} * (100% - 44px) - 13px)`;
+    const L = this.race.distanceM, pos = (x: number) => `calc(${Math.min(1, x / L)} * (100% - 62px))`;   // car's left edge: line start → its nose at the line's end
     this.me.style.left = pos(r.x); this.them.style.left = pos(this.opp.x);
-    if (!r.launched) this.gapEl.textContent = `You vs ${this.oppName}, ${L} m`;
-    else {
-      const dx = r.x - this.opp.x, v = Math.max(5, (r.v + this.opp.v) / 2), sec = Math.abs(dx) / v;
-      this.gapEl.innerHTML = dx >= 0 ? `${this.oppName} is <span class="good">${sec.toFixed(2)} s</span> behind you` : `${this.oppName} is <span class="bad">${sec.toFixed(2)} s</span> ahead`;
-    }
     // grade (steady, fades out — never flashes) and countdown
     const ev = r.lastEvent;
     let grade = '';

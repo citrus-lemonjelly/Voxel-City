@@ -26,6 +26,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.15.0', date: '2026-10-22', title: 'Type on your phone', header: 'Phone Typing Update',
+    added: [
+      'Typing Race on phones: the phone keyboard opens when the race starts, and the screen fits above it. Tap the race to bring the keyboard back.',
+      'Phones: Nitro and Leave buttons in the Typing Race (phone keyboards have no Esc key).',
+      'Add Voxel City to your phone\'s home screen: it opens full screen and sideways, with its own voxel car icon. Settings shows how on phones.',
+      'Settings ▸ Graphics: Auto, Full or Light. Light (the default on phones) draws fewer pixels, smaller shadows and no speed blur, so races run smoother.',
+      'A pop-up on the race results when a Strip level gives you a new car or decal.',
+    ],
+    changed: [
+      'Race screen: the progress bar is now a dotted line across the top centre, with your car and your rival drawn from above in their own paint.',
+      'The start lights fade away a second after green, so the top of the race screen stays clear.',
+      'PC: Profile, Garage, Catalog and the small buttons sit up the left side again, always shown (phones keep the Menu button).',
+      'The Garage buttons (Drive, Body Shop, Upgrade, Sell) run along the bottom beside Settings, on the home screen too, for the car you drive.',
+      'Phones: everything is drawn a little bigger, and the smallest labels a size up.',
+    ],
+    removed: [
+      'The "X is 0.2 s ahead" line and the panel behind the race progress bar.',
+      'The Menu button on PC (the side buttons are always shown there).',
+    ],
+  },
+  {
     version: '0.14.0', date: '2026-10-21', title: 'Every screen fits your phone', header: 'Phone Update',
     added: [
       'Every menu, result and Typing Race screen now fits small screens and phones: it shrinks to fit, and long panels scroll inside.',

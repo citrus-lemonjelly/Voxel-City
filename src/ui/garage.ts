@@ -33,12 +33,12 @@ const WIRES: Wire[] = [wireMiniHud, wireRaceMenu, wireStrip, wireUpgrades, wireM
 
 export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, stage: StageDef, on: GarageHandlers, toast?: string) {
   if (!ui.work || !save.cars[ui.work]) ui.work = save.carId;
-  if (!ui.gsel || !save.cars[ui.gsel]) ui.gsel = save.carId;
+  if (!ui.gsel || !save.cars[ui.gsel] || !ui.panel) ui.gsel = save.carId;   // home screen: the sub-tabs act on the car you drive
   const vx = DEV.unlimited ? '∞' : save.voxels.toLocaleString(), gcam = save.settings.gcam ?? 'd';
   const redraw = () => renderGarage(root, save, opp, stage, on);
   root.innerHTML = '';
   const inCat = ui.panel === 'catalog' || ui.panel === 'parts' || ui.panel === 'garage';
-  const el = h(`<div id="garage" class="${inCat ? 'catalog-mode' : ui.panel === 'strip' ? 'strip-mode' : ''}">
+  const el = h(`<div id="garage" class="${inCat ? 'catalog-mode' : ui.panel === 'strip' ? 'strip-mode' : ''}${ui.panel ? '' : ' home-mode'}">
     ${inCat ? `<div class="g-title"><div class="hd screen-title">Garage${ui.panel === 'parts' ? ` · ${carName(ui.work)}` : ''}</div><h1 class="hd">${ui.panel === 'parts' ? 'Body Shop' : ui.panel === 'garage' ? 'My cars' : 'Catalog'}</h1></div>` : ''}
     <div class="g-wallet"><span class="voxels">${vx} VX</span><span class="crowns">${crownIcon()}${DEV.unlimited ? '∞' : save.crowns.toLocaleString()}</span><span class="g-rec">Best ${save.raceDist} m ${save.best[save.raceDist] ? fmtTime(save.best[save.raceDist]!) : '—'} · ${save.wins}–${save.races - save.wins}</span></div>
     <div class="g-bar">${miniHud(save)}${(['profile', 'garage', 'catalog', 'settings'] as const).map(k => `<div class="g-tabwrap"><button class="g-tab ${ui.panel === k ? 'on' : ''}" data-panel="${k}">${icon(k)}<span>${k[0].toUpperCase() + k.slice(1)}</span></button>${k === 'garage' ? subTabsHtml(save) : ''}</div>`).join('')}</div>
@@ -91,10 +91,13 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
  *  2×2 mini square: Spin · Daily · Calendar · Door); the Garage sub-tabs sit beside Menu · Notes · Cam; each panel title
  *  gets its icon. Runs before the wiring, so the moved buttons keep working. Looks: ui/themeBevel.ts. */
 const PANEL_ICON: Record<string, string> = { profile: 'profile', upgrades: 'upgrades', settings: 'settings', daily: 'tasks', calendar: 'daily', notes: 'notes' };
-/** Is the side rail open? Closed on start; Menu toggles it; picking a tab, clicking outside it or Esc closes it (owner Q185). */
+/** Is the side rail open? Phones: closed on start; Menu toggles it; picking a tab, clicking outside it or Esc closes it (owner Q185).
+ *  PCs (owner 2026-10-22, V0.15.0): the rail is always up the left side and the Menu button is hidden. */
 let railOpen = false, railEl: HTMLElement | null = null;
+const railPinned = () => !document.documentElement.classList.contains('vc-phone');
 const MENU_ICON = `<svg width="24" height="24" viewBox="0 0 12 12" shape-rendering="crispEdges"><rect x="1" y="2" width="10" height="2" fill="currentColor"/><rect x="1" y="5" width="10" height="2" fill="currentColor"/><rect x="1" y="8" width="10" height="2" fill="currentColor"/></svg>`;
 function setRail(open: boolean) {
+  if (railPinned()) open = true;
   railOpen = open;
   if (!railEl) return;
   railEl.classList.toggle('rail-open', open);
@@ -106,7 +109,7 @@ function setRail(open: boolean) {
 document.addEventListener('click', e => { if (railOpen && railEl?.isConnected && !(e.target as Element).closest?.('.g-bar, #menuBtn')) setRail(false); }, true);
 window.addEventListener('keydown', e => { if (e.key === 'Escape' && railOpen && railEl?.isConnected) setRail(false); });
 function menuLayout(el: HTMLElement) {
-  railEl = el;
+  railEl = el; if (railPinned()) railOpen = true;
   const bar = el.querySelector('.g-bar'), mini = el.querySelector('.g-mini');
   if (bar && mini) bar.appendChild(mini);
   const util = h(`<div class="g-util"></div>`);
@@ -115,7 +118,7 @@ function menuLayout(el: HTMLElement) {
   menu.addEventListener('click', () => setRail(!railOpen));
   util.appendChild(menu);
   el.classList.toggle('rail-open', railOpen);
-  bar?.querySelectorAll('[data-panel]').forEach(b => b.addEventListener('click', () => { railOpen = false; }));   // runs before the redraw
+  bar?.querySelectorAll('[data-panel]').forEach(b => b.addEventListener('click', () => { railOpen = railPinned(); }));   // runs before the redraw
   const sub = el.querySelector('.g-tabwrap .g-sub'); if (sub) el.appendChild(sub);                 // sub-tabs beside Menu · Notes · Cam
   // Settings sits beside Patch notes, not in the rail (owner 2026-10-21): Menu · Notes · Settings · Cam
   const set = el.querySelector<HTMLElement>('.g-bar [data-panel="settings"]'), setWrap = set?.closest('.g-tabwrap');

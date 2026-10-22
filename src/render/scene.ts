@@ -35,7 +35,9 @@ export const GARAGE_CAMS: Record<GarageCam, { label: string; k: number; m: numbe
 };
 
 /** Where a thumbnail camera points: the whole car, or close-ups for the Parts screen. */
-export type ThumbView = 'front' | 'rear' | 'tail' | 'hood' | 'wheel' | 'side' | 'nose' | 'low' | 'sill' | 'top';
+/** Background for see-through car pictures: a near-black no car paint uses, cut out after rendering. */
+const KEY = '#010203';
+export type ThumbView = 'front' | 'rear' | 'tail' | 'hood' | 'wheel' | 'side' | 'nose' | 'low' | 'sill' | 'top' | 'strip';
 
 export class World {
   renderer: THREE.WebGLRenderer;
@@ -67,7 +69,24 @@ export class World {
   private sky?: Sky;
   private blur!: SpeedBlur;
   /** Speed blur setting (Settings → Speed blur). */
-  setBlur(level: BlurLevel) { this.blur.strength = BLUR_LEVELS[level] ?? 0; }
+  private blurLevel: BlurLevel = 'low';
+  setBlur(level: BlurLevel) { this.blurLevel = level; this.blur.strength = this.lite ? 0 : BLUR_LEVELS[level] ?? 0; }   // light graphics: no speed blur (an extra full-screen pass)
+  /** Light graphics (owner E4, V0.15.0; phones by default, Settings ▸ Graphics): at most 1.5× pixel density instead of 2×,
+   *  and every shadow map at half size. Voxels stay just as sharp; shadows get a little softer-edged. */
+  lite = false;
+  setLite(on: boolean) {
+    this.lite = on;
+    this.renderer.setPixelRatio(Math.min(on ? 1.5 : 2, window.devicePixelRatio || 1));
+    this.setBlur(this.blurLevel);
+    for (const sc of [this.garageScene, this.raceScene, this.thumbScene]) sc?.traverse((o: any) => { if (o.isDirectionalLight && o.castShadow) this.shadowSize(o, o.userData.shadowFull ?? o.shadow.mapSize.x); });
+  }
+  /** Set a light's shadow map to its full-quality size n (half of it in light mode); a changed size makes a fresh map. */
+  private shadowSize(light: THREE.DirectionalLight, n: number) {
+    light.userData.shadowFull = n;
+    const px = this.lite ? n / 2 : n;
+    if (light.shadow.mapSize.x === px) return;
+    light.shadow.mapSize.set(px, px); light.shadow.map?.dispose(); (light.shadow as any).map = null;
+  }
   private hemi = new THREE.HemisphereLight('#e4f0ff', '#6b6250', 1.0);
   private sunOffset = new THREE.Vector3(480, 1020, -600);
 
@@ -131,7 +150,7 @@ export class World {
     this.turntable.position.y = 1.6; s.add(this.turntable);
     s.add(new THREE.HemisphereLight('#e4ecff', '#3a3a44', 1.2));
     const key = new THREE.DirectionalLight('#fff4e6', 2.2); key.position.set(-60, 140, 120); key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048); Object.assign(key.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 1, far: 400 }); key.shadow.bias = -0.0005;
+    this.shadowSize(key, 2048); Object.assign(key.shadow.camera, { left: -80, right: 80, top: 80, bottom: -80, near: 1, far: 400 }); key.shadow.bias = -0.0005;
     s.add(key);
     this.setGarageView('home');
   }
@@ -164,11 +183,12 @@ export class World {
 
   // ---------- catalog thumbnails (owner Q78: a 3D still of each car) ----------
   private thumbs = new Map<string, string>();
-  private thumbScene?: THREE.Scene;
+  private thumbScene?: THREE.Scene; private thumbFloor?: THREE.Mesh;
   private thumbCam = new THREE.PerspectiveCamera(24, 2, 1, 1000);
   /** A still picture of a car (PNG data URL), rendered once with the game renderer and cached by look + size. */
-  thumbnail(look: CarLook, w = 296, h = 124, view: ThumbView = 'front'): string {
-    const key = JSON.stringify(look) + `@${w}x${h}:${view}`;
+  /** bg: draw on this colour with no floor disc; 'clear' = a see-through background (race progress bar icons, V0.15.0). */
+  thumbnail(look: CarLook, w = 296, h = 124, view: ThumbView = 'front', bg?: string): string {
+    const key = JSON.stringify(look) + `@${w}x${h}:${view}:${bg ?? ''}`;
     const hit = this.thumbs.get(key); if (hit) return hit;
     if (!this.thumbScene) {
       const s = this.thumbScene = new THREE.Scene();
@@ -176,10 +196,10 @@ export class World {
       s.environment = this.garageScene.environment;
       s.add(new THREE.HemisphereLight('#e4ecff', '#3a3a44', 1.2));
       const key = new THREE.DirectionalLight('#fff4e6', 2.2); key.position.set(-60, 140, 120); key.castShadow = true;
-      key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 400 }); key.shadow.bias = -0.0005;
+      this.shadowSize(key, 1024); Object.assign(key.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 400 }); key.shadow.bias = -0.0005;
       s.add(key);
       const floor = new THREE.Mesh(new THREE.CylinderGeometry(52, 52, 1, 32), new THREE.MeshStandardMaterial({ color: '#30343f', roughness: 0.9 }));
-      floor.position.y = -0.5; floor.receiveShadow = true; s.add(floor);
+      floor.position.y = -0.5; floor.receiveShadow = true; s.add(floor); this.thumbFloor = floor;
     }
     const car = new CarModel(look, this.mats);
     car.group.position.set(-car.L / 2, 0, -car.W / 2);
@@ -190,17 +210,26 @@ export class World {
     // views aimed at a part (owner Q113: part cards show a close-up of your car wearing it)
     const hl = car.L / 2, V: Record<ThumbView, [number[], number[]]> = {
       front: [[-74, 36, 57], [6, 4, 0]], rear: [[hl + 44, 36, 40], [hl - 4, 15, 2]], tail: [[hl + 30, 10, 26], [hl, 4, 1]], hood: [[-hl - 30, 46, 34], [-hl + 14, 9, 0]], wheel: [[-hl + 6, 9, 56], [-hl + 12, 5, 8]],
-      side: [[-6, 18, 96], [0, 8, 0]], nose: [[-hl - 40, 14, 44], [-hl + 9, 4, 4]], sill: [[-2, 9, 58], [-1, 3, 0]], top: [[0, 175, 0.01], [0, 0, 0]], low: [[-hl - 40, 14, 52], [-2, 0, 0]],
+      side: [[-6, 18, 96], [0, 8, 0]], nose: [[-hl - 40, 14, 44], [-hl + 9, 4, 4]], sill: [[-2, 9, 58], [-1, 3, 0]], top: [[0, 175, 0.01], [0, 0, 0]], strip: [[0, 96, 0.01], [0, 0, 0]], low: [[-hl - 40, 14, 52], [-2, 0, 0]],
     };
     const [cp, ct] = V[view];
     if (view === 'front') this.thumbCam.position.set(cp[0], cp[1], cp[2]).normalize().multiplyScalar(100); else this.thumbCam.position.set(cp[0], cp[1], cp[2]);
     this.thumbCam.lookAt(ct[0], ct[1], ct[2]);
     const r = this.renderer, pr = r.getPixelRatio(), full = r.getSize(new THREE.Vector2());
     r.setScissorTest(true); r.setViewport(0, 0, w, h); r.setScissor(0, 0, w, h);
+    const bg0 = this.thumbScene.background;
+    if (bg) { this.thumbScene.background = new THREE.Color(bg === 'clear' ? KEY : bg); this.thumbFloor!.visible = false; }
     r.render(this.thumbScene, this.thumbCam);
+    this.thumbScene.background = bg0; this.thumbFloor!.visible = true;
     const c = document.createElement('canvas'); c.width = Math.round(w * pr); c.height = Math.round(h * pr);
     const src = r.domElement;
-    c.getContext('2d')!.drawImage(src, 0, src.height - c.height, c.width, c.height, 0, 0, c.width, c.height);
+    const g = c.getContext('2d')!;
+    g.drawImage(src, 0, src.height - c.height, c.width, c.height, 0, 0, c.width, c.height);
+    if (bg === 'clear') {                                              // cut the near-black key colour out; edge pixels stay as a dark outline
+      const im = g.getImageData(0, 0, c.width, c.height), d = im.data;
+      for (let i = 0; i < d.length; i += 4) if (d[i] <= 6 && d[i + 1] <= 7 && d[i + 2] <= 8) d[i + 3] = 0;
+      g.putImageData(im, 0, 0);
+    }
     r.setScissorTest(false); r.setViewport(0, 0, full.x, full.y);
     this.thumbScene.remove(car.group);
     car.group.traverse((o: any) => { if (o.isMesh) o.geometry.dispose(); });
@@ -224,7 +253,7 @@ export class World {
     s.add(this.hemi);
     this.sun.color.set(L.sun[0]); this.sun.intensity = L.sun[1]; this.sunOffset.set(...L.sunPos);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(4096, 4096);
+    this.shadowSize(this.sun, 4096);
     Object.assign(this.sun.shadow.camera, { left: -600, right: 600, top: 600, bottom: -600, near: 1, far: 3600 });
     this.sun.shadow.camera.updateProjectionMatrix();
     this.sun.shadow.bias = -0.0004; this.sun.shadow.normalBias = 0.6;

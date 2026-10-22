@@ -5,12 +5,13 @@
 //   wait:MS         wait                                                      js:CODE           run code in the page
 //   key:KEY         press a key                                               cap:TEXT          caption for this panel
 //   size:WxH        window size for this panel (default 1280x720; phones e.g. size:844x390 with url:?dev&phone)
+//   jsfile:PATH     run a file of page code (anything too long or with ; for a js: step)
 //   hover:SELECTOR  move the mouse over an element                            touch             a touch-screen phone page (pointer:coarse)
 // Example: node tools/shot.mjs build/shots/garage.png "Garage" "click:[data-panel=garage]; wait:1500; cap:Garage"
 import { chromium } from 'playwright';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const [outArg, title = 'Voxel City', ...shots] = process.argv.slice(2);
 if (!outArg || !shots.length) { console.log('usage: node tools/shot.mjs OUT.png "Title" "step; step" …'); process.exit(1); }
@@ -33,9 +34,9 @@ for (const spec of shots) {
   for (const s of steps) {
     const [k, ...r] = s.split(':'), v = r.join(':');
     // garage tabs sit in the side rail behind the Menu button (V0.12.0): open it first when a step clicks one
-    if (k === 'click' && v.startsWith('[data-panel') && await pg.evaluate(() => !!document.querySelector('#menuBtn') && !document.querySelector('#garage.rail-open'))) await pg.click('#menuBtn');
+    if (k === 'click' && v.startsWith('[data-panel') && await pg.evaluate(() => !!document.querySelector('.g-bar') && getComputedStyle(document.querySelector('.g-bar')).visibility === 'hidden')) await pg.click('#menuBtn');
     if (k === 'click') await pg.click(v); else if (k === 'hover') await pg.hover(v); else if (k === 'wait') await pg.waitForTimeout(+v);
-    else if (k === 'js') await pg.evaluate(v); else if (k === 'key') await pg.keyboard.press(v); else if (k === 'cap') cap = v;
+    else if (k === 'js') await pg.evaluate(v); else if (k === 'jsfile') await pg.evaluate(readFileSync(v, 'utf8')); else if (k === 'key') await pg.keyboard.press(v); else if (k === 'cap') cap = v;
   }
   panels.push({ cap, img: (await pg.screenshot()).toString('base64') });
 }
