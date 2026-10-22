@@ -3,13 +3,16 @@
 // and rain itself (falling voxel streaks around the camera). One instanced mesh each, so hundreds of cubes cost one draw.
 import * as THREE from 'three';
 
-export type FxKind = 'smoke' | 'flame' | 'nitro' | 'spray' | 'dust';
+export type FxKind = 'smoke' | 'flame' | 'nitro' | 'spray' | 'dust' | 'tyre' | 'mist';
 const KIND: Record<FxKind, { colors: string[]; life: [number, number]; size: [number, number]; vel: [number, number, number]; spread: number; grav: number }> = {
   smoke: { colors: ['#e8e8ea', '#d4d6da', '#c2c5cb'], life: [1.0, 1.8], size: [4, 13], vel: [18, 7, 0], spread: 9, grav: -2 },
   flame: { colors: ['#ffd23f', '#ff8a1c', '#ff4a1c'], life: [0.25, 0.45], size: [4.5, 1], vel: [45, 3, 0], spread: 10, grav: 0 },
   nitro: { colors: ['#e6f3ff', '#5aa9ff', '#2f6dff'], life: [0.18, 0.32], size: [4, 1], vel: [50, 0, 0], spread: 6, grav: 0 },
   spray: { colors: ['#c9d4e2', '#aab6c6'], life: [0.3, 0.6], size: [1.6, 3.5], vel: [30, 10, 0], spread: 10, grav: 40 },
   dust: { colors: ['#d8c49a', '#c4ad80'], life: [0.6, 1.1], size: [2, 6], vel: [10, 8, 0], spread: 14, grav: 4 },
+  // Drift (V0.18.0): tyre smoke that hangs where it was made (no sideways push, any heading) and wet-road mist
+  tyre: { colors: ['#d4d6da', '#c2c5cb', '#b0b3ba'], life: [0.45, 0.85], size: [3, 8], vel: [0, 5, 0], spread: 8, grav: -1.5 },
+  mist: { colors: ['#9aa6b6', '#8a96a6'], life: [0.4, 0.8], size: [2, 6], vel: [0, 5, 0], spread: 8, grav: 6 },
 };
 const MAX = 900;
 
@@ -57,11 +60,12 @@ export class Rain {
     this.mesh.frustumCulled = false;
     for (let i = 0; i < n; i++) this.drops.push({ x: (Math.random() - 0.5) * 700, y: Math.random() * 260, z: -220 + Math.random() * 300, v: 220 + Math.random() * 80 });
   }
-  update(dt: number, cx: number, wind = 40) {
+  /** cx (and cz, Drift) = where the camera looks; the rain box is centred on it */
+  update(dt: number, cx: number, wind = 40, cz = 70) {
     this.drops.forEach((d, i) => {
       d.y -= d.v * dt; d.x += wind * dt;
       if (d.y < 0) { d.y += 260; d.x = (Math.random() - 0.5) * 700; }
-      this.mesh.setMatrixAt(i, this.m.makeRotationZ(-0.15).setPosition(cx + d.x, d.y, d.z));
+      this.mesh.setMatrixAt(i, this.m.makeRotationZ(-0.15).setPosition(cx + d.x, d.y, cz - 70 + d.z));
     });
     this.mesh.instanceMatrix.needsUpdate = true;
   }

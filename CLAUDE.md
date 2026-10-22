@@ -27,15 +27,18 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - `npm run typecheck` — TypeScript check
 - `npm test` — sim checks (seconds)
 - `npm run collide` — collision check, every car × every part + part pairs (seconds)
-- `npm run smoke` — browser smoke test (~2–3 min): every screen, a drag race, a Typing Race, Body Shop, Car Lab
+- `npm run smoke` — browser smoke test (~2–3 min): every screen, a drag race, a Typing Race, a Drift run, Body Shop, Car Lab
+- `npm run drift-lab [-- course | pace]` — Drift bench (seconds): score / drag–drift–drag times / spins per car × AI skill; `pace` =
+  average part times per league (owner target 5–7 · 10–12 · 5–7 s; feeds `PACING.driftSec`).
 - `npm run layout` (~3.5 min; `-- pc|small|phone|large` for one size) — every garage screen on PC + 3 phone sizes: fails on anything
   off screen, the fixed buttons overlapping, or text spilling out of its box; warns on text drawn under 10 px. Run it after UI work.
 - `npm run release` — version check → package.json sync → sim → collision check → build → list of changed files.
   It refuses if the version wasn't raised. Only use `--same` if that version has never shipped.
 - `npm run shot -- OUT.png "Title" "click:SEL; wait:MS; cap:TEXT"` — screenshot sheet for review (1–2 per feature).
   **Presets:** `npm run shot -- OUT.png --preset pc|phone|race` (every main screen / every screen on a phone / a whole race).
-  Steps: `size:844x390`, `touch` (touch-screen phone page), `url:?dev&phone`, `hover:SEL`, `waitfor:green|launch|results|nitro|perfect|typing`,
+  Steps: `size:844x390`, `touch` (touch-screen phone page), `url:?dev&phone`, `hover:SEL`, `waitfor:green|launch|results|nitro|perfect|typing|drift|sliding`,
   `js:CODE` (no `;` inside — use commas) or `jsfile:PATH` for longer page code. `click:[data-panel=…]` opens the Menu by itself.
+  Page/console errors are printed after the shots. Drift shots: `url:?dev&autoplay&weather=clear&course=harbour; js:__vc.startDrift(); waitfor:sliding`.
 - **Test builds go to `build-test/`** (git-ignored): smoke, layout and shot build it themselves, so the live `build/` folder and its
   version stamp only change when shipping. `node tools/build.mjs --out build-test` builds it by hand.
 - **Code edits on this PC: `node tools/edit.mjs edits.json [--check]`** — a JSON list of {file, find, replace, all?}; checks every edit
@@ -61,6 +64,10 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - 3D garage room: `src/render/garage.ts` (room + how each piece looks), placements `src/data/garageLayout.ts`;
   camera views + angles A–D, turntable spin/drag: `src/render/scene.ts`. Race time of day: random, forced from the test console.
 - Typing Race: `src/game/typing.ts`, `src/render/typingView.ts`, `src/ui/typingHud.ts`, passages `src/data/passages.ts` (original text only).
+- Drift (V0.18.0, S87–S90): run physics + scoring + AI + ghost rival `src/game/drift.ts`; roads per district `src/data/driftCourses.ts`;
+  night scene `src/render/driftView.ts`, its props `src/render/driftProps.ts`; HUD `src/ui/driftHud.ts` (wraps the race `Hud` + Drift
+  button in the pedal bay); button looks `src/ui/driftButton.ts` (`__vc.driftButtons()` sheet); drift parts in `parts.ts` (`driftKitOf`),
+  pay `driftPay` in `economy.ts`. URL: `?course=downtown|harbour|ridge|neon`, `?dbtn=brake|pedal|puck|key`, `?weather=rain|clear`.
 - Key bindings: `src/game/keys.ts`. Update notice: `src/game/updates.ts`. Car Lab (dev only, `?dev` → test console → Car Lab): `src/ui/carLab.ts`.
 - Tools: `tools/release.mjs`, `tools/collide.mjs` (+ `collide-entry.ts`), `tools/shot.mjs`, `tests/smoke.mjs`, `tests/sim.ts`; owner launcher `Run Smoke Test.cmd`.
 - Decisions log: `docs/DECISIONS.md` (S-numbered rows). Patch notes doc is generated: `docs/CHANGELOG.md`.
@@ -80,10 +87,10 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Live: **V0.17.0 "Gearbox Update"** (per-gear ratio tuning with Transmission T5, S83). Before it: V0.16.0 "Feel Update" (S79:
   sound `src/game/sound.ts`, nitrous, voxel effects + rain `src/render/fx.ts`, Upgrades ▸ Test run `src/game/dyno.ts`),
   V0.16.1 (end-game balance, A/S 7/8 gears, S81), V0.16.2 (gear spacing, S82), V0.15.0 "Phone Typing Update" (S78).
-- Built, not shipped: **V0.17.1** — V8 muscle voice + smoother engines (S84, `tools/engine-sound.mjs` renders WAVs), gear setup
-  switch Preset OR Custom + draggable ratio bars + 1200 m track (S85), pay downtune (S86; `npm run economy` has a grinder table).
-- **Next:** owner listens to the engine WAVs and says ship; then ROADMAP items (renumber its versions after V0.17). Run heavy checks one at a time.
+- V0.17.1 shipped 2026-10-22 (V8 voice S84, gear setup switch + 1200 m S85, pay downtune S86).
+- Built, not shipped: **V0.18.0 "Drift Update"** (S87–S90): Drift mode (drag → 3–5 drifts → drag, four night districts, ghost rival,
+  drift parts, four Drift button looks), Settings header bars Display · Audio · Keybinds. Phone Drift layout: later (owner).
+- **Next:** owner picks the Drift button look + placement and the district names; then ROADMAP items. Run heavy checks one at a time.
 - Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
   weighted time of day (Small) · garage decor shop with Crowns (Big) · Body Shop "undo" (Small) · saved looks per car (Medium) ·
-  rival plate text (Small) · split main.ts further (Typing Race, race setup) (Medium) · **Drift mode** — winding road per district,
-  Drift button + hold revs in a band (Big, ROADMAP E4.6, Q193).
+  rival plate text (Small) · split main.ts further (Typing Race, race setup) (Medium) · Drift on phones (Medium).

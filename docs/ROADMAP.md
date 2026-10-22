@@ -131,7 +131,7 @@ Proposed pieces:
 | E4.3 | Typing Race: more passages per tier, nitro upgrades, its own district | Medium |
 | E4.4 | Crowns sources: weekly events, achievements | Medium |
 | E4.5 | Accounts + server saves + owner admin console (Milestone 5; P8) | Big |
-| E4.6 | **Drift mode** (owner 2026-10-22, Q193): a winding road with curved turns in each district (the road ahead shifts); hold a Drift button beside the gas pedal to break the rear loose, then feather the gas to hold the revs inside a target band through the turn. Scored on angle × time in the band, not a finish line. One winding scene per district. Ideas: rev band like the shift window (green / Perfect), chained drifts multiply, Drift tyres + LSD parts, solo score runs first, a ghost rival later | Big |
+| E4.6 | **Drift mode — built in V0.18.0 (S87–S90); phone layout still to do**  (owner 2026-10-22, Q193): a winding road with curved turns in each district (the road ahead shifts); hold a Drift button beside the gas pedal to break the rear loose, then feather the gas to hold the revs inside a target band through the turn. Scored on angle × time in the band, not a finish line. One winding scene per district. Ideas: rev band like the shift window (green / Perfect), chained drifts multiply, Drift tyres + LSD parts, solo score runs first, a ghost rival later | Big |
 
 ### E5 Tools and code
 | # | Idea | Effort |

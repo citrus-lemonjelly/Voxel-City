@@ -2,7 +2,7 @@
 // the UI state that survives re-renders, the handlers main.ts passes in, the block icons, and small helpers
 // (car looks, prices) used by several panels.
 import { SaveV1, RaceDist } from '../../save/save';
-import { Tier, PerfKind, Gearing } from '../../data/parts';
+import { Tier, AnyKind, Gearing } from '../../data/parts';
 import { CARS, carBody, carPaint } from '../../data/cars';
 import { Difficulty } from '../../data/economy';
 import { lookParts, PartSlot } from '../../data/visualParts';
@@ -14,7 +14,7 @@ export const h = (html: string) => { const t = document.createElement('template'
 export const fmtTime = (s: number) => s.toFixed(3) + ' s';
 
 export interface GarageHandlers {
-  onBuyOrEquip(kind: PerfKind, tier: Tier, carId: string): void;
+  onBuyOrEquip(kind: AnyKind, tier: Tier, carId: string): void;
   /** Upgrades: Short / Balanced / Long gearing for a car (free) */
   onGearing(g: Gearing, carId: string): void;
   /** Gear ratio tuning (V0.17.0): a car's own T5 ratios, or null for stock */
@@ -54,8 +54,11 @@ export interface GarageHandlers {
   playerLook(): CarLook;
   /** Typing Race (owner 2026-10-19). */
   onTyping(): void;
+  /** Drift (owner, V0.18.0): start a run / pick the course */
+  onDrift(): void;
+  onDriftCourse(id: string): void;
   /** Settings ▸ Controls: bind a key (code) to an action, or reset a mode (code = null). */
-  onKeyBind(mode: 'drag' | 'typing', action: string, code: string | null): void;
+  onKeyBind(mode: 'drag' | 'typing' | 'drift', action: string, code: string | null): void;
   /** Patch notes opened: remember the version so the NEW tag goes away. */
   onNotesSeen(): void;
   /** Daily (owner Q150–Q151): claim a task (i), the all-three bonus (-1), or today's calendar day. */
@@ -73,7 +76,7 @@ export type Panel = 'profile' | 'garage' | 'upgrades' | 'parts' | 'catalog' | 'd
 // work = the car Parts / Upgrades act on (the one in use, or the one picked in the Garage); back = panel to return to
 /** Last test run in Upgrades (C11): which car + set-up it was for, its rows, and the run before it (for the before → after). */
 export const dynoState: { car: string; key: string; rows: DynoRow[]; prev?: { key: string; rows: DynoRow[] } } = { car: '', key: '', rows: [] };
-export const ui = { kmode: 'drag' as 'drag' | 'typing', capture: '' as string, kmsg: '', panel: null as Panel, back: null as Panel, work: '', gsel: '', dial: false, favOnly: false, gtab: 'cars' as 'cars' | 'boss', sellArm: '', raceMenu: false, part: { slot: 'paint' as PartSlot | 'paint', sel: '' }, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
+export const ui = { kmode: 'drag' as 'drag' | 'typing' | 'drift', capture: '' as string, kmsg: '', panel: null as Panel, back: null as Panel, work: '', gsel: '', dial: false, favOnly: false, gtab: 'cars' as 'cars' | 'boss', sellArm: '', raceMenu: false, part: { slot: 'paint' as PartSlot | 'paint', sel: '' }, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
 /** Scroll positions kept between re-renders (strip: -1 = not set yet; stripFocus = centre on your level next time). */
 export const scroll = { cat: 0, part: 0, gar: 0, strip: -1, stripFocus: false };
 export function resetGarageUI() { ui.panel = null; ui.back = null; ui.dial = false; ui.raceMenu = false; }

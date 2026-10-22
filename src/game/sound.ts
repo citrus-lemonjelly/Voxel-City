@@ -192,3 +192,23 @@ export const keyClick = (ok: boolean) => ok ? noise(0.03, 3200 + Math.random() *
 export const nitroSound = () => { noise(0.9, 5000, 0.6, 0.1, 'highpass'); tone(110, 0.3, 'sine', 0.1, 60); };
 export const uiTick = () => noise(0.025, 2200, 3, 0.05);
 export const winSound = (won: boolean) => won ? [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.18, 'triangle', 0.08, undefined, i * 0.09)) : [392, 330, 262].forEach((f, i) => tone(f, 0.22, 'triangle', 0.06, undefined, i * 0.12));
+
+// ---- Drift (owner, V0.18.0): your engine, a tyre squeal while sliding (louder with the angle), chimes for clean drifts ----
+const dseen = { ev: -1, lights: -1, squeal: 0 };
+export function driftReset(me: Body = 'hatch') { voices[0] = me; dseen.ev = -1; dseen.lights = -1; dseen.squeal = 0; }
+export function driftSound(rpm: number, redline: number, gas: boolean, sliding: number, green: boolean, t0: number, ev?: { text: string; t: number }) {
+  if (!ready()) return;
+  const t = ac!.currentTime, e = engine(0);
+  e?.set(rpm, redline, gas ? 1 : 0.3, 0.11, false, t);
+  const lit = green ? 3 : Math.min(3, Math.floor(t0));
+  if (lit !== dseen.lights) { if (lit > 0 && lit < 3) tone(440, 0.14, 'square', 0.07); if (lit === 3 && green) tone(880, 0.35, 'square', 0.08); dseen.lights = lit; }
+  if (sliding > 0.05 && t > dseen.squeal) { dseen.squeal = t + 0.22; noise(0.3, 1500 + sliding * 900, 6, 0.03 + sliding * 0.05); }
+  if (ev && ev.t !== dseen.ev) {
+    dseen.ev = ev.t;
+    if (/Perfect entry/.test(ev.text)) { tone(1046, 0.12, 'triangle', 0.09); tone(1568, 0.22, 'triangle', 0.08, undefined, 0.07); }
+    else if (/entry/.test(ev.text)) tone(784, 0.12, 'triangle', 0.07);
+    else if (/Clean|Linked/.test(ev.text)) [659, 784, 1046].forEach((f, i) => tone(f, 0.14, 'triangle', 0.08, undefined, i * 0.06));
+    else if (/Spin/.test(ev.text)) { noise(1.0, 900, 1, 0.12); tone(140, 0.4, 'sawtooth', 0.05, 70); }
+    else if (/Straightened|Chain lost/.test(ev.text)) tone(220, 0.2, 'triangle', 0.06, 160);
+  }
+}

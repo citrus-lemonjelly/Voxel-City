@@ -76,6 +76,35 @@ const NITROUS_D: NitrousTier[] = [
     { tier: 4, boost: 0.19, seconds: 2.3, massAdd: 0.010, price: 0, label: 'Wet kit' },
     { tier: 5, boost: 0.24, seconds: 2.6, massAdd: 0.012, price: 0, label: 'Twin bottles' },
 ];
+// ---- Drift parts (owner E6, V0.18.0): only change Drift. They live beside the drag parts in Upgrades ▸ Drift. ----
+/** Drift tyres: a wider rev band (easier to hold) — `band` = extra band width as a share of redline. */
+export interface DriftTyreTier { tier: Tier; band: number; price: number; label: string }
+/** Limited-slip differential: steadier revs while sliding (`steady` = rev rate ×) and more speed kept (`keep` ×). */
+export interface LsdTier { tier: Tier; steady: number; keep: number; price: number; label: string }
+/** Steering-angle kit: more lock — a bigger angle before a spin (`angle` degrees), so more points and room to recover. */
+export interface AngleTier { tier: Tier; angle: number; price: number; label: string }
+const DTYRES_D: DriftTyreTier[] = [
+    { tier: 1, band: 0.000, price: 0, label: 'Street tyres' },
+    { tier: 2, band: 0.012, price: 0, label: 'Drift compound' },
+    { tier: 3, band: 0.024, price: 0, label: 'Hard rears' },
+    { tier: 4, band: 0.036, price: 0, label: 'Pro drift tyres' },
+    { tier: 5, band: 0.050, price: 0, label: 'Competition drift' },
+];
+const LSD_D: LsdTier[] = [
+    { tier: 1, steady: 1.00, keep: 1.00, price: 0, label: 'Open diff' },
+    { tier: 2, steady: 0.95, keep: 1.02, price: 0, label: '1-way LSD' },
+    { tier: 3, steady: 0.90, keep: 1.04, price: 0, label: '1.5-way LSD' },
+    { tier: 4, steady: 0.86, keep: 1.06, price: 0, label: '2-way LSD' },
+    { tier: 5, steady: 0.82, keep: 1.08, price: 0, label: 'Welded diff' },
+];
+const ANGLE_D: AngleTier[] = [
+    { tier: 1, angle: 0, price: 0, label: 'Stock steering' },
+    { tier: 2, angle: 3, price: 0, label: 'Spacers' },
+    { tier: 3, angle: 6, price: 0, label: 'Modified knuckles' },
+    { tier: 4, angle: 9, price: 0, label: 'Angle kit' },
+    { tier: 5, angle: 12, price: 0, label: 'Super lock' },
+];
+
 /** Where the turbo comes on, as a share of redline: none below `from`, full boost from `full` up (smooth between). */
 export const SPOOL = { from: 0.45, full: 0.80 };
 
@@ -99,8 +128,13 @@ export const LEAGUE_EFFECT: Record<PartLeague, number> = { D: 1, C: 0.38, B: 0.6
 export type PerfKind = 'engine' | 'trans' | 'tires' | 'weight' | 'turbo' | 'nitrous';
 export const PERF_KINDS: PerfKind[] = ['engine', 'trans', 'tires', 'weight', 'turbo', 'nitrous'];
 export const PERF_LABEL: Record<PerfKind, string> = { engine: 'Engine', trans: 'Transmission', tires: 'Tyres', weight: 'Weight', turbo: 'Turbo', nitrous: 'Nitrous' };
+/** Drift-only parts (owner E6, V0.18.0); missing on older saves = tier 1. */
+export type DriftKind = 'dtyres' | 'lsd' | 'angle';
+export const DRIFT_KINDS: DriftKind[] = ['dtyres', 'lsd', 'angle'];
+export type AnyKind = PerfKind | DriftKind;
+export const PART_LABEL: Record<AnyKind, string> = { ...PERF_LABEL, dtyres: 'Drift tyres', lsd: 'Differential', angle: 'Steering lock' };
 /** A car's performance set-up: a tier per part + its gearing (missing gearing = balanced). */
-export type Tune = Record<PerfKind, Tier> & { gearing?: Gearing; /** custom ratio per gear — used with Transmission T5 (V0.17.0) */ ratios?: number[];
+export type Tune = Record<PerfKind, Tier> & Partial<Record<DriftKind, Tier>> & { gearing?: Gearing; /** custom ratio per gear — used with Transmission T5 (V0.17.0) */ ratios?: number[];
   /** preset gearing (Short / Balanced / Long) OR custom ratios — one or the other (owner, V0.17.1). Missing: custom if ratios were saved */ gearMode?: 'preset' | 'custom' };
 /** Which gear setup a tune uses. Custom needs Transmission T5 fitted; otherwise the preset gearing applies. */
 export const usesCustom = (t: Partial<Tune>) => t.trans === 5 && (t.gearMode ?? (t.ratios?.length ? 'custom' : 'preset')) === 'custom';
@@ -126,9 +160,9 @@ export const allAt = (t: Tier, gearing?: Gearing): Tune => ({ engine: t, trans: 
 export const fullTune = (t: Partial<Tune> | undefined): Tune => ({ ...STOCK_TUNE, ...(t || {}) });
 
 // Prices come from the economy file (PART_PRICES × LEAGUE_SCALE); the tier effects above are the same in every league for now.
-const priced = <T extends { price: number; tier: Tier }>(rows: T[], kind: PerfKind, l: PartLeague): T[] => rows.map(r => ({ ...r, price: partPrice(kind, r.tier, l) }));
+const priced = <T extends { price: number; tier: Tier }>(rows: T[], kind: AnyKind, l: PartLeague): T[] => rows.map(r => ({ ...r, price: partPrice(kind, r.tier, l) }));
 const LG: PartLeague[] = ['D', 'C', 'B', 'A', 'S'];
-const perLeague = <T extends { price: number; tier: Tier }>(rows: T[], kind: PerfKind) => Object.fromEntries(LG.map(l => [l, priced(rows, kind, l)])) as Record<PartLeague, T[]>;
+const perLeague = <T extends { price: number; tier: Tier }>(rows: T[], kind: AnyKind) => Object.fromEntries(LG.map(l => [l, priced(rows, kind, l)])) as Record<PartLeague, T[]>;
 export const ENGINE = perLeague(ENGINE_D, 'engine');
 /** Gearboxes by league (owner 2026-10-22, V0.16.1): A cars go to 7 gears and S cars to 8 — gears per tier [T1…T5] below; D, C
  *  and B keep the 5-speed → 6-speed boxes. Extra gears sit between the same first and top ratios (closer spacing), and the
@@ -149,8 +183,16 @@ export const TIRES = perLeague(TIRES_D, 'tires');
 export const WEIGHT = perLeague(WEIGHT_D, 'weight');
 export const TURBO = perLeague(TURBO_D, 'turbo');
 export const NITROUS = perLeague(NITROUS_D, 'nitrous');
+export const DTYRES = perLeague(DTYRES_D, 'dtyres');
+export const LSD = perLeague(LSD_D, 'lsd');
+export const ANGLE = perLeague(ANGLE_D, 'angle');
 /** A part's tier row (label + price) for any kind. */
-export const PART_TABLE: Record<PerfKind, Record<PartLeague, { tier: Tier; price: number; label: string }[]>> = { engine: ENGINE, trans: TRANSMISSION, tires: TIRES, weight: WEIGHT, turbo: TURBO, nitrous: NITROUS };
+export const PART_TABLE: Record<AnyKind, Record<PartLeague, { tier: Tier; price: number; label: string }[]>> = { engine: ENGINE, trans: TRANSMISSION, tires: TIRES, weight: WEIGHT, turbo: TURBO, nitrous: NITROUS, dtyres: DTYRES, lsd: LSD, angle: ANGLE };
+/** What a tune's drift parts do (the same in every league). */
+export function driftKitOf(t: Partial<Tune>) {
+  const ty = DTYRES_D[(t.dtyres ?? 1) - 1], l = LSD_D[(t.lsd ?? 1) - 1], a = ANGLE_D[(t.angle ?? 1) - 1];
+  return { band: ty.band, steady: l.steady, keep: l.keep, angle: a.angle };
+}
 
 // Launch window (hold to rev, release on green): RPM at release as a fraction of redline (R9).
 export const LAUNCH = { perfectMin: 0.55, perfectMax: 0.72, goodPad: 0.10, bogPenalty: 0.55, spinSeconds: 0.7, spinGrip: 0.55 };

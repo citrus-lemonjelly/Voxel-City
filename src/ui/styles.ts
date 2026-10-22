@@ -427,4 +427,41 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .reward-pop .rp-title{color:var(--accent);font-size:14px;letter-spacing:.1em}
 .reward-pop .rp-car{width:296px;height:124px;image-rendering:pixelated}
 .reward-pop b.hd{font-size:18px}.reward-pop span{font-size:12px;color:var(--dim);margin-bottom:6px}
+/* Drift HUD (owner, V0.18.0): score top-left of the strip, ghost rival top-right, the turn card above the gauge, the live drift
+   points over the car; a dash plate right of the gauge holds the Drift button beside the gas pedal. Steady — no blinking. */
+.dhud .d-score,.dhud .d-rival{position:absolute;top:14px;display:flex;flex-direction:column;align-items:flex-start;gap:1px;padding:7px 12px 8px;min-width:132px}
+.dhud .d-score{left:20px}.dhud .d-rival{right:20px;align-items:flex-end}
+.dhud .d-lbl{font:700 11px system-ui;letter-spacing:.08em;text-transform:uppercase;color:#9aa3b5}
+.dhud .d-score b,.dhud .d-rival b{font-size:26px;line-height:1.1;color:#e9ecf2}
+.dhud .d-rival b{color:#9fb3c4}
+.dhud .d-chain{font-size:14px;color:#7d8290}.dhud .d-chain.hot{color:#f2c230}
+.dhud .d-turn{position:absolute;left:50%;bottom:calc(250px * var(--hud-scale,1) + 46px);transform:translateX(-50%);display:none;align-items:center;gap:10px;padding:8px 14px;font:700 13px system-ui;color:#e9ecf2;white-space:nowrap}
+.dhud .d-turn.on{display:flex}
+.dhud .d-turn .d-arrow{font:700 22px system-ui;color:#f2c230;line-height:1}
+.dhud .d-turn i{font-style:normal;color:#9aa3b5;min-width:44px}
+.dhud .d-turn .d-bar{position:relative;width:120px;height:12px;background:#1e2129;box-shadow:inset 2px 2px 0 #121418,inset -2px -2px 0 #2c313d}
+.dhud .d-turn .d-bar u{position:absolute;left:0;top:2px;bottom:2px;background:#5a5f6d;text-decoration:none}
+.dhud .d-turn .d-bar em{position:absolute;right:2px;top:0;bottom:0;width:10px;background:#2d5a3e}
+.dhud .d-turn.near .d-bar u{background:#f2a43a}
+.dhud .d-turn.go{box-shadow:inset 3px 3px 0 #3f4555,inset -3px -3px 0 #15171d,0 0 0 2px #4ade80}
+.dhud .d-turn.go .d-bar u{background:#4ade80}.dhud .d-turn.go i{color:#4ade80}
+.dhud .d-run{position:absolute;left:50%;top:38%;transform:translateX(-50%);display:none;flex-direction:column;align-items:center;gap:2px;text-shadow:0 2px 0 #000,0 0 6px #000;pointer-events:none}
+.dhud .d-run.on{display:flex}
+.dhud .d-run b{font-size:30px;color:#e9ecf2}.dhud .d-run span{font:700 13px system-ui;color:#cfd4de}
+.dhud .d-run.z-perfect b,.dhud .d-run.z-perfect span{color:#4ade80}.dhud .d-run.z-out span{color:#f2a43a}
+.dhud .d-run b.banked{color:#f2c230;font-size:34px}
+.dhud .grade{bottom:auto;top:30%}
+.dhud .d-bay{position:absolute}.dhud .d-plate{position:absolute;left:0;top:0;overflow:visible}
+.dhud .d-btn,.dhud .pedal{position:absolute;pointer-events:none}
+.dhud .d-btn svg{display:block}
+.dhud .d-btn{transition:transform 70ms linear,filter 70ms linear}.dhud .d-btn.down{transform:translateY(4px);filter:brightness(.8)}
+.dhud .d-btn.d-brake.down{transform:rotate(-6deg) translateY(2px);transform-origin:40% 90%}
+.dhud .pedal{transform:perspective(320px) rotateX(16deg)}
+.hud2.dhud.phone .d-score,.hud2.dhud.phone .d-rival{top:6px;transform:scale(.75);transform-origin:0 0;min-width:110px}
+.hud2.dhud.phone .d-rival{transform-origin:100% 0}
+.hud2.dhud.phone .d-turn{bottom:auto;top:96px;transform:translateX(-50%) scale(.85);transform-origin:50% 0}
+.hud2.dhud.phone .d-run{top:30%}
+.hud2.dhud .d-phdrift .d-btn{position:relative}
+.hud2.dhud .d-phzone{left:0;width:30%}
+.hud2.dhud.swap .d-phzone{left:auto;right:0}
 `;

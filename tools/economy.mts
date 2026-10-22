@@ -21,8 +21,8 @@ const table = (title: string, head: string[], rows: (string | number)[][]) => {
   all.forEach((r, j) => { out.push(r.map((c, i) => (i ? c.padStart(w[i]) : c.padEnd(w[i]))).join('  ')); if (!j) out.push(w.map(n => '-'.repeat(n)).join('  ')); });
 };
 
-table('VX per minute (typical player, Medium)', ['League', 'Street Race', `Typing ${P.wpm} wpm`, 'Typing 70 wpm', 'Typing ÷ Street'],
-  (LEAGUES as Lg[]).map(l => [l, f(dragPerMin(l)), f(typingPerMin(l)), f(typingPerMin(l, 70)), (typingPerMin(l) / dragPerMin(l)).toFixed(2)]));
+table('VX per minute (typical player, Medium)', ['League', 'Street Race', `Typing ${P.wpm} wpm`, 'Typing 70 wpm', 'Typing ÷ Street', 'Drift', 'Drift ÷ Street'],
+  (LEAGUES as Lg[]).map(l => [l, f(dragPerMin(l)), f(typingPerMin(l)), f(typingPerMin(l, 70)), (typingPerMin(l) / dragPerMin(l)).toFixed(2), f(E.driftPerMin(l)), (E.driftPerMin(l) / dragPerMin(l)).toFixed(2)]));
 
 table('Hours to finish a league (buy its cheapest car + max it; the Strip pays along the way)',
   ['League', 'Car', 'Upgrades', 'Strip pays', 'Min per upgrade', 'Hours', 'Target', ''],

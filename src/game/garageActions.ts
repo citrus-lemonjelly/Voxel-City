@@ -4,7 +4,7 @@
 import { SaveV1, writeSave, addCar, switchCar, removeCar, slotsUsed, slotsTotal, sellBlock, RaceDist } from '../save/save';
 import { CARS, carName, carPaint } from '../data/cars';
 import { GARAGE, sellValue, EcoLeague, cosmeticPrice, PAINT, PLATE_TEXT, repaintPrice, Difficulty } from '../data/economy';
-import { Tier, PerfKind, PART_TABLE, Gearing, GEARING_BY_ID } from '../data/parts';
+import { Tier, AnyKind, PART_TABLE, Gearing, GEARING_BY_ID } from '../data/parts';
 import { PART_BY_ID, ownsPart, isFactory } from '../data/visualParts';
 import { claimDaily, claimCalendar, paintName } from './daily';
 import { cleanPlate, DEFAULT_PLATE } from '../render/plate';
@@ -126,16 +126,16 @@ export function garageActions(ctx: GarageActionContext) {
   function setDistance(d: RaceDist) { const save = ctx.save(); save.raceDist = d; writeSave(save); show(); }
   function setDifficulty(d: Difficulty) { const save = ctx.save(); save.raceDiff = d; writeSave(save); show(); }
   /** Buy / fit a performance tier on a car (the one in use, or any owned car from the Garage). */
-  function buyOrEquip(kind: PerfKind, tier: Tier, carId = ctx.save().carId) {
+  function buyOrEquip(kind: AnyKind, tier: Tier, carId = ctx.save().carId) {
     const save = ctx.save(); if (!save.cars[carId]) return;
     if (CARS[carId].unique) return show('Boss cars come as they are — they can\'t be upgraded');
     const lg = CARS[carId].league, def = PART_TABLE[kind][lg][tier - 1];
     const T = carId === save.carId ? save : save.cars[carId];        // the car in use keeps its tiers at the top of the save
     let msg: string | undefined;
-    if (!T.owned[kind].includes(tier)) {
+    if (!(T.owned[kind] ?? [1]).includes(tier)) {
       if (!DEV.unlimited && save.voxels < def.price) return show(`Need ${(def.price - save.voxels).toLocaleString()} more VX for ${def.label}`);
       if (!DEV.unlimited) save.voxels -= def.price;                 // test console: unlimited = free purchases
-      T.owned[kind] = [...T.owned[kind], tier].sort() as Tier[];
+      T.owned[kind] = [...(T.owned[kind] ?? [1]), tier].sort() as Tier[];
       msg = `Bought ${def.label}`;
     }
     T.equipped[kind] = tier; writeSave(save);

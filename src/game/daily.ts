@@ -24,7 +24,8 @@ export let dayOffset = 0;
 export const shiftDay = (n = 1) => { dayOffset += n; };
 /** Today's local date as YYYY-MM-DD. */
 export function today(): string {
-  const d = new Date(Date.now() + dayOffset * 86_400_000);
+  // whole calendar days (V0.18.0 fix): adding 24 h could land on the same date across a clock change (the test console's day skip)
+  const n = new Date(), d = new Date(n.getFullYear(), n.getMonth(), n.getDate() + dayOffset);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 const daySeed = (day: string) => +day.replace(/-/g, '') * 7919;

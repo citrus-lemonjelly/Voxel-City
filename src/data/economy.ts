@@ -65,6 +65,17 @@ export function racePay(league: EcoLeague, diff: Difficulty, won: boolean, distM
   return { result: round(won ? win : win * ECONOMY.lossShare), perfectShift: round(win * ECONOMY.perfectShiftBonus), perfectLaunch: round(win * ECONOMY.perfectLaunchBonus), newBest: round(win * ECONOMY.newBestBonus) };
 }
 
+// ---------------- Drift (owner, V0.18.0) ----------------
+/** Drift pay: a win is k × a Street Race win × the league factor (a run is ~25 s in every league; Street Races get much shorter
+ *  in the fast leagues, so those leagues' drift pays more to keep up), a loss a quarter; bonuses as a share of the win:
+ *  each Perfect entry, a clean run (no spins), a new best score on that course. Tuned so a typical player earns about the same VX
+ *  a minute as in Street Races (`npm run economy`, sim check "drift pay parity"). */
+export const DRIFT_PAY = { k: 1.16, lossShare: 0.25, perfectEntry: 0.03, clean: 0.1, newBest: 0.1, league: { D: 0.93, C: 1.19, B: 1.2, A: 1.28, S: 1.55 } as Record<EcoLeague, number> };
+export function driftPay(league: EcoLeague, diff: Difficulty, won: boolean) {
+  const win = ECONOMY.winPayout * LEAGUE_SCALE[league] * DIFFICULTY[diff].pay * DRIFT_PAY.k * DRIFT_PAY.league[league];
+  return { result: round(won ? win : win * DRIFT_PAY.lossShare), perfectEntry: round(win * DRIFT_PAY.perfectEntry), clean: round(win * DRIFT_PAY.clean), newBest: round(win * DRIFT_PAY.newBest) };
+}
+
 // ---------------- Performance parts ----------------
 /** League D prices per tier (T1 = stock, free); other leagues × LEAGUE_SCALE. Effects live in parts.ts. */
 /** Tuning Update (owner Q172): tyres 60 %, weight 70 % and turbo 100 % of the engine's prices. */
@@ -73,11 +84,14 @@ export const PART_PRICES = {
   tires: [0, 2_400, 4_800, 8_400, 13_200], weight: [0, 2_800, 5_600, 9_800, 15_400], turbo: [0, 4_000, 8_000, 14_000, 22_000],
   nitrous: [0, 3_000, 6_000, 10_500, 16_500],   // V0.16.0 — first guess, to be timed in the economy pass (Q181)
 };
-export type PartKind = keyof typeof PART_PRICES;
+/** Drift parts (owner E6, V0.18.0): Drift only, so they're cheaper than the drag parts and don't count toward the league goal. */
+export const DRIFT_PART_PRICES = { dtyres: [0, 1_800, 3_600, 6_300, 9_900], lsd: [0, 2_200, 4_400, 7_700, 12_100], angle: [0, 1_600, 3_200, 5_600, 8_800] };
+export type PartKind = keyof typeof PART_PRICES | keyof typeof DRIFT_PART_PRICES;
+const ALL_PART_PRICES: Record<PartKind, number[]> = { ...PART_PRICES, ...DRIFT_PART_PRICES };
 /** Economy pass (owner Q181, V0.16.0): part prices per league on top of LEAGUE_SCALE, so each league takes its target time with
  *  every part (nitrous included) — D was 4.1 h (target 2–3), S 2.9 h (target 3–6). `npm run economy` shows the result. */
 export const PART_LEAGUE: Record<EcoLeague, number> = { D: 0.66, C: 1, B: 1, A: 1, S: 1.25 };   // V0.17.1: S 1.1 → 1.25
-export const partPrice = (kind: PartKind, tier: number, league: EcoLeague) => round(PART_PRICES[kind][tier - 1] * LEAGUE_SCALE[league] * PART_LEAGUE[league], 50);
+export const partPrice = (kind: PartKind, tier: number, league: EcoLeague) => round(ALL_PART_PRICES[kind][tier - 1] * LEAGUE_SCALE[league] * PART_LEAGUE[league], 50);
 
 // ---------------- Visual parts (cosmetic, owner 2026-10-19) ----------------
 /** Bought once, fit every car (Q110). Common/rare in VX, the special ones in Crowns (Q111). Factory parts are free. */
@@ -198,6 +212,8 @@ export const PACING = {
   dragOverhead: 7, dragWinRate: 0.7, perfectShiftsWin: 4, perfectShiftsLoss: 2, perfectLaunchRate: 0.6,
   /** the fastest earner: Hard every time, wins nearly all, every shift and launch Perfect, a quicker (upgraded) car, no pause */
   grinder: { winRate: 0.95, perfectShare: 1, launchRate: 1, raceShare: 0.7, overhead: 4, dist: 600 },
+  /** Drift (V0.18.0): a run's length per league (s, `npm run drift-pace`), countdown + results between runs, and the typical player */
+  driftSec: { D: 24.6, C: 24.5, B: 23.3, A: 22.7, S: 22.8 } as Record<EcoLeague, number>, driftOverhead: 8, driftWinRate: 0.6, perfectEntries: 5, cleanRate: 0.6,
   /** Typing Race: speed, Medium passage length (chars), countdown + results (s) */
   wpm: 40, typingChars: 190, typingOverhead: 13, typingWinRate: 0.5, typingOtherPlace: 2, accuracyRate: 0.6,
 };
@@ -210,6 +226,12 @@ export function dragPerMin(l: EcoLeague, who: 'typical' | 'grinder' = 'typical')
   const loss = lo.result + (hard ? ps(4 * G.perfectShare) : ps(P.perfectShiftsLoss)) + (hard ? G.launchRate : P.perfectLaunchRate) * w.perfectLaunch;
   const rate = hard ? G.winRate : P.dragWinRate, sec = hard ? P.raceSec[l] * G.raceShare + G.overhead : P.raceSec[l] + P.dragOverhead;
   return (rate * win + (1 - rate) * loss) / sec * 60;
+}
+/** Drift VX a minute for the typical player (Medium). */
+export function driftPerMin(l: EcoLeague) {
+  const P = PACING, w = driftPay(l, 'medium', true), lo = driftPay(l, 'medium', false);
+  const extra = P.perfectEntries * w.perfectEntry + P.cleanRate * w.clean;
+  return (P.driftWinRate * w.result + (1 - P.driftWinRate) * lo.result + extra) / (P.driftSec[l] + P.driftOverhead) * 60;
 }
 /** Perfect-shift pay per Perfect shift for a car with this many shifts: the same total (4 × the reference) whatever the gearbox
  *  (V0.17.1 — an 8-speed used to earn 7 bonuses to a 5-speed's 4). */

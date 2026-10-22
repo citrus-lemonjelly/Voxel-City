@@ -26,6 +26,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.0', date: '2026-10-22', title: 'Drift: drag, slide, drag', header: 'Drift Update',
+    added: [
+      'Drift — a new mode in the Race menu. Launch and shift up like a drag race, drift through 3–5 turns, then drag to the finish again.',
+      'In a turn: tap Drift as you reach it, then work the gas to keep the needle inside the green rev band on the gauge. Too many revs and you spin; too few and the car straightens up.',
+      'Points for angle, for holding a drift to the end of its turn and for staying in the band (Perfect in the middle). Clean drifts in a row raise a chain multiplier up to ×3; esses link straight into the next turn.',
+      'A Perfect launch and Perfect shifts score points too.',
+      'Four night districts, each with its own winding road and a new layout every run: Downtown, Harbour, The Ridge and Neon Row. It rains on 4 runs in 10.',
+      'A ghost rival drives the same road; beat its score to win. Easy, Medium and Hard set how close it gets.',
+      'Drift button beside the gas pedal, in four looks to try: Handbrake, Pedal, Puck and Key (Settings ▸ Keybinds ▸ Drift).',
+      'Drift parts in Upgrades: Drift tyres (a wider rev band), Differential (steadier revs in a slide) and Steering lock (more angle before a spin). They only change Drift.',
+      'Drift pays about the same VX a minute as Street Races, plus Perfect entry, clean run and new best score bonuses.',
+    ],
+    changed: [
+      'Settings has header bars: Display, Audio (sound and engine volume) and Keybinds (Drag Race, Typing Race and Drift keys).',
+    ],
+    fixed: [
+      'The test console\'s day skip could land on the same date around a clock change.',
+    ],
+  },
+  {
     version: '0.17.1', date: '2026-10-22', title: 'Fairer pay, a 1200 m track and a deeper muscle-car rumble',
     added: [
       'A 1200 m track: pick it beside 600 / 700 / 800 m. It pays ×1.4 and keeps its own best time.',

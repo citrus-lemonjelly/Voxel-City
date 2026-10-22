@@ -6,18 +6,19 @@ import { Race, Racer, COUNTDOWN } from '../game/race';
 import { LAUNCH } from '../data/parts';
 import { PADDLES, PaddleSkin, PedalStyle } from '../data/cosmetics';
 import { BEVEL } from './themeBevel';
+import { drawDriftButton } from './driftButton';
 
 const NS = 'http://www.w3.org/2000/svg';
-const svgEl = (tag: string, attrs: Record<string, string | number>, parent?: Element) => {
+export const svgEl = (tag: string, attrs: Record<string, string | number>, parent?: Element) => {
   const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, String(attrs[k])); if (parent) parent.appendChild(e); return e;
 };
-const h = (html: string) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild as HTMLElement; };
+export const h = (html: string) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild as HTMLElement; };
 
 // HUD numerals: the block style of the street signs at 5×7 so they read at a glance
-const F7: Record<string, string[]> = { '0': ['01110', '10001', '10011', '10101', '11001', '10001', '01110'], '1': ['00100', '01100', '00100', '00100', '00100', '00100', '01110'], '2': ['01110', '10001', '00001', '00010', '00100', '01000', '11111'], '3': ['11110', '00001', '00001', '01110', '00001', '00001', '11110'], '4': ['00010', '00110', '01010', '10010', '11111', '00010', '00010'], '5': ['11111', '10000', '11110', '00001', '00001', '10001', '01110'], '6': ['00110', '01000', '10000', '11110', '10001', '10001', '01110'], '7': ['11111', '00001', '00010', '00100', '01000', '01000', '01000'], '8': ['01110', '10001', '10001', '01110', '10001', '10001', '01110'], '9': ['01110', '10001', '10001', '01111', '00001', '00010', '01100'], 'N': ['10001', '11001', '10101', '10011', '10001', '10001', '10001'], ' ': ['00000', '00000', '00000', '00000', '00000', '00000', '00000'] };
-const F5: Record<string, string[]> = { P: ['110', '101', '110', '100', '100'], E: ['111', '100', '110', '100', '111'], R: ['110', '101', '110', '101', '101'], F: ['111', '100', '110', '100', '100'], C: ['011', '100', '100', '100', '011'], T: ['111', '010', '010', '010', '010'], G: ['011', '100', '101', '101', '011'], O: ['111', '101', '101', '101', '111'], D: ['110', '101', '101', '101', '110'], A: ['010', '101', '111', '101', '101'], L: ['100', '100', '100', '100', '111'], S: ['011', '100', '010', '001', '110'], H: ['101', '101', '111', '101', '101'], I: ['111', '010', '010', '010', '111'], B: ['110', '101', '110', '101', '110'], W: ['101', '101', '111', '111', '101'], N: ['110', '101', '101', '101', '101'], U: ['101', '101', '101', '101', '111'], Y: ['101', '101', '010', '010', '010'], K: ['101', '110', '100', '110', '101'], '!': ['010', '010', '010', '000', '010'], '1': ['010', '110', '010', '010', '111'], '2': ['110', '001', '010', '100', '111'], '3': ['110', '001', '010', '001', '110'], V: ['101', '101', '101', '101', '010'], '-': ['000', '000', '111', '000', '000'], ' ': ['000', '000', '000', '000', '000'] };
+export const F7: Record<string, string[]> = { '0': ['01110', '10001', '10011', '10101', '11001', '10001', '01110'], '1': ['00100', '01100', '00100', '00100', '00100', '00100', '01110'], '2': ['01110', '10001', '00001', '00010', '00100', '01000', '11111'], '3': ['11110', '00001', '00001', '01110', '00001', '00001', '11110'], '4': ['00010', '00110', '01010', '10010', '11111', '00010', '00010'], '5': ['11111', '10000', '11110', '00001', '00001', '10001', '01110'], '6': ['00110', '01000', '10000', '11110', '10001', '10001', '01110'], '7': ['11111', '00001', '00010', '00100', '01000', '01000', '01000'], '8': ['01110', '10001', '10001', '01110', '10001', '10001', '01110'], '9': ['01110', '10001', '10001', '01111', '00001', '00010', '01100'], 'N': ['10001', '11001', '10101', '10011', '10001', '10001', '10001'], ' ': ['00000', '00000', '00000', '00000', '00000', '00000', '00000'] };
+export const F5: Record<string, string[]> = { P: ['110', '101', '110', '100', '100'], E: ['111', '100', '110', '100', '111'], R: ['110', '101', '110', '101', '101'], F: ['111', '100', '110', '100', '100'], C: ['011', '100', '100', '100', '011'], T: ['111', '010', '010', '010', '010'], G: ['011', '100', '101', '101', '011'], O: ['111', '101', '101', '101', '111'], D: ['110', '101', '101', '101', '110'], A: ['010', '101', '111', '101', '101'], L: ['100', '100', '100', '100', '111'], S: ['011', '100', '010', '001', '110'], H: ['101', '101', '111', '101', '101'], I: ['111', '010', '010', '010', '111'], B: ['110', '101', '110', '101', '110'], W: ['101', '101', '111', '111', '101'], N: ['110', '101', '101', '101', '101'], U: ['101', '101', '101', '101', '111'], Y: ['101', '101', '010', '010', '010'], K: ['101', '110', '100', '110', '101'], '!': ['010', '010', '010', '000', '010'], '1': ['010', '110', '010', '010', '111'], '2': ['110', '001', '010', '100', '111'], '3': ['110', '001', '010', '001', '110'], V: ['101', '101', '101', '101', '010'], '-': ['000', '000', '111', '000', '000'], ' ': ['000', '000', '000', '000', '000'] };
 /** Draw block text into an SVG group; returns its width. */
-function blockText(g: Element, str: string, font: Record<string, string[]>, cell: number, color: string, x0: number, y0: number, shadow = 0) {
+export function blockText(g: Element, str: string, font: Record<string, string[]>, cell: number, color: string, x0: number, y0: number, shadow = 0) {
   g.innerHTML = '';
   const gw = (font['1'] || font[' '])[0].length;
   [...str].forEach((ch, i) => (font[ch] || font[' ']).forEach((row, r) => [...row].forEach((b, c) => {
@@ -35,9 +36,9 @@ export const LIGHTS_STAY = 1.2;
 export const PEDAL_EXIT = { restMs: 500, dropMs: 900, foldDelayMs: 1300, foldMs: 700 };
 // Reserved (owner Q56): the nitrous badge — a small voxel circle with a blue voxel nitrous bottle — will sit at the
 // gauge's top-left, overlapping the downshift paddle. Owner will supply a rough drawing; nothing is drawn there yet.
-const D = 236, CX = D / 2, CY = D / 2, R = 92, N_DASH = 36, SWEEP0 = 210, SWEEP = 240;
-const ang = (f: number) => (SWEEP0 - f * SWEEP) * Math.PI / 180;
-const COL = { lit: '#eeeae0', unlit: '#474c5a', zone: '#4ade80', zoneOff: '#2d5a3e', red: '#e0261c', redOff: '#5a2a2c', gold: '#f2c230' };
+export const D = 236, CX = D / 2, CY = D / 2, R = 92, N_DASH = 36, SWEEP0 = 210, SWEEP = 240;
+export const ang = (f: number) => (SWEEP0 - f * SWEEP) * Math.PI / 180;
+export const COL = { lit: '#eeeae0', unlit: '#474c5a', zone: '#4ade80', zoneOff: '#2d5a3e', red: '#e0261c', redOff: '#5a2a2c', gold: '#f2c230' };
 
 export class Hud {
   el: HTMLElement;
@@ -63,7 +64,9 @@ export class Hud {
   private last = { gear: '', mph: -1, zone: '', grade: '', count: '' };
 
   constructor(root: HTMLElement, private race: Race, private player: Racer, private opp: Racer, opts: { oppName: string; paddle: string; paint?: string; showKeyHint: boolean; paddleShape?: 'arc' | 'tab'; pedal?: PedalStyle; /** bound key names (Settings ▸ Controls) */ keys?: { gas: string; up?: string; down: string; nitrous?: string };
-    /** Pedal mode: the pedal stays all race (owner 2026-10-21) */ drive?: 'classic' | 'pedal'; /** top-down car pictures for the progress bar */ icons?: { me: string; them: string }; /** rain: tell the player the road is wet */ wet?: boolean; /** phone race screen */ phone?: boolean; /** phone: pedal on the left */ swap?: boolean }) {
+    /** Pedal mode: the pedal stays all race (owner 2026-10-21) */ drive?: 'classic' | 'pedal'; /** top-down car pictures for the progress bar */ icons?: { me: string; them: string }; /** rain: tell the player the road is wet */ wet?: boolean; /** phone race screen */ phone?: boolean; /** phone: pedal on the left */ swap?: boolean;
+    /** Drift (owner, V0.18.0): the Drift button beside the gas pedal, and the rev band to show on the gauge instead of the shift zone while sliding */
+    drift?: { button: string; key: string }; zone?: () => [number, number] | null }) {
     root.innerHTML = '';
     this.gaugeMax = Math.ceil(player.stats.redline / 1000);
     const phone = !!opts.phone, pedalMode = opts.drive === 'pedal', gasKey = opts.keys?.gas ?? 'SPACE';
@@ -152,7 +155,10 @@ export class Hud {
     cluster.insertBefore(this.paddleEl, g); cluster.insertBefore(this.downEl, g);   // behind the gauge
     // ---- dash plate (owner): ONE see-through panel behind gauge + paddles + gas-pedal bay, stepped top-left corner and a
     //      stepped curve on the top-right. When the car launches the pedal drops away and the bay folds in (plate shrinks). ----
-    const PT = -16, PH = D - PT + 90, PWc = Math.round(GXO + CX + reach + 14), BAY = 86, PWf = PWc + BAY;
+    // Drift: the bay is wider — the Drift button stands in it beside the gas pedal
+    const dArt = opts.drift ? drawDriftButton(opts.drift.button, opts.drift.button === 'key' ? 3 : 4) : null, dW = dArt ? +dArt.getAttribute('width')! : 0, dH = dArt ? +dArt.getAttribute('height')! : 0;
+    this.zoneFn = opts.zone;
+    const PT = -16, PH = D - PT + 90, PWc = Math.round(GXO + CX + reach + 14), BAY = 86 + (dArt ? dW + 16 : 0), PWf = PWc + BAY;
     this.plateW = { compact: PWc, full: PWf };
     (plate as any).style.cssText = `left:0;top:${PT}px`;
     plate.setAttribute('height', String(PH));
@@ -176,12 +182,17 @@ export class Hud {
     this.pedalPod = h(`<div class="pedal-pod" style="left:${PWc}px;top:0;width:${BAY}px;height:${D}px"></div>`);
     const art = drawPedal(opts.pedal || 'alloy', skin, 4);
     const aw = +art.getAttribute('width')!;
-    this.pedalEl = h(`<div class="pedal" style="left:${(BAY - aw) / 2 - 4}px;top:34px"></div>`);
+    const gx = dArt ? dW + 16 : 0, GB = BAY - gx;                          // the gas pedal's part of the bay
+    this.pedalEl = h(`<div class="pedal" style="left:${gx + (GB - aw) / 2 - 4}px;top:34px"></div>`);
     this.pedalEl.appendChild(art);
     this.pedalPod.appendChild(this.pedalEl);
-    this.gasBtn = h(`<button class="paddle-hit" aria-label="Gas" style="left:0;top:${PT}px;width:${BAY}px;height:${D - PT}px"></button>`);
+    this.gasBtn = h(`<button class="paddle-hit" aria-label="Gas" style="left:${gx}px;top:${PT}px;width:${GB}px;height:${D - PT}px"></button>`);
     this.pedalPod.appendChild(this.gasBtn);
-    if (opts.showKeyHint) this.pedalPod.appendChild(h(`<div class="keylabels">${keyLabel('GAS', opts.keys?.gas ?? 'SPACE', BAY / 2 - 4, LY)}</div>`));
+    if (dArt) {
+      this.driftEl = h(`<div class="d-btn d-${opts.drift!.button}" style="position:absolute;left:6px;top:${34 + 132 - dH}px"></div>`); this.driftEl.appendChild(dArt); this.pedalPod.appendChild(this.driftEl);
+      this.driftBtn = h(`<button class="paddle-hit" aria-label="Drift" style="left:0;top:${PT}px;width:${gx}px;height:${D - PT}px"></button>`); this.pedalPod.appendChild(this.driftBtn);
+    }
+    if (opts.showKeyHint) this.pedalPod.appendChild(h(`<div class="keylabels">${dArt ? keyLabel('DRIFT', opts.drift!.key, 6 + dW / 2, LY) : ''}${keyLabel('GAS', opts.keys?.gas ?? 'SPACE', gx + GB / 2 - 4, LY)}</div>`));
     cluster.appendChild(this.pedalPod);
   }
   private oppName = 'Rival';
@@ -227,6 +238,10 @@ export class Hud {
   }
   /** Gas pedal press feedback: the pedal tips forward under your foot. */
   setGas(down: boolean) { this.pedalEl.classList.toggle('down', down); }
+  /** Drift button (Drift mode) press feedback */
+  setDrift(down: boolean) { this.driftEl?.classList.toggle('down', down); }
+  /** Drift mode: the Drift button (pointer target) */
+  driftBtn?: HTMLElement; private driftEl?: HTMLElement; private zoneFn?: () => [number, number] | null;
   /** Downshift paddle press feedback (mirror of the upshift paddle). */
   setDownPressed(down: boolean) { this.downEl.classList.toggle('down', down); }
 
@@ -254,7 +269,7 @@ export class Hud {
     // gauge
     const frac = Math.min(1, r.rpm / (this.gaugeMax * 1000));
     const red0 = s.redline / (this.gaugeMax * 1000);
-    const [z0r, z1r] = r.launched ? [s.trans.zoneCentre - s.trans.zoneWidth / 2, s.trans.zoneCentre + s.trans.zoneWidth / 2] : [s.launch.perfectMin, s.launch.perfectMax];
+    const [z0r, z1r] = this.zoneFn?.() ?? (r.launched ? [s.trans.zoneCentre - s.trans.zoneWidth / 2, s.trans.zoneCentre + s.trans.zoneWidth / 2] : [s.launch.perfectMin, s.launch.perfectMax]);
     const z0 = z0r * red0, z1 = z1r * red0, inZone = frac >= z0 && frac <= z1;
     const zoneKey = `${z0.toFixed(3)}`;
     const ring = inZone && (r.launched ? r.shifting <= 0 : true);           // steady glow in the zone, never blinks
@@ -282,10 +297,10 @@ export class Hud {
     // grade (steady, fades out — never flashes) and countdown
     const ev = r.lastEvent;
     let grade = '';
-    if (ev && t - ev.t < 0.9) grade = (/launch|Bog|Downshift|Over-rev|Too early|Grip back|Nitrous/i.test(ev.text) ? ev.text : `${ev.text} shift`).toUpperCase();
+    if (ev && t - ev.t < 0.9) grade = (/launch|Bog|Downshift|Over-rev|Too early|Grip back|Nitrous|entry|Clean|Linked|Spin|Straight|Chain|No turn/i.test(ev.text) ? ev.text : `${ev.text} shift`).toUpperCase();
     else if (this.race.green && !r.launched) grade = 'GO!';
     if (grade !== this.last.grade) {
-      const col = /PERFECT|GO!/.test(grade) ? COL.zone : /GOOD/.test(grade) ? '#5aa9ff' : /DOWNSHIFT|GRIP/.test(grade) ? COL.lit : '#f2a43a';
+      const col = /PERFECT|GO!|CLEAN|LINKED/.test(grade) ? COL.zone : /GOOD/.test(grade) ? '#5aa9ff' : /DOWNSHIFT|GRIP/.test(grade) ? COL.lit : '#f2a43a';
       const w = blockText(this.gradeG, grade.replace(/[^A-Z0-9! -]/g, ''), F5, 6, col, 0, 6, 3);
       this.gradeG.setAttribute('transform', `translate(${(520 - w) / 2} 0)`); this.last.grade = grade;
     }
@@ -357,7 +372,7 @@ function drawPaddle(k: PaddleSkin, cell: number, W: number, H: number, inside0: 
 
 /** Gas pedal art (owner: launch control). Three looks to choose from:
  *  alloy  = drilled aluminium race pedal; rubber = ribbed rubber pad in a metal frame; skin = matches the paddle skin. */
-function drawPedal(style: PedalStyle, k: PaddleSkin, cell: number): SVGElement {
+export function drawPedal(style: PedalStyle, k: PaddleSkin, cell: number): SVGElement {
   const W = 15, H = 30, HB = 3;                                      // pedal face + hinge block below it
   const p = svgEl('svg', { width: W * cell, height: (H + HB) * cell }) as SVGElement;
   const R = 3;
@@ -388,7 +403,7 @@ function drawPedal(style: PedalStyle, k: PaddleSkin, cell: number): SVGElement {
 }
 
 /** A label with a picture of the key to press (owner): small caps text above an off-white keycap. cx = centre x. */
-function keyLabel(text: string, key: string, cx: number, top: number) {
+export function keyLabel(text: string, key: string, cx: number, top: number) {
   const kw = key.length > 4 ? 58 : 46;
   return `<div class="keylabel" style="left:${Math.round(cx - 50)}px;top:${top}px"><span>${text}</span><i style="width:${kw}px">${key}</i></div>`;
 }

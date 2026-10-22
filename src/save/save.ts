@@ -1,7 +1,7 @@
 // Local save (P5: localStorage until the backend exists). Versioned so later steps can migrate old saves.
 import { ECONOMY, GARAGE } from '../data/economy';
 import { STARTER_CAR, CARS } from '../data/cars';
-import { Tier, PerfKind, PERF_KINDS, Tune, STOCK_TUNE } from '../data/parts';
+import { Tier, PerfKind, PERF_KINDS, Tune, STOCK_TUNE, DriftKind } from '../data/parts';
 import { PaddleShape, PedalStyle, STANDARD_PADDLE, STANDARD_PEDAL, STANDARD_SHAPES } from '../data/cosmetics';
 
 export interface SaveV1 {
@@ -55,6 +55,10 @@ export interface SaveV1 {
   slotsBought?: number;
   /** Today's three daily tasks (owner Q150): local date, task ids, progress, claimed. */
   daily?: { day: string; ids: string[]; prog: number[]; claimed: boolean[]; bonus: boolean };
+  /** Drift (owner, V0.18.0): the course picked in the race menu, and the best score per course. */
+  driftCourse?: string;
+  driftBest?: Record<string, number>;
+  driftRuns?: number;
   /** Login calendar (owner Q151): days claimed so far (0–28, then a new month) and the date of the last claim. */
   cal?: { n: number; last: string; month: number };
 }
@@ -64,7 +68,7 @@ export const RACE_DISTS: RaceDist[] = [600, 700, 800, 1200];
 /** Per-car drag-race record (owner Q138), counted from V0.6.1. */
 export interface CarRecord { races: number; wins: number; best: Record<number, number | null> }
 /** Performance tiers bought, per part (Tuning Update: tyres, weight, turbo join engine + transmission). */
-export type Owned = Record<PerfKind, Tier[]>;
+export type Owned = Record<PerfKind, Tier[]> & Partial<Record<DriftKind, Tier[]>>;
 export interface CarState {
   stats?: CarRecord;
   owned: Owned;
@@ -103,7 +107,9 @@ export interface Settings {
   /** phones: a short buzz on a Perfect shift (owner E4). Missing = on */
   buzz?: 'on' | 'off';
   /** key bindings (owner 2026-10-19; defaults in game/keys.ts) */
-  keys?: Partial<{ drag: Partial<Record<'gas' | 'up' | 'down' | 'nitrous', string>>; typing: Partial<Record<'nitro' | 'leave', string>> }>;
+  keys?: Partial<{ drag: Partial<Record<'gas' | 'up' | 'down' | 'nitrous', string>>; typing: Partial<Record<'nitro' | 'leave', string>>; drift: Partial<Record<'gas' | 'drift' | 'up' | 'down' | 'leave', string>> }>;
+  /** Drift button look (owner, V0.18.0; ui/driftButton.ts). Missing = brake */
+  dbtn?: string;
 }
 export const DEFAULT_SETTINGS: Settings = { camera: 'dynamic', time: 'day', nearSide: 'mixed', blur: 'low' };
 const KEY = 'voxelcity.save';

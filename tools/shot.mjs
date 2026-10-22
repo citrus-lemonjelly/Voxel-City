@@ -8,6 +8,8 @@
 //   jsfile:PATH     run a file of page code (anything too long or with ; for a js: step)
 //   hover:SELECTOR  move the mouse over an element                            touch             a touch-screen phone page (pointer:coarse)
 //   waitfor:WHAT    wait for a race moment: green · launch · results · nitro · perfect (a Perfect shift) · typing (Typing Race running)
+//                   · drift (a Drift run under way) · sliding (your car mid-drift)
+// Page errors and console errors are printed after the shots (V0.18.0), so a broken screen shows up without opening a browser.
 // Presets (T4, V0.16.0) — whole review sheets in one word instead of a list of steps:
 //   node tools/shot.mjs OUT.png --preset phone   every main screen on a 844 × 390 touch phone (+ race, Typing Race)
 //   node tools/shot.mjs OUT.png --preset pc      every main screen on PC
@@ -31,7 +33,7 @@ const PRESETS = { pc: SCREENS, phone: [...SCREENS, ...RACE.slice(1, 3), RACE[4]]
 if (preset && !PRESETS[preset]) { console.log(`unknown preset "${preset}" — use ${Object.keys(PRESETS).join(' / ')}`); process.exit(1); }
 const [outArg, title = preset ? `Preset: ${preset}` : 'Voxel City', ...shots] = preset ? [argv[0], argv[1], ...PRESETS[preset]] : argv;
 /** waitfor:WHAT — page conditions for race moments */
-const WAITS = { green: '__vc.race && __vc.race.green', launch: '__vc.race && __vc.race.racers[0].launched', results: "__vc.screen === 'results'", nitro: '__vc.race && __vc.race.racers[0].nitro > 0.5',
+const WAITS = { drift: '__vc.drift && __vc.drift.run.green', sliding: '__vc.drift && __vc.drift.run.drifting && __vc.drift.run.angle > 22', green: '__vc.race && __vc.race.green', launch: '__vc.race && __vc.race.racers[0].launched', results: "__vc.screen === 'results'", nitro: '__vc.race && __vc.race.racers[0].nitro > 0.5',
   perfect: "__vc.race && /Perfect/.test((__vc.race.racers[0].lastEvent || {}).text || '') && __vc.race.t - __vc.race.racers[0].lastEvent.t > 0.05", typing: '__vc.typing && performance.now() - __vc.typing.start > 4000' };
 if (!outArg || !shots.length) { console.log('usage: node tools/shot.mjs OUT.png "Title" "step; step" …'); process.exit(1); }
 const out = resolve(outArg); mkdirSync(dirname(out), { recursive: true });
@@ -42,13 +44,16 @@ const linux = process.platform === 'linux';
 const b = await chromium.launch({ headless: true, executablePath: process.env.PW_CHROMIUM || (linux ? '/opt/pw-browsers/chromium' : undefined),
   args: linux ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [] });
 const desk = await b.newPage({ viewport: { width: 1280, height: 720 } }); desk.setDefaultTimeout(300000);
+const errs = new Set();
+const listen = p => { p.on('pageerror', e => errs.add('page error: ' + e.message)); p.on('console', m => { if (m.type() === 'error') errs.add('console: ' + m.text().slice(0, 300)); }); };
+listen(desk);
 let touchPg = null, pg = desk;   // 'touch' step: a phone-like page (touch screen, so (pointer:coarse) styles apply)
 const page = q => pathToFileURL(resolve(root, 'build-test/index.html')).href + (q || '?dev');
 const panels = [];
 for (const spec of shots) {
   let cap = '', url = '?dev';
   const steps = spec.split(';').map(s => s.trim()).filter(Boolean);
-  if (steps.includes('touch')) { if (!touchPg) { touchPg = await (await b.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true })).newPage(); touchPg.setDefaultTimeout(300000); } pg = touchPg; } else pg = desk;
+  if (steps.includes('touch')) { if (!touchPg) { touchPg = await (await b.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true, isMobile: true })).newPage(); touchPg.setDefaultTimeout(300000); listen(touchPg); } pg = touchPg; } else pg = desk;
   const u = steps.find(s => s.startsWith('url:')); if (u) url = u.slice(4);
   const sz = steps.find(s => s.startsWith('size:')), [vw, vh] = sz ? sz.slice(5).split('x').map(Number) : [1280, 720];
   await pg.setViewportSize({ width: vw, height: vh });
@@ -72,3 +77,4 @@ await pg.setContent(`<body style="margin:0;background:#14161c;font:700 22px syst
 await pg.waitForTimeout(300);
 writeFileSync(out, await pg.screenshot({ fullPage: true }));
 await b.close(); console.log(out);
+for (const e of errs) console.log('  ! ' + e);

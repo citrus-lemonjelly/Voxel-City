@@ -9,6 +9,8 @@ import { Sky, SKY } from './sky';
 import { SpeedBlur, BLUR_LEVELS, BlurLevel, CAR_LAYER } from './speedBlur';
 import { StageDef } from '../data/stages';
 import { TypingView } from './typingView';
+import { DriftView } from './driftView';
+import type { DriftPath } from '../data/driftCourses';
 import { buildGarageRoom, GarageRoom } from './garage';
 
 /** Garage camera framings at angle A (the original angles): [camera position, look-at point].
@@ -61,7 +63,9 @@ export class World {
   stage?: Stage;
   player?: CarModel;
   opponent?: CarModel;
-  mode: 'garage' | 'race' | 'typing' = 'garage';
+  mode: 'garage' | 'race' | 'typing' | 'drift' = 'garage';
+  /** Drift view (owner, V0.18.0), built on first use */
+  drift?: DriftView;
   /** Typing Race view (top-down), built on first use */
   typing?: TypingView;
   /** Race camera: 'side' = CSR-style side-on, 'angle' = fixed slight angle (reference), 'dynamic' = angle swings with who's leading, 'chase' = old rear-chase. */
@@ -136,6 +140,7 @@ export class World {
     this.blur?.setSize(w, h);
     for (const c of [this.garageCam, this.raceCam]) { c.aspect = w / h; c.updateProjectionMatrix(); }
     this.typing?.resize(w, h);
+    this.drift?.resize(w, h);
   }
 
   // ---------- garage (the 3D room behind the menus, render/garage.ts; the Terminal UI sits on top) ----------
@@ -395,6 +400,16 @@ export class World {
     this.mode = 'typing';
   }
 
+  /** Drift (owner, V0.18.0): build the course's night scene with your car (and the ghost rival's). */
+  setupDrift(path: DriftPath, me: CarLook, ghost: CarLook | null, wet: boolean) {
+    if (!this.drift) { this.drift = new DriftView(this.mats); }
+    this.drift.build(path, me, ghost, { wet, lite: this.lite });
+    this.drift.scene.environment = this.garageScene.environment; this.drift.scene.environmentIntensity = 0.25;
+    const sz = this.renderer.getSize(new THREE.Vector2()); this.drift.resize(sz.x, sz.y);
+    this.renderer.toneMappingExposure = 1.05;
+    this.mode = 'drift';
+  }
+
   render(dt: number) {
     if (this.mode === 'garage') {
       const D = this.drag;
@@ -405,7 +420,8 @@ export class World {
         this.turntable.rotation.y += diff * (1 - Math.exp(-5 * dt));
       } else if (this.autoSpin && !D.on && D.v === 0) this.turntable.rotation.y += dt * 0.25;
       this.renderer.render(this.garageScene, this.garageCam);
-    } else if (this.mode === 'typing' && this.typing) this.renderer.render(this.typing.scene, this.typing.cam); else if (this.blur.strength > 0) this.blur.render(this.raceScene, this.raceCam, dt);
+    } else if (this.mode === 'typing' && this.typing) this.renderer.render(this.typing.scene, this.typing.cam);
+    else if (this.mode === 'drift' && this.drift) this.renderer.render(this.drift.scene, this.drift.cam); else if (this.blur.strength > 0) this.blur.render(this.raceScene, this.raceCam, dt);
     else this.renderer.render(this.raceScene, this.raceCam);
   }
 }
@@ -421,7 +437,7 @@ const LIGHTING: Record<TimeOfDay, { hemi: [string, string, number]; sun: [string
 };
 
 /** Additive voxel-stepped headlight / tail-light pools on the road, parented to a car (front at x = 0, facing −x). */
-function carLightPools(k: number, L = CAR_L, W = CAR_W, wet = false) {   // wet (E5): longer, brighter reflections
+export function carLightPools(k: number, L = CAR_L, W = CAR_W, wet = false) {   // wet (E5): longer, brighter reflections
   const g = new THREE.Group();
   const pool = (w: number, d: number, x: number, colour: string, a: number) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: poolTexture(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, color: new THREE.Color(colour).multiplyScalar(a * k) }));

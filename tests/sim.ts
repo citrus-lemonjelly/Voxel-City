@@ -22,6 +22,9 @@ import { dyno } from '../src/game/dyno';
 import { wetStage } from '../src/data/stages';
 import { PART_LEAGUE, DIST_PAY, racePay as racePayD } from '../src/data/economy';
 import { TRANSMISSION, legalRatios, RATIO_TUNING } from '../src/data/parts';
+import { DRIFT, DriftRun, DriftAI, simDrift, makeDriftRival, ghostAt } from '../src/game/drift';
+import { DRIFT_COURSES, driftPath } from '../src/data/driftCourses';
+import * as E2 from '../src/data/economy';
 
 declare const process: { exit(code: number): never };
 const stage = STAGES.downtown_grid;
@@ -418,5 +421,48 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   check(TRANSMISSION.A[4].ratios.length === 7 && TRANSMISSION.S[4].ratios.length === 8 && TRANSMISSION.D[4].ratios.length === 6,
     `gearboxes (owner): League A tops out at 7 gears, League S at 8 (D–B keep 6) — ${TRANSMISSION.S.map(t => t.ratios.length).join('/')} gears in S`);
   check(PART_LEAGUE.D < 1 && PART_LEAGUE.S > 1, `economy pass (Q181): League D parts cheaper (×${PART_LEAGUE.D}), League S dearer (×${PART_LEAGUE.S})`);
+}
+
+// ---------------- Drift (owner, V0.18.0) ----------------
+{
+  const D = DRIFT;
+  // every district × league makes a road that never crosses itself, shaped drag → 3–6 turns → drag
+  let roads = 0, bad: string[] = [];
+  for (const c of DRIFT_COURSES) for (const l of ['D', 'S']) for (let v = 0; v < 6; v++) {
+    const p = driftPath(c.id, v, l), n = p.turns.length, gap = Math.min(...p.turns.map((t, i) => i ? t.s0 - p.turns[i - 1].s1 : 99));
+    roads++; if (n < 3 || n > 6 || p.turns[0].s0 < 80 || p.length - p.turns[n - 1].s1 < 150 || gap < 5) bad.push(`${c.id}/${l}/${v}`);
+  }
+  check(!bad.length, `drift roads: ${roads} layouts (4 districts × D/S × 6) are drag straight → 3–6 turns → drag straight${bad.length ? ' — bad: ' + bad.join(', ') : ''}`);
+  // the run shape the owner asked for: drag 5–7 s · drift 10–12 s · drag 5–7 s (a sharp driver, League D and S)
+  const parts = (id: string, l: string) => { let a = [0, 0, 0], n = 0; for (const c of DRIFT_COURSES) for (let v = 0; v < 4; v++) {
+    const p = driftPath(c.id, v, l), run = new DriftRun(p, carStats(id, allAt(3)), new DriftAI(0.9, v + 1)), T = p.turns; let t1 = 0, t2 = 0;
+    for (let i = 0; i < 60 * 120 && run.finish === undefined; i++) { run.step(1 / 60); if (!t1 && run.s >= T[0].s0) t1 = run.time; if (!t2 && run.s >= T[T.length - 1].s1) t2 = run.time; }
+    a = [a[0] + t1, a[1] + t2 - t1, a[2] + (run.finish ?? 99) - t2]; n++; } return a.map(x => x / n); };
+  const pd = parts('city', 'D'), ps = parts('hyper', 'S'), inR = (x: number, lo: number, hi: number) => x >= lo && x <= hi;
+  check([pd, ps].every(([a, b, c]) => inR(a, 5, 7.2) && inR(b, 9.5, 12.5) && inR(c, 5, 7.2)), `drift run shape: drag ${pd[0].toFixed(1)} / drift ${pd[1].toFixed(1)} / drag ${pd[2].toFixed(1)} s (League D), ${ps.map(x => x.toFixed(1)).join(' / ')} s (League S) — target 5–7 / 10–12 / 5–7`);
+  // skill matters, drift parts help, a run with no drifts scores only its drag points
+  const p = driftPath('downtown', 2, 'D'), st = carStats('panda_civix', STOCK_TUNE), kit = carStats('panda_civix', { ...STOCK_TUNE, dtyres: 5, lsd: 5, angle: 5 });
+  const avg = (s: any, skill: number) => { let t = 0; for (let k = 1; k <= 8; k++) t += simDrift(p, s, new DriftAI(skill, k)).score; return t / 8; };
+  const top = avg(st, 1), mid = avg(st, 0.7), low = avg(st, 0.4), lowKit = avg(kit, 0.4);
+  class NoDrift { gas(r: DriftRun) { return !r.launched && r.rpm < r.stats.redline * 0.6; } drift() { return false; } shift() { return false; } }
+  const lazy = simDrift(p, st, new NoDrift());
+  check(top > mid && mid > low && lowKit > low * 1.2 && lazy.score <= D.dragPts.launch.Perfect && lazy.run.outcomes.every(o => o === 'Missed') && lazy.time < 99,
+    `drift scoring: sharp ${Math.round(top)} > fair ${Math.round(mid)} > sloppy ${Math.round(low)} pts; full drift kit lifts sloppy to ${Math.round(lowKit)}; no drifting = ${lazy.score} pts (drag only), still finishes`);
+  // the gas holds the revs: flat out the whole drift spins; perfect shifts and a perfect launch score drag points
+  class Flat { gas(r: DriftRun) { return r.launched; } private t = false; drift(r: DriftRun) { if (this.t || !r.launched) return false; const i = r.done.findIndex(d => !d); if (i >= 0 && r.s >= r.path.turns[i].s0) { this.t = true; return true; } return false; } shift() { return false; } }
+  const flat = simDrift(p, st, new Flat());
+  const sharp = simDrift(p, st, new DriftAI(1, 3));
+  check(flat.spins >= 1 && sharp.run.launchGrade === 'Perfect' && sharp.run.shifts.filter(s => s === 'Perfect').length >= 2 && sharp.run.dragPts >= D.dragPts.launch.Perfect + 2 * D.dragPts.shift.Perfect,
+    `drift controls: holding the gas flat through a drift spins (${flat.spins}); a sharp run launches Perfect and shifts Perfect (${sharp.run.shifts.join(', ')}) for ${sharp.run.dragPts} drag pts`);
+  // the ghost rival: below your perfect score by the difficulty's window; the ghost replays its own run exactly
+  const ok = (['easy', 'medium', 'hard'] as const).map(d => { const r = makeDriftRival('panda_civix', STOCK_TUNE, p, d, stage, 41); return { d, k: r.score / r.yours, end: ghostAt(r.trace, 999).score === r.score }; });
+  check(ok.every(o => o.k < 1 && o.end) && ok[0].k < ok[1].k && ok[1].k <= ok[2].k + 0.03, `drift ghost rival: Easy ${ok[0].k.toFixed(2)} · Medium ${ok[1].k.toFixed(2)} · Hard ${ok[2].k.toFixed(2)} of your perfect score; the ghost ends on its score`);
+  // pay parity with Street Races (typical player, per minute)
+  const dr = LEAGUES.map(l => E2.driftPerMin(l as any) / E2.dragPerMin(l as any));
+  check(dr.every(r => r > 0.88 && r < 1.12) && E2.driftPay('D', 'medium', true).result > E2.driftPay('D', 'medium', false).result, `drift pay parity: Drift ÷ Street per minute ${dr.map(r => r.toFixed(2)).join(' · ')} (D → S)`);
+  // keys: a drift set with its own Drift key; drift parts are priced and change only drift
+  const K = keysOf({}).drift, base = carStats('panda_civix', STOCK_TUNE);
+  check(!!K.drift && K.drift !== K.gas && K.up !== K.down && base.massKg === kit.massKg && base.peakPowerW === kit.peakPowerW && E2.partPrice('lsd', 3, 'D') > 0,
+    `drift keys + parts: Drift on ${keyName(K.drift)}, gas ${keyName(K.gas)}, shift ${keyName(K.up)} / ${keyName(K.down)}; drift parts cost VX and leave the drag stats alone`);
 }
 process.exit(fail ? 1 : 0);

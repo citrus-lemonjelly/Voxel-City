@@ -3,7 +3,14 @@ import { World, Weather, FxCar } from './render/scene';
 import { prewarmVehicles, TimeOfDay } from './render/stage';
 import { STOCK_LOOK, CarLook } from './render/carBuilder';
 import { CSS } from './ui/styles';
-import { renderResults, ResultData } from './ui/screens';
+import { renderResults, ResultData, renderDriftResults, DriftResultData } from './ui/screens';
+import { DriftRun, DriftControl, DriftAI, DriftRival, makeDriftRival, ghostAt } from './game/drift';
+import { driftPath, DRIFT_BY_ID, DRIFT_COURSES } from './data/driftCourses';
+import { DriftHud } from './ui/driftHud';
+import { driftButtonSheet } from './ui/driftButton';
+import { drawPedal } from './ui/hud';
+import { PADDLES } from './data/cosmetics';
+import { poseAt } from './render/driftView';
 import { renderGarage, garageInCatalog, garageOpenStrip, resetGarageUI } from './ui/garage';
 import { Hud } from './ui/hud';
 import { VERSION, CHANGELOG } from './data/changelog';
@@ -24,14 +31,14 @@ import { freshSave, typingStats } from './save/save';
 import { TypingRun, TypingRival, makeTypingRace, averageFor, typedBy, placeOf, wpmOf, glide } from './game/typing';
 import { TypingHud, renderTypingResults } from './ui/typingHud';
 import { openCarLab } from './ui/carLab';
-import { keysOf, keyMatches, keyName, DEFAULT_KEYS } from './game/keys';
+import { keysOf, keyMatches, keyName, KEY_MODE_LABEL } from './game/keys';
 import { TYPE_TRACK, laneZ } from './render/typingView';
-import { typingPay, TYPING, perfectShiftPay } from './data/economy';
+import { typingPay, TYPING, perfectShiftPay, driftPay } from './data/economy';
 import { dailyEvent } from './game/daily';
 import { partFits } from './render/bodies';
 import { garageActions } from './game/garageActions';
 import { BEVEL_CSS } from './ui/themeBevel';
-import { renderEngine, volOf, startSound, setSoundLevel, raceSound, raceReset, engineStop, keyClick, nitroSound, uiTick, winSound } from './game/sound';
+import { renderEngine, volOf, startSound, setSoundLevel, raceSound, raceReset, engineStop, keyClick, nitroSound, uiTick, winSound, driftReset, driftSound } from './game/sound';
 
 const params = new URLSearchParams(location.search);
 const AUTOPLAY = params.has('autoplay');          // test hook: the player car drives itself
@@ -123,6 +130,7 @@ function downPress() { if (playerRacer?.launched) input.downQueued = true; hud?.
 function downRelease() { hud?.setDownPressed(false); }
 window.addEventListener('keydown', e => {
   if (screen === 'typing') return typingKey(e);                       // the Typing Race takes every key
+  if (screen === 'drift') return driftKey(e, true);                   // Drift has its own key set (V0.18.0)
   const K = keysOf(save.settings).drag;
   if (keyMatches(e.code, K.gas)) { e.preventDefault(); if (!e.repeat) press(); }
   else if (keyMatches(e.code, K.up) && screen === 'race') { e.preventDefault(); if (!e.repeat) paddlePress(); }
@@ -131,6 +139,7 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => {
   if (screen === 'typing') return;
+  if (screen === 'drift') return driftKey(e, false);
   const K = keysOf(save.settings).drag;
   if (keyMatches(e.code, K.gas)) { e.preventDefault(); release(); }
   else if (keyMatches(e.code, K.up)) paddleRelease();
@@ -145,7 +154,7 @@ class PlayerController implements Controller {
 }
 
 // ---------------- screens ----------------
-type Screen = 'garage' | 'race' | 'results' | 'typing' | 'lab';
+type Screen = 'garage' | 'race' | 'results' | 'typing' | 'lab' | 'drift';
 let screen: Screen = 'garage';
 let race: Race | null = null, hud: Hud | null = null, oppRacer: Racer | null = null, finishedAt = 0;
 
@@ -158,11 +167,11 @@ function showGarage(toast?: string) {
     onNotesSeen: () => { save.seenVersion = VERSION; writeSave(save); },
     onKeyBind: (mode, action, code) => {
       const k = (save.settings.keys ??= {});
-      if (!code) { delete (k as any)[mode]; writeSave(save); return showGarage(`${mode === 'drag' ? 'Drag Race' : 'Typing Race'} keys reset`); }
+      if (!code) { delete (k as any)[mode]; writeSave(save); return showGarage(`${KEY_MODE_LABEL[mode]} keys reset`); }
       const cur = keysOf(save.settings)[mode] as Record<string, string>, other = Object.keys(cur).find(a => a !== action && keyMatches(code, cur[a]));
       const next = { ...cur, [action]: code } as any; if (other) next[other] = cur[action];      // taken? swap the two
       (k as any)[mode] = next; writeSave(save); showGarage(`${keyName(code)} set${other ? ` (swapped with ${keyName(cur[action])})` : ''}`);
-    }, onTyping: () => startTyping(),
+    }, onTyping: () => startTyping(), onDrift: () => startDrift(), onDriftCourse: (id: string) => { save.driftCourse = id; writeSave(save); showGarage(); },
     onClaimDaily: claimDailyTask, onClaimCal: claimCal, onSellCar: sellCar, onBuySlot: buySlot }, toast);
 }
 // buying, selling, claiming, fitting, painting, equipping: src/game/garageActions.ts
@@ -333,7 +342,8 @@ function frame(now: number) {
     world.setTree(Math.min(3, Math.floor(race.t)), race.green);
     if (race.done && !paused) { finishedAt ||= now; if ((now - finishedAt) * FAST > 1200) finishRace(); }
   }
-  if (screen !== 'race' && engineOn) { engineStop(); engineOn = false; }
+  if (screen === 'drift' && dr) driftFrame(dt, now);
+  if (screen !== 'race' && screen !== 'drift' && engineOn) { engineStop(); engineOn = false; }
   if (screen === 'typing') typingFrame(dt, now);
   else if (tyKb) { tyKb.remove(); tyKb = null; }                   // phone keyboard box only lives during the Typing Race
   if (!(NO_RENDER && screen === 'race')) world.render(dt);
@@ -347,7 +357,7 @@ function pose(playerM: number, oppM: number, speedMs = 30, t = 10) {
   race!.t = t; playerRacer!.x = playerRacer!.px = playerM; oppRacer!.x = oppRacer!.px = oppM; playerRacer!.v = oppRacer!.v = speedMs;
   playerRacer!.launched = oppRacer!.launched = t > 3;
 }
-(window as any).__vc = { get screen() { return screen; }, /** test hook: back to the plain garage home screen, no reload (layout check) */ homeUI: () => { resetGarageUI(); showGarage(); }, /** test hook: render an engine voice offline (tools/engine-sound.mjs) */ renderEngine, rewardPop: (n: number) => rewardPop(levelReward(CARS[save.carId].league, n)), get typing() { return ty; }, startTyping, openLab, version: VERSION, get opp() { return opp; }, cars: CARS, levelReward, partPrice, cosmeticPrice, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
+(window as any).__vc = { get screen() { return screen; }, /** test hook: back to the plain garage home screen, no reload (layout check) */ homeUI: () => { resetGarageUI(); showGarage(); }, /** test hook: render an engine voice offline (tools/engine-sound.mjs) */ renderEngine, rewardPop: (n: number) => rewardPop(levelReward(CARS[save.carId].league, n)), get typing() { return ty; }, startTyping, startDrift, get drift() { return dr; }, /** dev: the drift button designs */ driftButtons: () => ui.appendChild(driftButtonSheet(cell => drawPedal(save.pedals.equipped, PADDLES.stock, cell))), openLab, version: VERSION, get opp() { return opp; }, cars: CARS, levelReward, partPrice, cosmeticPrice, get race() { return race; }, get save() { return save; }, get hud() { return hud; }, press, release, downPress, downRelease,
   /** preview hook: rebuild the race HUD with another paddle shape/skin (review renders) */
   hudPreview: (shape: string, skin: string, pedalStyle?: string) => { if (race && playerRacer && oppRacer) { hud = new Hud(ui, race, playerRacer, oppRacer, { oppName: opp.name, paddle: skin, paint: playerLook().paint, showKeyHint: true, paddleShape: shape as any, pedal: (pedalStyle || params.get('pedal') || 'alloy') as any }); hud.update(); } }, startRace, showGarage, buyOrEquip, pose, setCam: (m: string) => (world.camMode = m as any), setSetting, world, setNoRender: (b: boolean) => (NO_RENDER = b), setPaused: (b: boolean) => (paused = b) };
 // test console (owner Q58): ?dev once turns it on for this browser; ` opens it
@@ -482,6 +492,83 @@ function finishTyping() {
   setTimeout(showUpdate, 0);
   renderTypingResults(ui, data, { again: () => startTyping(), garage: () => showGarage() });
 }
+
+// ---------------- Drift (owner, V0.18.0, ROADMAP E4.6) ----------------
+// A winding night road in a district; the car drives itself, you tap Drift at each turn and work the gas to hold the revs in the
+// band. Your score against a ghost rival (an AI run replayed). Physics + scoring in game/drift.ts, the scene in render/driftView.ts.
+const dIn = { gas: false, tap: false, up: false, down: false };
+let dr: { run: DriftRun; hud: DriftHud; rival: DriftRival; course: string; wet: boolean; doneAt: number; diff: Difficulty } | null = null;
+class DriftPlayer implements DriftControl {
+  gas() { return dIn.gas; }
+  drift() { const q = dIn.tap; dIn.tap = false; return q; }
+  shift() { const q = dIn.up; dIn.up = false; return q; }
+  downshift() { const q = dIn.down; dIn.down = false; return q; }
+}
+function driftKey(e: KeyboardEvent, down: boolean) {
+  const K = keysOf(save.settings).drift;
+  if (keyMatches(e.code, K.gas)) { e.preventDefault(); if (!e.repeat) { dIn.gas = down; dr?.hud.setGas(down); } }
+  else if (keyMatches(e.code, K.drift)) { e.preventDefault(); if (down && !e.repeat) dIn.tap = true; dr?.hud.setDrift(down); }
+  else if (keyMatches(e.code, K.up)) { e.preventDefault(); if (down && !e.repeat) dIn.up = true; dr?.hud.setPressed(down); }
+  else if (keyMatches(e.code, K.down)) { e.preventDefault(); if (down && !e.repeat) dIn.down = true; dr?.hud.setDownPressed(down); }
+  else if (down && keyMatches(e.code, K.leave)) { e.preventDefault(); leaveDrift(); }
+}
+const driftCourse = () => DRIFT_BY_ID[save.driftCourse ?? ''] ? save.driftCourse! : DRIFT_COURSES[0].id;
+/** Rain on 40 % of drift runs (owner); ?weather=rain / clear forces it. */
+function driftWeather() { const w = params.get('weather'); return w === 'rain' ? true : w === 'clear' ? false : Math.random() < 0.4; }
+function startDrift() {
+  screen = 'drift'; document.getElementById('vc-update')?.remove();
+  const course = params.get('course') && DRIFT_BY_ID[params.get('course')!] ? params.get('course')! : driftCourse(), path = driftPath(course, Math.floor(Math.random() * 1000), CARS[save.carId].league), wet = driftWeather(), track = wet ? wetStage(stage) : stage, diff = save.raceDiff;
+  const seed = params.get('rseed') ? +params.get('rseed')! : ((Date.now() & 0x7fffffff) || 1);
+  const rival = makeDriftRival(save.carId, save.equipped, path, diff, track, seed);
+  const rivalLook: CarLook = { ...STOCK_LOOK, body: carBody(rival.carId).profile ?? 'civix', paint: rival.paint, parts: rivalParts(rival.carId, rival.seed) };
+  Object.assign(dIn, { gas: false, tap: false, up: false, down: false }); acc = 0;
+  const run = new DriftRun(path, carStats(save.carId, save.equipped, track), AUTOPLAY || (DEV.enabled && DEV.autoDrive) ? new DriftAI(0.95, 5) : new DriftPlayer());
+  world.setupDrift(path, playerLook(), rivalLook, wet);
+  driftReset(carBody(save.carId).type);
+  const K = keysOf(save.settings).drift;
+  const hud = new DriftHud(ui, run, { rivalName: rival.name, rivalScore: t => ghostAt(rival.trace, t).score, rivalS: t => ghostAt(rival.trace, t).s,
+    keys: { gas: keyName(K.gas), drift: keyName(K.drift), up: keyName(K.up), down: keyName(K.down) }, phone: PHONE, swap: save.settings.pedalSide === 'left', button: params.get('dbtn') || save.settings.dbtn || 'brake', pedal: (params.get('pedal') as any) || save.pedals.equipped,
+    paddle: save.paddles.equipped, paddleShape: save.paddles.shape, paint: playerLook().paint,
+    icons: { me: world.thumbnail(playerLook(), 124, 56, 'strip', 'clear'), them: world.thumbnail(rivalLook, 124, 56, 'strip', 'clear') }, wet, showKeyHint: (save.driftRuns ?? 0) < 3 && !PHONE });
+  const hold = (el: HTMLElement, down: () => void, up: () => void) => { el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); down(); }); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); };
+  hold(hud.gasBtn, () => { dIn.gas = true; hud.setGas(true); }, () => { dIn.gas = false; hud.setGas(false); });
+  hold(hud.driftBtn, () => { dIn.tap = true; hud.setDrift(true); }, () => hud.setDrift(false));
+  hold(hud.shiftBtn, () => { dIn.up = true; hud.setPressed(true); }, () => hud.setPressed(false));
+  hold(hud.downBtn, () => { dIn.down = true; hud.setDownPressed(true); }, () => hud.setDownPressed(false));
+  dr = { run, hud, rival, course, wet, doneAt: 0, diff };
+}
+function driftFrame(dt: number, now: number) {
+  const D = dr!, { run, rival } = D;
+  acc += dt;
+  while (acc >= STEP) { if (!paused) run.step(STEP); acc -= STEP; }
+  const sI = run.ps + (run.s - run.ps) * (paused ? 1 : acc / STEP), me = poseAt(run.path, sI, run.dir * run.angle, run.dir * run.lateral);
+  const g = ghostAt(rival.trace, run.time), sliding = run.drifting ? Math.min(1, run.angle / run.maxAngle) : run.spinT > 0 ? 1 : 0;
+  world.drift?.update(me, run.v, sliding, poseAt(run.path, g.s, g.angle, g.lat), dt, sI);
+  D.hud.update();
+  driftSound(run.rpm, run.stats.redline, run.gasOn, sliding, run.green, run.t, run.lastEvent); engineOn = true;
+  if (run.finish !== undefined && !paused) { D.doneAt ||= now; if ((now - D.doneAt) * FAST > 1800) finishDrift(); }
+}
+function finishDrift() {
+  if (!dr) return;
+  const { run, rival, course, diff } = dr;
+  screen = 'results';
+  const score = Math.round(run.score), won = score > rival.score, pay = driftPay(CARS[save.carId].league, diff, won);
+  const best = (save.driftBest ??= {}), newBest = score > 0 && score > (best[course] ?? 0);
+  const earnings: [string, number][] = [[won ? `Drift win · ${DIFFICULTY[diff].label}` : 'Finish', pay.result]];
+  if (run.perfectEntries) earnings.push([`Perfect entries ×${run.perfectEntries}`, run.perfectEntries * pay.perfectEntry]);
+  if (!run.spins && run.clean) earnings.push(['Clean run (no spins)', pay.clean]);
+  if (newBest) earnings.push(['New best score', pay.newBest]);
+  const total = earnings.reduce((a, [, v]) => a + v, 0);
+  save.voxels += total; save.driftRuns = (save.driftRuns ?? 0) + 1; if (newBest) best[course] = score;
+  dailyEvent(save, 'race');
+  writeSave(save);
+  const data: DriftResultData = { won, score, rival: Math.round(rival.score), rivalName: rival.name, course: DRIFT_BY_ID[course].name, turns: run.outcomes, perfect: run.perfectEntries, spins: run.spins, bestChain: run.bestChain, earnings, total, newBest, best: best[course] ?? score };
+  (window as any).__vc.lastDrift = data;
+  dr = null;
+  setTimeout(showUpdate, 0);
+  renderDriftResults(ui, data, { again: () => startDrift(), garage: () => showGarage() });
+}
+function leaveDrift() { dr = null; showGarage('Left the drift run'); }
 
 // ---------------- Car Lab (owner 2026-10-19): developers only — test console ▸ Car Lab, or ?lab with dev mode on ----------------
 function openLab() {

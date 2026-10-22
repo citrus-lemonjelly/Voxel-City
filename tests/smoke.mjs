@@ -64,6 +64,14 @@ const ty = await ev(() => [window.__vc.lastTyping.place, Math.round(window.__vc.
 ok('Typing Race finishes with places and pay', ty[0] >= 1 && ty[0] <= 5 && ty[1] > 0 && ty[2] > 0, JSON.stringify(ty));
 await pg.screenshot({ path: `${out}/typing-results.png` });
 await pg.click('#tyGarage');
+// one Drift run (V0.18.0) from the race menu: the AI drives (autoplay), launch → drifts → finish → results with pay
+await pg.click('#raceBtn'); await pg.click('#driftRun');
+await pg.waitForFunction(() => window.__vc.screen === 'drift' && window.__vc.drift && window.__vc.drift.run.drifting);
+await pg.screenshot({ path: `${out}/drift.png` });
+await pg.waitForFunction(() => window.__vc.screen === 'results' && window.__vc.lastDrift);
+const dft = await ev(() => [window.__vc.lastDrift.score, window.__vc.lastDrift.turns.length, window.__vc.lastDrift.total]);
+ok('Drift run: launch, drifts, results with pay', dft[0] > 0 && dft[1] >= 3 && dft[2] > 0, JSON.stringify(dft));
+await pg.click('#toGarage');
 // Daily + calendar (V0.9.0): the two races count towards today's tasks; claim calendar day 1
 await tab('daily'); await pg.waitForTimeout(300);
 const dl = await ev(() => [document.querySelectorAll('.dl-task').length, window.__vc.save.daily?.prog.join(',')]);
