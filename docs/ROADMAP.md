@@ -10,7 +10,7 @@ Question numbers (Q#) carry on from `docs/DECISIONS.md`.
 
 | # | Item | Status |
 |---|---|---|
-| A1 | Live version | **V0.18.2** (2026-10-22). Since V0.11.0: Pedal mode, Bevel+ look, phone screens, sound, nitrous, effects + rain, Test run, A/S 7/8 gears, per-gear ratio tuning, 1200 m track, pay downtune, Drift (dev mode only from V0.18.2) |
+| A1 | Live version | **V0.18.3** (2026-10-22). Since V0.11.0: Pedal mode, Bevel+ look, phone screens, sound, nitrous, effects + rain, Test run, A/S 7/8 gears, per-gear ratio tuning, 1200 m track, pay downtune, Drift (dev mode only from V0.18.2) |
 | A2 | Milestone 1 — core slice | ✅ Done |
 | A3 | Milestone 2 — collection and tuning | 🟡 Almost done: cars ✅ · visual parts ✅ · buying cars ✅ · upgrade types ✅ (nitrous ✅) · tuning ✅ (gearing, ratio tuning; Build & Tune next) |
 | A4 | Milestone 3 — garage-home | 🟡 Started: 3D garage room (V0.10.0); not walkable yet |

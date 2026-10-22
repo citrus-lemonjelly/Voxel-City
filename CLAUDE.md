@@ -96,7 +96,7 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
   drift parts, four Drift button looks), Settings header bars Display · Audio · Keybinds. Phone Drift layout: later (owner).
 - Live: **V0.18.1** (shipped 2026-10-22): easier drifts (S91), 3-2-1 drift cue above the gauge, automatic gears in Drift (S92).
 - Live: **V0.18.2** (shipped 2026-10-22) — Drift hidden behind dev mode (S93); its work list is ROADMAP §E4.6 (D1–D9).
-- Built: **V0.18.3** — districts renamed (S94): the Harbor, Downtown, Neon Highrise, Daluda Forest, Oil Fields, Rooftop Skyway.
+- Live: **V0.18.3** (shipped 2026-10-22) — districts renamed (S94): the Harbor, Downtown, Neon Highrise, Daluda Forest, Oil Fields, Rooftop Skyway.
 - **Next:** District map / "City Update" (owner Q199 B). The owner is getting a reference 3D voxel map from ChatGPT first; then
   answer Q200–Q205 (Race opens the map? names/modes per district, unlock by league, diorama look, district modifiers, first scope). Run heavy checks one at a time.
 - Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
