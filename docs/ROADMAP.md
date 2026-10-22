@@ -10,13 +10,13 @@ Question numbers (Q#) carry on from `docs/DECISIONS.md`.
 
 | # | Item | Status |
 |---|---|---|
-| A1 | Live version | **V0.11.0 "Tuning Update"** (tyres, weight, turbo, Short / Balanced / Long gearing, random rival set-ups) |
+| A1 | Live version | **V0.18.1** (2026-10-22). Since V0.11.0: Pedal mode, Bevel+ look, phone screens, sound, nitrous, effects + rain, Test run, A/S 7/8 gears, per-gear ratio tuning, 1200 m track, pay downtune, Drift (dev mode only from V0.18.2) |
 | A2 | Milestone 1 — core slice | ✅ Done |
-| A3 | Milestone 2 — collection and tuning | 🟡 Almost done: cars ✅ · visual parts ✅ · buying cars ✅ · upgrade types ✅ (nitrous next) · tuning ✅ (gearing; Build & Tune next) |
+| A3 | Milestone 2 — collection and tuning | 🟡 Almost done: cars ✅ · visual parts ✅ · buying cars ✅ · upgrade types ✅ (nitrous ✅) · tuning ✅ (gearing, ratio tuning; Build & Tune next) |
 | A4 | Milestone 3 — garage-home | 🟡 Started: 3D garage room (V0.10.0); not walkable yet |
 | A5 | Milestone 4 — career and world | 🟡 Partly: the Strip, Street Race difficulties, dailies |
 | A6 | Milestone 5 — crews and online | ⬜ Not started (needs a server) |
-| A7 | Checks at ship time | Sim 62/62 · collisions clean · smoke 17/17 |
+| A7 | Checks at ship time | Sim 91/91 · collisions clean · smoke 20/20 |
 
 ---
 
