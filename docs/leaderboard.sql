@@ -1,4 +1,6 @@
--- Voxel City typing leaderboard (V0.19.0, owner Q215: Supabase). Run this once in Supabase ▸ SQL Editor ▸ New query ▸ Run.
+-- Voxel City typing leaderboard (V0.19.0, owner Q215: Supabase). Run this in Supabase ▸ SQL Editor ▸ New query ▸ Run.
+-- Safe to run again at any time — it keeps every player's XP and only adds what's new (e.g. the ban list).
+-- Day-to-day jobs (remove a player, fix a rude name, ban, reset the board): docs/leaderboard-admin.sql.
 -- Also turn on Authentication ▸ Sign In / Providers ▸ "Allow anonymous sign-ins" (each browser gets its own hidden player id,
 -- no email or password). Then copy Project Settings ▸ API ▸ Project URL + the anon public key into src/game/leaderboard.ts.
 --
@@ -23,6 +25,15 @@ drop policy if exists "anyone can read" on public.typing_leaderboard;
 create policy "anyone can read" on public.typing_leaderboard for select using (true);
 -- (no insert / update / delete policies: writes only happen inside submit_typing below)
 
+-- Banned players (added 2026-10-22, see docs/leaderboard-admin.sql): a banned player's races are refused. Nobody can read or
+-- change this list from the game; only you, from the Supabase dashboard. This whole file is safe to run again.
+create table if not exists public.banned_players (
+  player_id uuid primary key,
+  reason    text,
+  banned_at timestamptz not null default now()
+);
+alter table public.banned_players enable row level security;
+
 create or replace function public.submit_typing(p_username text, p_xp_gain integer, p_wpm real, p_chars integer, p_seconds real, p_accuracy real)
 returns void
 language plpgsql
@@ -34,6 +45,7 @@ declare
   prev timestamptz;
 begin
   if uid is null then raise exception 'not signed in'; end if;
+  if exists (select 1 from banned_players where player_id = uid) then raise exception 'banned'; end if;
   -- cheat checks
   if p_chars < 50 or p_chars > 400 or p_seconds < 5 or p_seconds > 900 then raise exception 'bad race'; end if;
   if p_wpm > 250 or abs(p_wpm - (p_chars / 5.0) / (p_seconds / 60.0)) > 2 then raise exception 'bad wpm'; end if;
