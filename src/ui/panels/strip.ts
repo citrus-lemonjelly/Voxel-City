@@ -4,18 +4,19 @@
 import { SaveV1 } from '../../save/save';
 import { CARS } from '../../data/cars';
 import { STRIP, levelInfo } from '../../game/strip';
+import { raceLeague } from '../../data/districts';
 import { ui, scroll, resetGarageUI, crownIcon, GarageHandlers, Wire } from './shared';
 
 /** Race-menu card for the Strip: opens the Strip screen. */
 export function stripCard(save: SaveV1): string {
-  const lg = CARS[save.carId].league, done = save.strip[lg] ?? 0, total = STRIP.rungs;
+  const lg = raceLeague(save), done = save.strip[lg] ?? 0, total = STRIP.rungs;   // the district's league (V0.20.0)
   // V0.19.0 (owner): the name only — the level and league show on the Strip screen itself
   return `<button class="g-mode blk" id="stripOpen" title="League ${lg} · ${done >= total ? 'complete' : `Level ${done + 1} of ${total}`}"><span class="hd">The Strip</span><span class="g-go">Open ▸</span></button>`;
 }
 
 /** The Strip screen. */
 export function stripHtml(save: SaveV1, _on: GarageHandlers): string {
-  const lg = CARS[save.carId].league, done = save.strip[lg] ?? 0;
+  const lg = raceLeague(save), done = save.strip[lg] ?? 0;
   const cards = Array.from({ length: STRIP.rungs }, (_, i) => {
     const n = i + 1, L = levelInfo(lg, n), state = n <= done ? 'done' : n === done + 1 ? 'next' : 'locked', R = L.reward;
     const pay = `<span class="sl-rw">+${(R.vx + R.cash).toLocaleString()} VX${R.crowns ? ` <b class="cr">${crownIcon()}${R.crowns}</b>` : ''}</span>`;

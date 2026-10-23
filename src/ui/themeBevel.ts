@@ -92,6 +92,29 @@ export const BEVEL_CSS = [
   B('.tbadge.dim', 'opacity:.3;filter:grayscale(1)'),
   B('.ty-tag .tbadge,.ty-row .tbadge', 'margin:-2px 5px 0 0'),
   B('.g-mode .hd .tbadge', 'margin:-3px 4px 0 0'),
+  // ---- City map (V0.20.0 concept): a tag over each district (name + league, or what unlocks it), a title block, Back ----
+  B('#citymap', 'position:absolute;inset:0;pointer-events:none'),
+  B('#citymap .blk,#citymap button', 'pointer-events:auto'),
+  B('.cm-title', 'position:absolute;left:28px;top:24px;padding:10px 14px;display:flex;flex-direction:column;gap:3px;transform:scale(var(--ui-s,1));transform-origin:0 0'),
+  B('.cm-title .hd', 'font-size:24px;color:#f2c230'), B('.cm-title span', 'font-size:12px;color:#9aa3b5'),
+  // a tag's bottom-centre sits on its district (left/top set in main.ts); phones shrink it like every other screen (--ui-s)
+  B('.cm-tag', 'position:absolute;left:0;top:0;padding:6px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;white-space:nowrap;cursor:pointer;transform:translate(-50%,-100%) scale(var(--ui-s,1));transform-origin:50% 100%'),
+  B('.cm-tag', 'border:0;font:inherit;color:inherit'),
+  B('.cm-tag::after', "content:'';position:absolute;left:50%;bottom:-9px;width:6px;height:6px;margin-left:-3px;background:#0b0c10"),
+  B('.cm-tag .hd', 'font-size:14px;color:#e9ecf2'), B('.cm-tag.on', PICKED), B('.cm-tag.on .hd', 'color:#f2c230'), B('.cm-tag:hover:not(.on)', 'background:#2e3340'),
+  B('.cm-tag.locked', 'background:#1e2129'), B('.cm-tag.locked .hd', 'color:#9aa3b5'),
+  B('.cm-lock', 'font:600 11px system-ui;color:#9aa3b5'),
+  B('.cm-btns,.cm-panel,.cm-title', 'z-index:2'),
+  B('.cm-btns', 'position:absolute;left:28px;bottom:24px;display:flex;gap:8px;transform:scale(var(--ui-s,1));transform-origin:0 100%'),
+  B('.cm-btns .btn', 'height:40px;padding:0 18px'),
+  // the district panel (V0.20.0): name + league, a line about it, then its races — the same cards as the old Race menu
+  B('.cm-panel', 'position:absolute;right:28px;bottom:24px;width:362px;padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px;transform:scale(var(--ui-s,1));transform-origin:100% 100%'),
+  B('.cm-head', 'display:flex;align-items:center;justify-content:space-between;gap:8px'), B('.cm-head .hd', 'font-size:18px;color:#f2c230'),
+  B('.cm-need', `${WELL};padding:10px 12px;font-size:13px;color:#cfd3dc;line-height:1.4`),
+  B('.cm-loading', 'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(var(--ui-s,1));padding:16px 22px;display:flex;flex-direction:column;align-items:center;gap:6px'),
+  B('.cm-loading .hd', 'font-size:24px;color:#f2c230'), B('.cm-loading span', 'font-size:13px;color:#9aa3b5'),
+  // phones: tags show the name only (tap a district for the rest)
+  `@media (pointer:coarse){${B('.cm-tag span', 'display:none')}}`,
   // the Race menu scrolls if it would reach above the panels' top line (only with dev mode's Drift card on small phones); the
   // padding keeps the block shadows visible
   B('.g-racemenu', 'max-height:calc(100% - 207px);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;padding:2px 7px 7px 2px;margin:0 -7px -7px 0'),

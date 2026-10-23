@@ -29,6 +29,8 @@ import { carStats } from './game/stats';
 import { DEV, devOppSkill, devTime, initDevConsole } from './ui/devConsole';
 import { freshSave, typingStats, playerName, typingLevelOf } from './save/save';
 import { typingBadge } from './ui/typingBadge';
+import { DISTRICT_BY_ID, DistrictId, raceDistrict, raceLeague, canRace, openUpTo } from './data/districts';
+import { cityMapHtml, wireCityMap } from './ui/cityMapUi';
 import { submitTypingRace, LB_MOCK } from './game/leaderboard';
 import { TypingRun, TypingRival, makeTypingRace, makeLadderRace, rivalRef, typedBy, placeOf, wpmOf, glide } from './game/typing';
 import { TypingHud, renderTypingResults } from './ui/typingHud';
@@ -98,11 +100,11 @@ if (params.get('dmin')) { world.camFrame.dMin = +params.get('dmin')!; world.camF
 const stage = STAGES[START_STAGE];
 /** A new random rival for the car + upgrades in use (owner Q87); rolled again after every race or when the car/parts change. */
 let opp: Rival, oppKey = '';
-const rivalKey = () => `${save.carId}:${JSON.stringify(save.equipped)}:${save.raceDist}:${save.raceDiff}`;
+const rivalKey = () => `${save.carId}:${JSON.stringify(save.equipped)}:${save.raceDist}:${save.raceDiff}:${raceLeague(save)}`;
 function rollRival(force = false) {
   if (!force && oppKey === rivalKey() && opp) return;
   const seed = params.get('rseed') ? +params.get('rseed')! : undefined;                 // test hook: fixed rival
-  opp = makeRival(save.carId, save.equipped, stage, seed, save.raceDist, DIFFICULTY[save.raceDiff].gap); oppKey = rivalKey();
+  opp = makeRival(save.carId, save.equipped, stage, seed, save.raceDist, DIFFICULTY[save.raceDiff].gap, raceLeague(save)); oppKey = rivalKey();   // the district's league (V0.20.0)
 }
 rollRival();
 /** The car in use, as the player has painted and optioned it (Q79). */
@@ -134,6 +136,7 @@ function downRelease() { hud?.setDownPressed(false); }
 window.addEventListener('keydown', e => {
   if (screen === 'typing') return typingKey(e);                       // the Typing Race takes every key
   if (screen === 'drift') return driftKey(e, true);                   // Drift has its own key set (V0.18.0)
+  if (screen === 'map') { if (e.key === 'Escape') showGarage(); return; }
   const K = keysOf(save.settings).drag;
   if (keyMatches(e.code, K.gas)) { e.preventDefault(); if (!e.repeat) press(); }
   else if (keyMatches(e.code, K.up) && screen === 'race') { e.preventDefault(); if (!e.repeat) paddlePress(); }
@@ -157,7 +160,7 @@ class PlayerController implements Controller {
 }
 
 // ---------------- screens ----------------
-type Screen = 'garage' | 'race' | 'results' | 'typing' | 'lab' | 'drift';
+type Screen = 'garage' | 'race' | 'results' | 'typing' | 'lab' | 'drift' | 'map';
 let screen: Screen = 'garage';
 let race: Race | null = null, hud: Hud | null = null, oppRacer: Racer | null = null, finishedAt = 0;
 
@@ -174,7 +177,7 @@ function showGarage(toast?: string) {
       const cur = keysOf(save.settings)[mode] as Record<string, string>, other = Object.keys(cur).find(a => a !== action && keyMatches(code, cur[a]));
       const next = { ...cur, [action]: code } as any; if (other) next[other] = cur[action];      // taken? swap the two
       (k as any)[mode] = next; writeSave(save); showGarage(`${keyName(code)} set${other ? ` (swapped with ${keyName(cur[action])})` : ''}`);
-    }, onTyping: (ladder?: boolean) => startTyping(ladder), onDrift: () => startDrift(), onDriftCourse: (id: string) => { save.driftCourse = id; writeSave(save); showGarage(); },
+    }, onTyping: (ladder?: boolean) => startTyping(ladder), onMap: () => showCityMap(), onDrift: () => startDrift(), onDriftCourse: (id: string) => { save.driftCourse = id; writeSave(save); showGarage(); },
     onClaimDaily: claimDailyTask, onClaimCal: claimCal, onSellCar: sellCar, onBuySlot: buySlot }, toast);
 }
 // buying, selling, claiming, fitting, painting, equipping: src/game/garageActions.ts
@@ -212,10 +215,11 @@ function setSetting(key: string, value: string) {
   showGarage();
 }
 
-/** The Strip (owner Q100): the next rung of the league of the car in use, or null when that league's Strip is done. */
+/** The Strip (owner Q100): the next rung of the league your races are held at (the district's, V0.20.0), or null when that
+ *  league's Strip is done. */
 let rung: Rung | null = null;
 function stripNext(): Rung | null {
-  const lg = CARS[save.carId].league, n = (save.strip[lg] ?? 0) + 1;
+  const lg = raceLeague(save), n = (save.strip[lg] ?? 0) + 1;
   return n > STRIP.rungs ? null : stripRung(lg, n, stage);
 }
 /** Claim a cleared Strip level's one-time reward (owner: L1 100 VX, every 10th level +5 Crowns). */
@@ -285,8 +289,8 @@ function finishRace() {
   const dist = race.distanceM as RaceDist, prevBest = save.best[dist];
   const newBest = prevBest === null || me.finish! < prevBest;
   // pay: league × difficulty (Strip races pay like a Medium Street Race) — all numbers in data/economy.ts
-  const diff: Difficulty = rung ? 'medium' : save.raceDiff, pay = racePay(CARS[save.carId].league, diff, won, race.distanceM);
-  const earnings: [string, number][] = [[won ? (rung ? `Strip level ${rung.n} win` : `${stage.races[diff]} win`) : 'Finish', pay.result]];
+  const diff: Difficulty = rung ? 'medium' : save.raceDiff, pay = racePay(raceLeague(save), diff, won, race.distanceM);   // the district's league pays (V0.20.0)
+  const earnings: [string, number][] = [[won ? (rung ? `Strip level ${rung.n} win` : `${raceDistrict(save).races[diff]} win`) : 'Finish', pay.result]];
   const doneRung = rung;
   if (rung && won && rung.n > (save.strip[rung.league] ?? 0)) dailyEvent(save, 'stripClear');
   if (rung && won) save.strip[rung.league] = Math.max(save.strip[rung.league] ?? 0, rung.n);
@@ -347,6 +351,7 @@ function frame(now: number) {
   }
   if (screen === 'drift' && dr) driftFrame(dt, now);
   if (screen !== 'race' && screen !== 'drift' && engineOn) { engineStop(); engineOn = false; }
+  if (screen === 'map' && world.map) { world.map.update(dt); placeTags(); }
   if (screen === 'typing') typingFrame(dt, now);
   else if (tyKb) { tyKb.remove(); tyKb = null; }                   // phone keyboard box only lives during the Typing Race
   if (!(NO_RENDER && screen === 'race')) world.render(dt);
@@ -586,6 +591,41 @@ function finishDrift() {
 }
 function leaveDrift() { dr = null; showGarage('Left the drift run'); }
 
+// ---------------- City map (V0.20.0 "City Update", owner Q199–Q227) ----------------
+// RACE opens the voxel island and glides in on the district your car races in (render/cityMap.ts, ui/cityMapUi.ts). It is
+// built once — a moment the first time — and again only when a new district opens. The district you pick sets the rivals'
+// league and the pay (data/districts.ts). ?citymap opens it at start (screenshots).
+let mapSel: DistrictId | null = null;
+function showCityMap(sel: DistrictId | null = raceDistrict(save).id) {
+  screen = 'map'; document.getElementById('vc-update')?.remove(); resetGarageUI();
+  const open = openUpTo(save);
+  const enter = () => { if (screen !== 'map') return; world.setupMap(open); mapSel = null; world.map!.focus(null, true); drawCityMap(); if (sel) setTimeout(() => screen === 'map' && pickDistrict(sel), 300); };
+  if (world.map?.builtFor === open) return enter();
+  ui.innerHTML = `<div id="citymap"><div class="cm-loading blk"><b class="hd">Vox City</b><span>Building the city…</span></div></div>`;
+  setTimeout(enter, 60);                                             // let the "Building" card show before the work starts
+}
+function pickDistrict(id: DistrictId) {
+  mapSel = id;
+  if (canRace(save, DISTRICT_BY_ID[id])) { save.district = id; writeSave(save); rollRival(); }
+  world.map!.focus(id); drawCityMap();
+}
+function drawCityMap() {
+  ui.innerHTML = cityMapHtml(save, mapSel);
+  const redraw = () => { writeSave(save); rollRival(); drawCityMap(); };
+  wireCityMap(ui, {
+    select: pickDistrict, city: () => { mapSel = null; world.map!.focus(null); drawCityMap(); }, garage: () => showGarage(),
+    cars: () => showGarage(`Pick a League ${mapSel ? DISTRICT_BY_ID[mapSel].league : ''} car or better in Menu ▸ Garage`),
+    race: () => startRace(), strip: () => { garageOpenStrip(); showGarage(); }, drift: () => startDrift(),
+    difficulty: d => { save.raceDiff = d; redraw(); }, distance: d => { save.raceDist = d; redraw(); }, course: id => { save.driftCourse = id; redraw(); },
+  });
+  placeTags();
+}
+/** Name tags follow their districts while the camera moves (every frame on the map). */
+function placeTags() {
+  const W = ui.clientWidth || innerWidth, H = ui.clientHeight || innerHeight;
+  for (const a of world.map?.anchors ?? []) { const p = world.map!.toScreen(a.pos, W, H), el = ui.querySelector<HTMLElement>(`.cm-tag[data-a="${a.id}"]`); if (el) { el.style.left = `${Math.round(p.x)}px`; el.style.top = `${Math.round(p.y)}px`; el.style.visibility = p.on ? '' : 'hidden'; } }
+}
+
 // ---------------- Car Lab (owner 2026-10-19): developers only — test console ▸ Car Lab, or ?lab with dev mode on ----------------
 function openLab() {
   if (!DEV.enabled) return;
@@ -613,5 +653,6 @@ const updatedFrom = save.lastVersion && save.lastVersion !== VERSION ? save.last
 if (save.lastVersion !== VERSION) { save.lastVersion = VERSION; writeSave(save); }
 showGarage(updatedFrom ? `Updated to V${VERSION} — ${CHANGELOG[0].header ?? CHANGELOG[0].title}. See Patch notes (bottom-left).` : undefined);
 if (params.has('lab')) openLab();
+if (params.has('citymap')) showCityMap(null);
 prewarmVehicles(world.mats);
 requestAnimationFrame(frame);

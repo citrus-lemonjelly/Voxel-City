@@ -103,8 +103,11 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
   Profile Drag / Typing tabs, RACE (Drag menu) + TYPE button under it (Typing menu), title-only menu buttons (S100); Q212–Q216 answered (S101): usernames for all rivals, name filter, ranks ×2.5 with
   divisions 1–4 + Crowns per rank up, Supabase Top 500 (`src/game/leaderboard.ts` + `docs/leaderboard.sql`) — **online since V0.19.1**
   (owner's project `kaabvohiyrbnmhgabsto`, publishable key in `LEADERBOARD`; S102). Autoplay races never post; `?lbmock` = made-up board.
-- **Next:** District map / "City Update" (owner Q199 B). The owner is getting a reference 3D voxel map from ChatGPT first; then
-  answer Q200–Q205 (Race opens the map? names/modes per district, unlock by league, diorama look, district modifiers, first scope). Run heavy checks one at a time.
+- **Built, not shipped: V0.20.0 "City Update"** (S103–S104): RACE opens the city map (`src/render/cityMap.ts` island,
+  `src/ui/cityMapUi.ts` tags + district panel, rules `src/data/districts.ts`); the district sets rivals + pay; Typing stays on TYPE.
+  `?citymap` opens the map at start. Smoke / layout / shot tools go RACE → map (map takes a few seconds to build the first time).
+- **Next (owner):** the race scene for each district (Q222 looks per district; today every district races the Downtown street),
+  then the Harbor end game (Q219) and clickable garage spots → the garage computer holds every menu (owner D4). Run heavy checks one at a time.
 - Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
   weighted time of day (Small) · garage decor shop with Crowns (Big) · Body Shop "undo" (Small) · saved looks per car (Medium) ·
   rival plate text (Small) · split main.ts further (Typing Race, race setup) (Medium) · Drift on phones (Medium).

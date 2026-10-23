@@ -26,6 +26,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.20.0', date: '2026-10-23', title: 'The city map', header: 'City Update',
+    added: [
+      'The city map: RACE now opens Vox City — a voxel island at dusk with six districts, a river, a mountain, forests, farms, villages, a railway with a running train and boats sailing round the coast.',
+      'Districts: Downtown (League D), Daluda Forest (League C), Neon Highrise (League B), Oil Fields (League A) and Rooftop Skyway (League S). The Harbor is the end game after League S and is coming later.',
+      'A district opens when you own a car of its league; locked districts show in grey with what opens them.',
+      'Each district holds its own Street Races and Strip, with their own race names. Pick a district on the map and its races appear beside it.',
+    ],
+    changed: [
+      'The district you race in sets your rivals and your pay: a stronger car can race in an easier district (easier rivals, at the pay of that district); a car must be at least the league of a district to race there.',
+      'RACE opens the map and glides straight to the district your car races in, so racing is still one tap away. Garage or Esc goes back.',
+      'The Typing Race stays on its own TYPE button.',
+    ],
+  },
+  {
     version: '0.19.1', date: '2026-10-22', title: 'The Top 500 goes online',
     added: [
       'The Top 500 typing leaderboard is online: every Typing Race you finish adds your XP to the board (Profile ▸ Top 500). Everyone starts from zero today.',

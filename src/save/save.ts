@@ -27,6 +27,8 @@ export interface SaveV1 {
   typingLevel?: 'easy' | 'medium' | 'hard' | 'expert';
   /** the player's username (V0.19.0, owner): shown on your car's tag and in results; made up on first play, changed in Profile */
   username?: string;
+  /** the city-map district picked last (V0.20.0): Street Races and the Strip are held there, at its league (data/districts.ts) */
+  district?: string;
   /** Visual parts owned — bought once, fit every car (owner Q110). Factory parts are always owned. */
   partsOwned: string[];
   /** premium paints bought with Crowns (Body Shop; free on every car once bought) */

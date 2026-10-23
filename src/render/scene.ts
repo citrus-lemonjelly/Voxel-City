@@ -10,6 +10,7 @@ import { SpeedBlur, BLUR_LEVELS, BlurLevel, CAR_LAYER } from './speedBlur';
 import { StageDef } from '../data/stages';
 import { TypingView } from './typingView';
 import { DriftView } from './driftView';
+import { CityMapView } from './cityMap';
 import type { DriftPath } from '../data/driftCourses';
 import { buildGarageRoom, GarageRoom } from './garage';
 
@@ -63,11 +64,13 @@ export class World {
   stage?: Stage;
   player?: CarModel;
   opponent?: CarModel;
-  mode: 'garage' | 'race' | 'typing' | 'drift' = 'garage';
+  mode: 'garage' | 'race' | 'typing' | 'drift' | 'map' = 'garage';
   /** Drift view (owner, V0.18.0), built on first use */
   drift?: DriftView;
   /** Typing Race view (top-down), built on first use */
   typing?: TypingView;
+  /** the city map (V0.20.0 concept, dev ?citymap) */
+  map?: CityMapView;
   /** Race camera: 'side' = CSR-style side-on, 'angle' = fixed slight angle (reference), 'dynamic' = angle swings with who's leading, 'chase' = old rear-chase. */
   camMode: 'side' | 'angle' | 'dynamic' | 'chase' = 'dynamic';
   private camX = 0;
@@ -141,6 +144,7 @@ export class World {
     for (const c of [this.garageCam, this.raceCam]) { c.aspect = w / h; c.updateProjectionMatrix(); }
     this.typing?.resize(w, h);
     this.drift?.resize(w, h);
+    this.map?.resize(w, h);
   }
 
   // ---------- garage (the 3D room behind the menus, render/garage.ts; the Terminal UI sits on top) ----------
@@ -400,6 +404,15 @@ export class World {
     this.mode = 'typing';
   }
 
+  /** City map (V0.20.0): the voxel island; districts above `openUpTo` (0 = only Downtown) are greyed. */
+  setupMap(openUpTo: number) {
+    if (!this.map) { this.map = new CityMapView(this.mats); this.map.scene.environment = this.garageScene.environment; this.map.scene.environmentIntensity = 0.2; }
+    if (this.map.builtFor !== openUpTo) this.map.build(openUpTo);                     // built once; again only when a district opens
+    const sz = this.renderer.getSize(new THREE.Vector2()); this.map.resize(sz.x, sz.y);
+    this.renderer.toneMappingExposure = 1;
+    this.mode = 'map';
+  }
+
   /** Drift (owner, V0.18.0): build the course's night scene with your car (and the ghost rival's). */
   setupDrift(path: DriftPath, me: CarLook, ghost: CarLook | null, wet: boolean) {
     if (!this.drift) { this.drift = new DriftView(this.mats); }
@@ -421,6 +434,7 @@ export class World {
       } else if (this.autoSpin && !D.on && D.v === 0) this.turntable.rotation.y += dt * 0.25;
       this.renderer.render(this.garageScene, this.garageCam);
     } else if (this.mode === 'typing' && this.typing) this.renderer.render(this.typing.scene, this.typing.cam);
+    else if (this.mode === 'map' && this.map) this.renderer.render(this.map.scene, this.map.cam);
     else if (this.mode === 'drift' && this.drift) this.renderer.render(this.drift.scene, this.drift.cam); else if (this.blur.strength > 0) this.blur.render(this.raceScene, this.raceCam, dt);
     else this.renderer.render(this.raceScene, this.raceCam);
   }

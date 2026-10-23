@@ -2,6 +2,7 @@
 // This loose shim keeps `tsc` happy offline. Once `npm install` brings in @types/three, delete it.
 declare module 'three' {
   export const Group: any; export type Group = any;
+  export const CatmullRomCurve3: any; export type CatmullRomCurve3 = any;
   export const Object3D: any; export type Object3D = any;
   export const WebGLRenderer: any; export type WebGLRenderer = any;
   export const Mesh: any; export type Mesh = any;

@@ -58,7 +58,7 @@ export function rivalNear(league: string, target: number, floor: number, stage: 
 
 /** Street Race rival: close to YOUR perfect run with the car + upgrades you have now. */
 export function makeRival(carId: string, tune: Partial<Tune>, stage: StageDef, seed = (Date.now() & 0x7fffffff) || 1, distanceM = stage.distanceM,
-  gap: [number, number] = [MATCH.minGap, MATCH.maxGap]): Rival {
+  gap: [number, number] = [MATCH.minGap, MATCH.maxGap], league: string = CARS[carId].league): Rival {
   const rng = makeRng(seed);
   // your reference: perfect shifts and launch, a sharp human's reaction, no nitrous (owner 2026-10-22: a maxed car driven perfectly
   // must win — nitrous used well only widens the gap)
@@ -66,5 +66,6 @@ export function makeRival(carId: string, tune: Partial<Tune>, stage: StageDef, s
   const target = yours + gap[0] + rng() * (gap[1] - gap[0]);                    // difficulty sets the window (Easy / Medium / Hard)
   // parts are random per rival but stay near your level (±1 tier around your average), so a close match is always there
   const t = fullTune(tune), lvl = Math.round(PERF_KINDS.reduce((a, k) => a + t[k], 0) / PERF_KINDS.length);
-  return rivalNear(CARS[carId].league, target, yours + gap[0], stage, distanceM, rng, yours, { minTier: Math.max(1, lvl - 1), maxTier: Math.min(5, lvl + 1) });
+  // V0.20.0 (owner Q218): the district's league picks the rival cars — in a lower district they can't keep up, so it's easier
+  return rivalNear(league, target, yours + gap[0], stage, distanceM, rng, yours, { minTier: Math.max(1, lvl - 1), maxTier: Math.min(5, lvl + 1) });
 }

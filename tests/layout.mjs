@@ -15,7 +15,7 @@ const only = process.argv.slice(2).find(a => SIZES[a]);
 const SCREENS = [['Home', []], ['Menu open', ['#rail']], ['Profile', ['#rail', '[data-panel=profile]']], ['My cars', ['#rail', '[data-panel=garage]']],
   ['Body Shop', ['#rail', '[data-panel=garage]', '#gParts']], ['Upgrades', ['#rail', '[data-panel=garage]', '#gUpg']], ['Upgrades + test run', ['#rail', '[data-panel=garage]', '#gUpg', '#dynoBtn']],
   ['Catalog', ['#rail', '[data-panel=catalog]', 900]], ['Settings', ['#rail', '[data-panel=settings]']], ['Daily', ['#rail', '[data-panel=daily]']], ['Calendar', ['#rail', '[data-panel=calendar]']],
-  ['Patch notes', ['#notesBtn']], ['Race menu', ['#raceBtn']], ['Typing menu', ['#typingBtn']], ['The Strip', ['#raceBtn', '#stripOpen', 900]]];
+  ['Patch notes', ['#notesBtn']], ['City map', ['#raceBtn', 6000]], ['City map · whole', ['#raceBtn', 4000, '#cmCity', 1500]], ['Typing menu', ['#typingBtn']], ['The Strip', ['#raceBtn', 4000, '#stripOpen', 900]]];
 
 /** Runs in the page: returns [kind, text] problems for what is on screen now. */
 function check() {
@@ -23,15 +23,15 @@ function check() {
   const name = el => el.id ? '#' + el.id : el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.') : el.tagName.toLowerCase();
   const label = el => `${name(el)}${el.textContent.trim() ? ` "${el.textContent.trim().replace(/\s+/g, ' ').slice(0, 24)}"` : ''}`;
   const inScroller = el => { for (let p = el.parentElement; p && p.id !== 'garage'; p = p.parentElement) { const o = getComputedStyle(p); if (/(auto|scroll|hidden)/.test(o.overflowY + o.overflowX)) return true; } return false; };
-  const g = document.getElementById('garage'); if (!g) return [['error', 'no garage screen']];
+  const g = document.getElementById('garage') || document.getElementById('citymap'); if (!g) return [['error', 'no garage or city map screen']];   // RACE opens the city map (V0.20.0)
   // 1. off screen
-  for (const el of g.querySelectorAll('button, .g-panel, .cat-list, .pt-tabs, .cat-under, .gr-info, .strip-wrap, .g-util, .g-raceside, .g-bar, .g-wallet, .g-title, .g-racemenu, #garage > .g-sub')) {
+  for (const el of g.querySelectorAll('button:not(.cm-tag), .g-panel, .cat-list, .pt-tabs, .cat-under, .gr-info, .strip-wrap, .g-util, .g-raceside, .g-bar, .g-wallet, .g-title, .g-racemenu, #garage > .g-sub, .cm-panel, .cm-btns, .cm-title')) {
     if (!seen(el) || (el.tagName === 'BUTTON' && inScroller(el))) continue;
     const r = el.getBoundingClientRect();
     if (r.left < -2 || r.top < -2 || r.right > vw + 2 || r.bottom > vh + 2) out.push(['off screen', `${label(el)} (${Math.round(r.left)},${Math.round(r.top)} → ${Math.round(r.right)},${Math.round(r.bottom)})`]);
   }
   // 2. the always-there buttons overlapping each other
-  const chrome = [...g.querySelectorAll('.g-util, .g-raceside, #garage > .g-sub, .g-wallet, .g-title, .g-bar')].filter(seen);
+  const chrome = [...g.querySelectorAll('.g-util, .g-raceside, #garage > .g-sub, .g-wallet, .g-title, .g-bar, .cm-panel, .cm-btns, .cm-title')].filter(seen);
   for (let i = 0; i < chrome.length; i++) for (let j = i + 1; j < chrome.length; j++) {
     const a = chrome[i].getBoundingClientRect(), b = chrome[j].getBoundingClientRect();
     const x = Math.min(a.right, b.right) - Math.max(a.left, b.left), y = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);

@@ -45,7 +45,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
     <div class="g-bar">${miniHud(save)}${(['profile', 'garage', 'catalog', 'settings'] as const).map(k => `<div class="g-tabwrap"><button class="g-tab ${ui.panel === k ? 'on' : ''}" data-panel="${k}">${icon(k)}<span>${k[0].toUpperCase() + k.slice(1)}</span></button>${k === 'garage' ? subTabsHtml(save) : ''}</div>`).join('')}</div>
     <button class="g-notesbtn ${ui.panel === 'notes' ? 'on' : ''}" id="notesBtn" title="Patch notes" aria-label="Patch notes">${icon('notes', 2)}<span>V${VERSION}</span>${save.seenVersion !== VERSION ? '<em class="g-new">New</em>' : ''}</button>
     <button class="g-cambtn" id="camBtn" title="Camera angle ${gcam.toUpperCase()} (${GARAGE_CAMS[gcam].label}) — click for the next angle" aria-label="Camera angle">${icon('camera', 2)}<span>Cam ${gcam.toUpperCase()}</span></button>
-    <button class="g-racebtn ${ui.raceMenu === 'drag' ? 'on' : ''}" id="raceBtn" aria-label="Race"><span class="rb-face"><i class="rb-ic rb-wheel">${icon('parts', 2)}</i><span>Race</span><i class="rb-ic rb-gear">${icon('settings', 2)}</i></span></button>
+    <button class="g-racebtn" id="raceBtn" aria-label="Race"><span class="rb-face"><i class="rb-ic rb-wheel">${icon('parts', 2)}</i><span>Race</span><i class="rb-ic rb-gear">${icon('settings', 2)}</i></span></button>
     <button class="g-typebtn ${ui.raceMenu === 'typing' ? 'on' : ''}" id="typingBtn" aria-label="Type"><span class="tb-face">${typingBadge(typingLeagueOf(typingStats(save).xp ?? 0).i, 1.25)}<span class="tb-label">Type</span><span class="tb-keys" aria-hidden="true"><i>A</i><i>S</i><i>D</i></span></span></button>
     ${raceMenuHtml(save, opp, stage)}
     ${ui.panel === 'strip' ? stripHtml(save, on) : ui.panel === 'parts' ? partsHtml(save, on) : ui.panel === 'garage' ? garageHtml(save, on) : panelHtml(save, on)}
@@ -75,15 +75,15 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
   });
   el.querySelector('#camBtn')?.addEventListener('click', () => { const ids = Object.keys(GARAGE_CAMS) as GarageCam[]; on.onSetting('gcam', ids[(ids.indexOf(save.settings.gcam ?? 'd') + 1) % ids.length]); });
   // Race overrides everything (owner V0.1.2): close any open panel / Catalog / Parts / Strip / notes, then toggle the race menu
-  // V0.19.0: Race opens the Drag menu, Typing (under it) the Typing menu; the same button again closes it
-  const openMenu = (m: 'drag' | 'typing') => {
+  // V0.19.0: TYPE (under Race) opens the Typing menu; again closes it. (RACE opens the city map since V0.20.0.)
+  const openMenu = (m: 'typing') => {
     if (ui.panel) {
       if (ui.panel === 'catalog' || ui.panel === 'parts' || ui.panel === 'garage' || ui.back) on.onPreview(null);
       ui.panel = null; ui.back = null; ui.dial = false; on.onView('home'); ui.raceMenu = m;
     } else ui.raceMenu = ui.raceMenu === m ? false : m;
     redraw();
   };
-  el.querySelector('#raceBtn')!.addEventListener('click', () => openMenu('drag'));
+  el.querySelector('#raceBtn')!.addEventListener('click', () => on.onMap());                     // V0.20.0: RACE opens the city map
   el.querySelector('#typingBtn')!.addEventListener('click', () => openMenu('typing'));
   el.querySelectorAll<HTMLButtonElement>('.g-close').forEach(b => b.addEventListener('click', () => {
     if (ui.back) { ui.panel = ui.back; ui.back = null; ui.work = save.carId; on.onPreview(lookOf(save, ui.gsel)); on.onView('mycars'); return redraw(); }

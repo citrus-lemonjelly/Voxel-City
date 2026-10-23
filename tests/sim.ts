@@ -7,6 +7,8 @@ import { STAGES } from '../src/data/stages';
 import { Tier, Tune, STOCK_TUNE, MAX_TUNE, allAt, GEARINGS, Gearing } from '../src/data/parts';
 import { CARS, CATALOG_ORDER, LEAGUES } from '../src/data/cars';
 import { makeRival, simTime, MATCH } from '../src/game/rivals';
+import { DISTRICT_BY_ID, raceDistrict, raceLeague, isOpen, canRace, openUpTo } from '../src/data/districts';
+import { freshSave as freshSaveD, addCar as addCarD, switchCar as switchCarD } from '../src/save/save';
 import { CHANGELOG, VERSION } from '../src/data/changelog';
 import { isNewer } from '../src/game/updates';
 import { keysOf, keyMatches, keyName } from '../src/game/keys';
@@ -533,5 +535,22 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   const K = keysOf({}).drift, base = carStats('panda_civix', STOCK_TUNE);
   check(!!K.drift && K.drift !== K.gas && !('up' in K) && base.massKg === kit.massKg && base.peakPowerW === kit.peakPowerW && E2.partPrice('lsd', 3, 'D') > 0,
     `drift keys + parts: Drift on ${keyName(K.drift)}, gas ${keyName(K.gas)}, no shift keys (automatic gears); drift parts cost VX and leave the drag stats alone`);
+}
+// City map districts (V0.20.0, owner Q202 / Q218): one per league, open as you own a car of that league; the district sets
+// the rivals' league and the pay; a stronger car may race a lower district (easier), a weaker one can't race a higher one
+{
+  const s = freshSaveD(), F = DISTRICT_BY_ID;
+  const a = [openUpTo(s), raceDistrict(s).id, raceLeague(s), isOpen(s, F.forest), isOpen(s, F.harbor)];
+  addCarD(s, 'pony');                                                          // a League C car: Daluda Forest opens
+  const b = [openUpTo(s), isOpen(s, F.forest), canRace(s, F.forest), raceDistrict(s).id];
+  switchCarD(s, 'pony');
+  const c = [canRace(s, F.forest), canRace(s, F.downtown), raceDistrict(s).id, raceLeague(s)];
+  s.district = 'downtown'; const d = [raceDistrict(s).id, raceLeague(s)];
+  s.district = 'neon'; const e = raceDistrict(s).id;                           // not open: falls back to the best district the car can race
+  const up = makeRival('pony', {}, stage, 5, 800, [MATCH.minGap, MATCH.maxGap], 'C'), down = makeRival('pony', {}, stage, 5, 800, [MATCH.minGap, MATCH.maxGap], 'D');
+  check(JSON.stringify(a) === JSON.stringify([0, 'downtown', 'D', false, false]) && JSON.stringify(b) === JSON.stringify([1, true, false, 'downtown'])
+    && JSON.stringify(c) === JSON.stringify([true, true, 'forest', 'C']) && JSON.stringify(d) === JSON.stringify(['downtown', 'D']) && e === 'forest'
+    && CARS[down.carId].league === 'D' && down.expect > up.expect && !isOpen(s, F.harbor),
+    `districts: Downtown open at the start; a League C car opens Daluda Forest; a C car in Downtown races D rivals (${down.expect.toFixed(2)} s vs ${up.expect.toFixed(2)} s in the Forest) at D pay; the Harbor waits (end game)`);
 }
 process.exit(fail ? 1 : 0);
