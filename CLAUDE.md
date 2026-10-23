@@ -106,8 +106,11 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Live: **V0.20.0 "City Update"** (shipped 2026-10-23, S103–S104): RACE opens the city map (`src/render/cityMap.ts` island,
   `src/ui/cityMapUi.ts` tags + district panel, rules `src/data/districts.ts`); the district sets rivals + pay; Typing stays on TYPE.
   `?citymap` opens the map at start. Smoke / layout / shot tools go RACE → map (map takes a few seconds to build the first time).
-- **Next (owner):** the race scene for each district (Q222 looks per district; today every district races the Downtown street),
-  then the Harbor end game (Q219) and clickable garage spots → the garage computer holds every menu (owner D4). Run heavy checks one at a time.
+- **Next (owner, 2026-10-23): `docs/LOOK_ROADMAP.md`** — Terraglass-style techniques (glow, corner shading, tilt-shift, particles,
+  colour variation, see-through water) on the map + garage with an On/Off setting; Settings with left-border tabs (Gameplay ·
+  Visuals · Audio · Controls); map roads revamp (road network, junctions, kerbs, no 90° hits — Downtown ↔ garage worst); garage
+  revamp with ½-size detail blocks. Items L1–L31, versions V0.21.0 → V0.22.0, open Q229–Q236 (S105). Start with L1.
+  After that: the race scene for each district (Q222), the Harbor end game (Q219). Run heavy checks one at a time.
 - Idea backlog: other panels turn too (Settings → desk, Daily → whiteboard) (Small) · garage at night after night races (Small) ·
   weighted time of day (Small) · garage decor shop with Crowns (Big) · Body Shop "undo" (Small) · saved looks per car (Medium) ·
   rival plate text (Small) · split main.ts further (Typing Race, race setup) (Medium) · Drift on phones (Medium).
