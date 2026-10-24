@@ -95,7 +95,7 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 /* Catalog: list on the left, turntable on the right, paint + features under the car */
 .catalog-mode .g-title{left:28px}
 .cat-list{position:absolute;left:28px;top:128px;bottom:128px;width:328px;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
-.cat-card{border:0;cursor:pointer;display:flex;flex-direction:column;gap:6px;padding:6px 6px 8px;background:var(--panel2);color:var(--text);box-shadow:0 0 0 2px var(--edge);text-align:left}
+.cat-card{position:relative;border:0;cursor:pointer;display:flex;flex-direction:column;gap:6px;padding:6px 6px 8px;background:var(--panel2);color:var(--text);box-shadow:0 0 0 2px var(--edge);text-align:left}
 .cat-thumb{display:block;width:100%;aspect-ratio:296/124;height:auto}
 .cat-row{display:flex;justify-content:space-between;align-items:center;padding:0 4px}.cat-row b{font-size:15px}
 .cat-tag{font:700 12px system-ui;font-style:normal;color:var(--accent)}.cat-tag.own{color:var(--dim)}.cat-tag.use{color:var(--good)}.cat-tag.short{color:var(--bad)}
@@ -141,6 +141,7 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .cat-card.on{background:#2f3442;box-shadow:0 0 0 2px var(--accent)}
 .cat-under{position:absolute;left:400px;right:28px;bottom:128px;padding:12px 16px 12px;background:#14161cd8;display:flex;flex-direction:column;gap:10px;align-items:center}
 .cat-under .g-close{right:8px;top:8px}
+.cat-rating{display:flex;gap:12px;align-items:center}.cat-rating .g-note b{color:var(--text)}
 .cat-name{display:flex;gap:10px;align-items:baseline}.cat-name b{font-size:20px}.cat-name span{font-size:12px;color:var(--dim)}
 .cat-stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;width:100%;max-width:900px}
 .cs{display:flex;flex-direction:column;gap:2px;min-width:0}.cs span{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}.cs b{font:700 13px system-ui;font-variant-numeric:tabular-nums}

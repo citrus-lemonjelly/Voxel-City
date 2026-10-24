@@ -1,6 +1,6 @@
 // Effective car stats = base car data + equipped performance tiers. Pure functions (testable headless).
 import { CARS, CarDef } from '../data/cars';
-import { ENGINE, TRANSMISSION, TIRES, WEIGHT, TURBO, NITROUS, legalRatios, usesCustom, LEAGUE_EFFECT, TransmissionTier, LAUNCH, SPOOL, Tune, fullTune, GEARING_BY_ID } from '../data/parts';
+import { ENGINE, TRANSMISSION, TIRES, WEIGHT, TURBO, NITROUS, legalRatios, usesCustom, LEAGUE_EFFECT, TransmissionTier, LAUNCH, SPOOL, Tune, fullTune, GEARING_BY_ID, TUNING, tuneOpen } from '../data/parts';
 import { StageDef } from '../data/stages';
 
 export interface CarStats {
@@ -29,14 +29,16 @@ export interface CarStats {
 }
 
 export function carStats(carId: string, tuneIn: Partial<Tune>, stage?: StageDef): CarStats {
-  const car = CARS[carId], tune = fullTune(car.unique ? { gearing: tuneIn.gearing } : tuneIn);   // boss cars: parts as they come, gearing free
+  const car = CARS[carId], tune = fullTune(car.unique ? { gearing: tuneIn.gearing, fd: tuneIn.fd } : tuneIn);   // boss cars: parts as they come, gearing / final drive free
   const eng = ENGINE[car.league][tune.engine - 1], tyre = TIRES[car.league][tune.tires - 1];
   const wt = WEIGHT[car.league][tune.weight - 1], turbo = TURBO[car.league][tune.turbo - 1], nos = NITROUS[car.league][tune.nitrous - 1], k = LEAGUE_EFFECT[car.league], gain = (car.engineGain ?? 1) * k;
   const base = TRANSMISSION[car.league][tune.trans - 1], f = car.feel || {};
   // T5 boxes take your own ratios when you have tuned them (owner Q192, V0.17.0); gearing still moves the top gear
   // gear setup (owner, V0.17.1): your own T5 ratios OR a preset gearing — never both. Custom ratios replace the gearing entirely.
   const custom = usesCustom(tune), own = custom ? legalRatios(base.ratios, tune.ratios) : base.ratios;
-  const gear = GEARING_BY_ID[custom ? 'balanced' : tune.gearing ?? 'balanced'], ratios = own.map((r, i, a) => i === a.length - 1 ? r * gear.top : r);
+  // Car Lab (V0.21.0): the final drive slider replaces the gearing presets for players; rivals still use the presets
+  const T = TUNING, fd = Math.min(T.fd.max, Math.max(T.fd.min, tune.fd ?? 1)), tp = tuneOpen('tp', tune) ? Math.min(1, Math.max(-1, tune.tp ?? 0)) : 0, nm = tuneOpen('nm', tune) ? Math.min(1, Math.max(-1, tune.nm ?? 0)) : 0;
+  const gear = GEARING_BY_ID[custom || tune.fd !== undefined ? 'balanced' : tune.gearing ?? 'balanced'], ratios = own.map((r, i, a) => i === a.length - 1 ? r * gear.top : r);
   const trans: TransmissionTier = { ...base, ratios, shiftTime: base.shiftTime * (f.shift ?? 1), zoneWidth: base.zoneWidth * (f.window ?? 1) };
   const lc = (LAUNCH.perfectMin + LAUNCH.perfectMax) / 2, lh = (LAUNCH.perfectMax - LAUNCH.perfectMin) / 2 * (f.launch ?? 1) * tyre.launchMult;
   const gripMult = 1 + (tyre.gripMult - 1) * k;
@@ -51,26 +53,29 @@ export function carStats(carId: string, tuneIn: Partial<Tune>, stage?: StageDef)
     peakRpm: redline * car.peakRpmFrac,
     idleRpm: car.idleRpm,
     redline,
-    finalDrive: car.finalDrive,
-    wheelRadiusM: car.wheelRadiusM,
+    finalDrive: car.finalDrive * fd,
+    wheelRadiusM: car.wheelRadiusM * (1 + T.tp.radius * tp),
     dragArea: car.dragArea * (stage ? stage.modifiers.dragMult : 1),
-    rollingCoeff: car.rollingCoeff,
-    tractionN: car.gripG * gripMult * grip * massKg * 9.81 * car.drivenWeightShare,
+    rollingCoeff: car.rollingCoeff * (1 - T.tp.roll * tp),
+    tractionN: car.gripG * gripMult * grip * massKg * 9.81 * car.drivenWeightShare * (1 - T.tp.grip * tp),
     trans,
     launch,
     boost: turbo.boost * (car.turboGain ?? car.engineGain ?? 1) * k,
     lowLoss: turbo.lowLoss * (car.turboGain ?? car.engineGain ?? 1) * k,
     pull: gear.pull,
-    nitro: { boost: nos.boost * k, seconds: nos.seconds },          // the same bottle on every car (league strength only), so maxed cars stay close
+    nitro: { boost: nos.boost * k * (1 + T.nm.boost * nm), seconds: nos.seconds * (1 - T.nm.seconds * nm) },   // the same bottle on every car (league strength only); the mix trades burn time for strength
     tune,
   };
 }
 
+/** Power band (Build & Tune Update): power = 1 − band·(1 − rpm/peak rpm)². 1 was the old flat hump (91 % power at 70 % of
+ *  the peak revs), so tall gearing cost nothing; 2 is peakier, so the final drive has a real sweet spot per race length. */
+export const TORQUE = { band: 2 };
 /** Engine torque (N·m) at an rpm. Power follows a smooth hump peaking at peakRpm; torque = P / ω. */
 export function torqueAt(s: CarStats, rpm: number): number {
   const r = Math.max(rpm, s.idleRpm);
   const x = r / s.peakRpm;
-  let p = s.peakPowerW * Math.max(0.12, x * (2 - x));
+  let p = s.peakPowerW * Math.max(0.12, 1 - TORQUE.band * (1 - x) * (1 - x));
   if (s.boost > 0) { const k = spool(r / s.redline); p *= 1 + s.boost * k - s.lowLoss * (1 - k); }
   return p / (r * Math.PI / 30);
 }

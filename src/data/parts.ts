@@ -29,10 +29,10 @@ const ENGINE_D: EngineTier[] = [
 
 const TRANS_D: TransmissionTier[] = [
     { tier: 1, ratios: [3.25, 1.90, 1.30, 1.00, 0.80],        shiftTime: 0.50, zoneCentre: 0.90, zoneWidth: 0.10, perfectBoost: 0.05, price: 0,    label: 'Stock 5-speed' },
-    { tier: 2, ratios: [3.25, 1.95, 1.36, 1.05, 0.84],        shiftTime: 0.42, zoneCentre: 0.90, zoneWidth: 0.09, perfectBoost: 0.07, price: 700,  label: 'Short shifter' },
-    { tier: 3, ratios: [3.25, 2.20, 1.62, 1.26, 1.02, 0.84],  shiftTime: 0.34, zoneCentre: 0.91, zoneWidth: 0.08, perfectBoost: 0.09, price: 1400, label: 'Close-ratio 6-speed' },
-    { tier: 4, ratios: [3.30, 2.25, 1.68, 1.32, 1.07, 0.88],  shiftTime: 0.26, zoneCentre: 0.91, zoneWidth: 0.07, perfectBoost: 0.11, price: 2500, label: 'Sport 6-speed' },
-    { tier: 5, ratios: [3.35, 2.32, 1.74, 1.38, 1.12, 0.92],  shiftTime: 0.18, zoneCentre: 0.92, zoneWidth: 0.06, perfectBoost: 0.13, price: 3900, label: 'Sequential 6-speed' },
+    { tier: 2, ratios: [3.25, 1.95, 1.36, 1.05, 0.80],        shiftTime: 0.42, zoneCentre: 0.90, zoneWidth: 0.09, perfectBoost: 0.07, price: 700,  label: 'Short shifter' },
+    { tier: 3, ratios: [3.25, 2.20, 1.60, 1.22, 0.98, 0.80],  shiftTime: 0.34, zoneCentre: 0.91, zoneWidth: 0.08, perfectBoost: 0.09, price: 1400, label: 'Close-ratio 6-speed' },
+    { tier: 4, ratios: [3.30, 2.25, 1.64, 1.25, 1.00, 0.80],  shiftTime: 0.26, zoneCentre: 0.91, zoneWidth: 0.07, perfectBoost: 0.11, price: 2500, label: 'Sport 6-speed' },
+    { tier: 5, ratios: [3.35, 2.30, 1.67, 1.27, 1.01, 0.80],  shiftTime: 0.18, zoneCentre: 0.92, zoneWidth: 0.06, perfectBoost: 0.13, price: 3900, label: 'Sequential 6-speed' },
 ];
 
 export type PartLeague = 'D' | 'C' | 'B' | 'A' | 'S';
@@ -122,7 +122,7 @@ export const GEARING_BY_ID = Object.fromEntries(GEARINGS.map(g => [g.id, g])) as
 /** How strong upgrades are in each league (1 = the tables as written). Class limit (U3): a fully upgraded car never beats
  *  a stock car of the next league, and leagues C and B sit close to the league above, so their parts do less.
  *  Scales the power, grip, weight and turbo effects; transmissions are the same everywhere. */
-export const LEAGUE_EFFECT: Record<PartLeague, number> = { D: 1, C: 0.38, B: 0.6, A: 1, S: 1 };
+export const LEAGUE_EFFECT: Record<PartLeague, number> = { D: 1, C: 0.32, B: 0.55, A: 1, S: 1 };
 
 /** Every performance part a car can upgrade (U1); nitrous since V0.16.0. */
 export type PerfKind = 'engine' | 'trans' | 'tires' | 'weight' | 'turbo' | 'nitrous';
@@ -135,9 +135,28 @@ export type AnyKind = PerfKind | DriftKind;
 export const PART_LABEL: Record<AnyKind, string> = { ...PERF_LABEL, dtyres: 'Drift tyres', lsd: 'Differential', angle: 'Steering lock' };
 /** A car's performance set-up: a tier per part + its gearing (missing gearing = balanced). */
 export type Tune = Record<PerfKind, Tier> & Partial<Record<DriftKind, Tier>> & { gearing?: Gearing; /** custom ratio per gear — used with Transmission T5 (V0.17.0) */ ratios?: number[];
-  /** preset gearing (Short / Balanced / Long) OR custom ratios — one or the other (owner, V0.17.1). Missing: custom if ratios were saved */ gearMode?: 'preset' | 'custom' };
-/** Which gear setup a tune uses. Custom needs Transmission T5 fitted; otherwise the preset gearing applies. */
-export const usesCustom = (t: Partial<Tune>) => t.trans === 5 && (t.gearMode ?? (t.ratios?.length ? 'custom' : 'preset')) === 'custom';
+  /** preset gearing (Short / Balanced / Long) OR custom ratios — one or the other (owner, V0.17.1). Missing: custom if ratios were saved */ gearMode?: 'preset' | 'custom';
+  /** Car Lab sliders (V0.21.0, see TUNING): final drive ×, tire pressure −1…+1, nitrous mix −1…+1 */ fd?: number; tp?: number; nm?: number };
+/** Car Lab tuning (Build & Tune Update, owner Q245 — the CSR Racing idea): free sliders that trade one thing for another, so the
+ *  best set-up depends on the race length. Each opens when its part is fitted at a tier (TUNE_UNLOCK). Missing = the middle. */
+export const TUNING = {
+  /** final drive × the car's own: higher = quicker off the line, lower = more top speed (replaces Short / Balanced / Long) */
+  fd: { min: 0.8, max: 1.2, step: 0.01 },
+  /** tire pressure −1 (low) … +1 (high): low = more grip, more rolling drag and a smaller tire (shorter gearing); high = less
+   *  grip, less drag and a taller tire (more top speed) — like a drag radial growing at speed */
+  tp: { grip: 0.05, roll: 0.4, radius: 0.025, step: 0.05 },
+  /** nitrous mix −1 (long, gentle) … +1 (short, strong): boost × (1 + boost·m), burn time × (1 − seconds·m) */
+  nm: { boost: 0.4, seconds: 0.3, step: 0.05 },
+};
+export type TuneKey = 'fd' | 'nm' | 'tp' | 'ratios';
+/** What opens each slider (owner Q245: like CSR — Nitrous T2, Tires T3, Gearbox T4; final drive is open on every car). */
+export const TUNE_UNLOCK: Record<TuneKey, { kind: PerfKind | null; tier: Tier }> = { fd: { kind: null, tier: 1 }, nm: { kind: 'nitrous', tier: 2 }, tp: { kind: 'tires', tier: 3 }, ratios: { kind: 'trans', tier: 4 } };
+/** Is this slider working with the parts fitted now? */
+export const tuneOpen = (key: TuneKey, t: Partial<Tune>) => { const u = TUNE_UNLOCK[key]; return !u.kind || (t[u.kind] ?? 1) >= u.tier; };
+/** Which gear setup a tune uses: your own ratios once Transmission T4+ is fitted and you have tuned them (V0.21.0; T5 before). */
+export const usesCustom = (t: Partial<Tune>) => tuneOpen('ratios', t) && !!t.ratios?.length && t.gearMode !== 'preset';
+/** The tune with every slider in the middle (what the car rating is measured on). */
+export const untuned = (t: Tune): Tune => { const { fd, tp, nm, ratios, gearMode, gearing, ...parts } = t; return parts as Tune; };
 /** Gear ratio tuning (owner Q192, V0.17.0): unlocked by Transmission T5. Each gear may move up to ±spread from the stock T5 ratio, in
  *  steps of `step`, and must stay at least `minStep` taller (lower ratio) than the gear before it. */
 export const RATIO_TUNING = { spread: 0.25, step: 0.05, minStep: 0.03 };

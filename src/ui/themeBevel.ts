@@ -7,6 +7,7 @@
 // Markup for it (Menu button, league chip, panel title icons) is in garage.ts. All rules are scoped under html.ui-bevel so
 // they win over the base layout rules without !important.
 import { SILKSCREEN_WOFF2 } from '../data/fontSilkscreen';
+import { RATING_CSS } from './ratingBox';
 
 // surfaces — the five block states every control uses
 const PANEL = 'background:#262a35;box-shadow:inset 3px 3px 0 #3f4555,inset -3px -3px 0 #15171d,0 0 0 2px #0b0c10,5px 5px 0 2px #0b0c1099';
@@ -250,6 +251,7 @@ export const BEVEL_CSS = [
   // ---- phones (owner E2, V0.15.0): the smallest labels a size up, on top of the bigger phone scale (main.ts FIT) ----
   ...['.setrow,.g-note,.seg button,.g-util>button,.g-tab,.sl-rw,.sl-card .hd,.g-grid span,.stat span,.g-league,.gr-rec,.pt-group,.cal-day,.g-mode-sub,.pn-kind,.g-pick button,.g-panel>h2 .g-sub,.g-new,.tb-keys i'].map(sel =>
     sel.split(',').map(x => `html.vc-phone.ui-bevel ${x}`).join(',') + '{font-size:12.5px}'),
+  RATING_CSS,
   `@media (pointer:coarse){${[
     B('.g-util>button', 'width:64px;height:56px'),
     B('.g-tab', 'width:88px;height:56px'),

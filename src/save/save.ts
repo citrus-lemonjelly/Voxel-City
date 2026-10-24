@@ -129,7 +129,18 @@ const stockParts = () => ({ owned: stockOwned(), equipped: stockEquipped() });
 /** Saves from before the Tuning Update (V0.11.0): fill the new parts in at stock. */
 function fillParts(c: { owned: Partial<Owned>; equipped: Partial<Tune> }) {
   for (const k of PERF_KINDS) { c.owned[k] ??= [1]; c.equipped[k] ??= 1; }
+  carLabTune(c.equipped);
 }
+/** Build & Tune Update (V0.21.0): the old gearing pick becomes a final drive setting, and the old Preset / Custom switch goes —
+ *  your own ratios are used whenever Transmission T4+ is fitted (Reset in Car Lab goes back to stock). */
+export function carLabTune(e: Partial<Tune>) {
+  const custom = !!e.ratios?.length && e.gearMode !== 'preset';          // custom ratios ignored the gearing pick, so they keep fd 1
+  if (e.gearing && e.fd === undefined && !custom) e.fd = GEARING_FD[e.gearing];
+  delete e.gearing;
+  if (e.gearMode === 'preset') delete e.ratios;
+  delete e.gearMode;
+}
+const GEARING_FD: Record<string, number> = { short: 1.06, balanced: 1, long: 0.92 };
 export const freshCar = (paint = '', opts: Record<string, string> = {}): CarState => ({ ...stockParts(), paint, opts: { ...opts }, parts: {} });
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 

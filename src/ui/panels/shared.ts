@@ -125,4 +125,3 @@ export const crownIcon = () => `<i class="crown-ic">${icon('crown', 1.4)}</i>`;
 /** A car's price in its own currency (Voxels, or Crowns for Crowns-only cars). */
 export const carPrice = (id: string) => CARS[id].currency === 'crowns' ? `${crownIcon()}${CARS[id].price.toLocaleString()} Crowns` : price(CARS[id].price);
 export const wallet = (save: SaveV1, id: string) => CARS[id].currency === 'crowns' ? save.crowns : save.voxels;
-export const CHARACTER: Record<string, string> = { dash: 'Best at short dashes', long: 'Best over the full 800 m', balanced: 'All-rounder' };

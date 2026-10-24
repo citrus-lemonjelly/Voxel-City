@@ -5,7 +5,11 @@ import { CARS, CATALOG_ORDER, LEAGUES, carBrand, carName, carPaint } from '../..
 import { BODY_OPTIONS } from '../../render/bodies';
 import { infoRows } from '../../game/carInfo';
 import { DEV } from '../devConsole';
-import { ui, scroll, lookOf, catLook, pickCar, profileOf, carPrice, wallet, CHARACTER, PAINTS, TYPE_SUB, GarageHandlers, Wire } from './shared';
+import { ui, scroll, lookOf, catLook, pickCar, profileOf, carPrice, wallet, PAINTS, TYPE_SUB, GarageHandlers, Wire } from './shared';
+import { carRating } from '../../game/rating';
+import { carTiers } from '../../save/save';
+import { MAX_TUNE } from '../../data/parts';
+import { ratingBox, ratingChip } from '../ratingBox';
 
 const LEAGUE_NAME: Record<string, string> = { D: 'Hatchbacks', C: 'Muscle', B: 'Street racers', A: 'Tuners · GTs · Super sports', S: 'Hypercars' };
 
@@ -15,7 +19,7 @@ export function catalogHtml(save: SaveV1, on: GarageHandlers, close: string): st
   const card = (cid: string) => {
     const c = CARS[cid], own = !!save.cars[cid], use = save.carId === cid, can = DEV.unlimited || wallet(save, cid) >= c.price;
     const tag = use ? '<em class="cat-tag use">In use</em>' : own ? `<em class="cat-tag own">${c.unique ? 'Boss car' : 'Owned'}</em>` : `<em class="cat-tag ${can ? '' : 'short'} ${c.currency === 'crowns' ? 'cr' : ''}">${carPrice(cid)}</em>`;
-    return `<button class="cat-card ${cid === id ? 'on' : ''}" data-car="${cid}"><img class="cat-thumb" alt="" src="${on.thumb(lookOf(save, cid))}"><span class="cat-row"><b>${carName(cid)}</b>${tag}</span></button>`;
+    return `<button class="cat-card ${cid === id ? 'on' : ''}" data-car="${cid}"><img class="cat-thumb" alt="" src="${on.thumb(lookOf(save, cid))}">${ratingChip(carRating(cid))}<span class="cat-row"><b>${carName(cid)}</b>${tag}</span></button>`;
   };
   const action = inUse ? `<button class="btn cat-act" disabled>In use</button>`
     : owned ? `<button class="btn race cat-act" id="useCar">Use this car</button>`
@@ -25,7 +29,8 @@ export function catalogHtml(save: SaveV1, on: GarageHandlers, close: string): st
     ? `<div class="cat-league"><b class="hd">League ${CARS[cid].league}</b><span>${LEAGUE_NAME[CARS[cid].league]}</span></div>` : '') + card(cid)).join('');
   return `<div class="cat-list blk">${list}</div>
       <div class="cat-under">${close}
-        <div class="cat-name"><b class="hd">${carName(id)}</b><span>${spec.unique ? 'Boss car · won on the Strip · no upgrades' : `${carBrand(id)} · ${TYPE_SUB[id] ?? ''}`} · ${spec.hp} hp · ${spec.massKg.toLocaleString()} kg · ${spec.drive} · League ${spec.league} · ${CHARACTER[spec.character ?? 'balanced']}${spec.currency === 'crowns' ? ' · Crowns only' : ''}</span></div>
+        <div class="cat-name"><b class="hd">${carName(id)}</b><span>${spec.unique ? 'Boss car · won on the Strip · no upgrades' : `${carBrand(id)} · ${TYPE_SUB[id] ?? ''}`} · ${spec.hp} hp · ${spec.massKg.toLocaleString()} kg · ${spec.drive} · League ${spec.league}${spec.currency === 'crowns' ? ' · Crowns only' : ''}</span></div>
+        <div class="cat-rating">${ratingBox(carRating(id))}<span class="g-note">${spec.unique ? 'Car rating · boss cars come as they are' : `Car rating stock · <b>${carRating(id, MAX_TUNE)}</b> fully upgraded${owned ? ` · yours now <b>${carRating(id, carTiers(save, id).equipped)}</b>` : ''}`}</span></div>
         <div class="cat-stats">${infoRows(id).map(r => `<div class="cs"><span>${r.label}</span><b>${r.value}</b><i><u style="width:${Math.round(r.bar * 100)}%"></u></i></div>`).join('')}</div>
         ${owned ? `<div class="g-note cat-repaint">Repaint this car in the Body Shop (Garage → pick the car → Body Shop → Paint).</div>` : `<div class="cat-paints">${PAINTS.map(([c, n]) => `<button class="swatch ${c === paint ? 'on' : ''}" data-paint="${c}" title="${n}" style="background:${c}"></button>`).join('')}</div>`}
         ${opts.length ? `<div class="cat-opts">${opts.map(o => `<div class="setrow"><span>${o.label}</span><div class="seg">${o.values.map(([v, t]) => `<button class="${(ui.cat.opts[o.id] ?? o.values[0][0]) === v ? 'on' : ''}" data-opt="${o.id}" data-val="${v}">${t}</button>`).join('')}</div></div>`).join('')}</div>` : `<div class="g-note">No optional features on this body yet.</div>`}

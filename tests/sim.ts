@@ -25,6 +25,7 @@ import { COSMETIC_PRICES } from '../src/data/economy';
 import { readFileSync } from 'node:fs';
 import { stripRung, stripBand, STRIP, levelReward, levelInfo } from '../src/game/strip';
 import { dyno } from '../src/game/dyno';
+import { bestTune, carRating, tunerPoints } from '../src/game/rating';
 import { wetStage } from '../src/data/stages';
 import { PART_LEAGUE, DIST_PAY, racePay as racePayD } from '../src/data/economy';
 import { TRANSMISSION, legalRatios, RATIO_TUNING } from '../src/data/parts';
@@ -118,24 +119,36 @@ check(leagueD.every((id, i) => i === 0 || times[id] < times[leagueD[i - 1]]) && 
 const used = LEAGUES.filter(l => CATALOG_ORDER.some(id => CARS[id].league === l));
 const band = (l: string) => CATALOG_ORDER.filter(id => CARS[id].league === l).map(id => times[id]);
 check(used.every((l, i) => i === 0 || Math.max(...band(l)) < Math.min(...band(used[i - 1]))), `each league is clearly quicker than the one below (${used.map(l => `${l} ${Math.min(...band(l)).toFixed(1)}–${Math.max(...band(l)).toFixed(1)}`).join(' · ')})`);
-// per-car tuning (owner 2026-10-18): small stock edge, fully upgraded cars converge, dash vs long-run character
+// price ladder (Build & Tune Update, owner Q243): pricier cars start a little quicker AND stay quicker fully upgraded; a good Car Lab
+// tune closes most of the gap, so the cheapest car can still beat a pricier car that isn't tuned or driven well
 const tAt = (id: string, tune: Partial<Tune>, d: number) => { const race = new Race(d); const r = race.add('p', carStats(id, tune, stage), new AIController(1, [0.25, 0.25], 7)); for (let i = 0; i < 120 * 60 && !race.done; i++) race.step(1 / 120); return r.finish!; };
-/** quickest of the three gearings (the player picks it freely) */
-const bestAt = (id: string, tune: Partial<Tune>, d: number) => Math.min(...GEARINGS.map(g => tAt(id, { ...tune, gearing: g.id }, d)));
-let converge = true, stockSmall = true, character = true; const notes: string[] = [];
+/** quickest Car Lab tune for that length (the player tunes freely) */
+const bestAt = (id: string, tune: Partial<Tune>, d: number) => bestTune(id, tune, d).time;
+let ladder = true, stockSmall = true, chance = true; const notes: string[] = [];
 for (const l of used) {
   const ids = CATALOG_ORDER.filter(id => CARS[id].league === l); if (ids.length < 2) continue;
-  // fully upgraded = every part at T5 on the car's best gearing; character = engine + gearbox maxed on factory gearing
-  const t5 = ids.map(id => bestAt(id, MAX_TUNE, 800)), t1 = ids.map(id => tAt(id, STOCK_TUNE, 800)), d6 = ids.map(id => tAt(id, { engine: 5, trans: 5 }, 600)), c8 = ids.map(id => tAt(id, { engine: 5, trans: 5 }, 800));
+  const t5 = ids.map(id => tAt(id, MAX_TUNE, 800)), t1 = ids.map(id => tAt(id, STOCK_TUNE, 800)), top = t5[t5.length - 1], cheapTuned = bestAt(ids[0], MAX_TUNE, 800);
   const spread5 = Math.max(...t5) - Math.min(...t5), spread1 = Math.max(...t1) - Math.min(...t1);
-  converge &&= spread5 <= 0.2; stockSmall &&= spread1 <= 0.6;
-  const best800 = ids[c8.indexOf(Math.min(...c8))], best600 = ids[d6.indexOf(Math.min(...d6))];
-  character &&= best800 !== best600 && CARS[best600].character === 'dash' && CARS[best800].character === 'long';
-  notes.push(`${l}: stock ±${spread1.toFixed(2)} → T5 ±${spread5.toFixed(2)} · 600 m ${best600} · 800 m ${best800}`);
+  ladder &&= t5.every((t, i) => i === 0 || t < t5[i - 1]) && spread5 <= 0.025 * top; stockSmall &&= spread1 <= 0.6;
+  chance &&= cheapTuned - top <= 0.013 * top;
+  notes.push(`${l}: stock ±${spread1.toFixed(2)} · maxed ${t5.map(t => t.toFixed(2)).join(' → ')} · cheapest tuned ${cheapTuned.toFixed(2)}`);
 }
-check(stockSmall, `pricier cars start only slightly quicker (${notes.map(n => n.split(' → ')[0]).join(' | ')})`);
-check(converge, `fully upgraded cars in a league (every part T5, best gearing) finish 800 m within 0.2 s of each other (${notes.map(n => n.split(": ")[0] + " " + n.split(" → ")[1].split(" · ")[0]).join(" | ")})`);
-check(character, `dash cars win 600 m, long-run cars win 800 m with engine + gearbox maxed (${notes.map(n => n.split(' · ').slice(1).join(' / ')).join(' | ')})`);
+check(stockSmall, `pricier cars start only slightly quicker (${notes.map(n => n.split(' · ')[0]).join(' | ')})`);
+check(ladder, `price ladder: fully upgraded (default tune), every pricier car in a league is quicker, all within 2.5 % (${notes.map(n => n.split(' · ').slice(0, 2).join(' ').replace(/stock ±[0-9.]+ /, '')).join(' | ')})`);
+check(chance, `a well-tuned cheapest car ends within 1.3 % of the priciest car on its default tune (${notes.map(n => n.split(': ')[0] + ' ' + n.split(' · ')[2]).join(' | ')})`);
+{ // car rating (owner Q246 / E3): a higher rating is always a quicker 800 m, and each league has its own band
+  const rows = CATALOG_ORDER.flatMap(id => ([1, 2, 3, 4, 5] as Tier[]).map(t => ({ id, pp: carRating(id, allAt(t)), t: tAt(id, allAt(t), 800) }))).sort((a, b) => a.pp - b.pp);
+  const honest = rows.every((r, i) => i === 0 || r.pp === rows[i - 1].pp || r.t < rows[i - 1].t + 0.005);
+  const bands = used.map(l => CATALOG_ORDER.filter(id => CARS[id].league === l).map(id => carRating(id)));
+  const apart = bands.every((b, i) => i === 0 || Math.min(...b) > Math.max(...bands[i - 1]));
+  const tp0 = tunerPoints('panda_civix', MAX_TUNE), tp12 = tunerPoints('panda_civix', bestTune('panda_civix', MAX_TUNE, 1200).tune);
+  check(honest && apart && tp0 === 0 && tp12 > 0, `car rating: higher PP = quicker 800 m (${rows.length} car × build pairs), stock bands ${used.map((l, i) => `${l} ${Math.min(...bands[i])}–${Math.max(...bands[i])}`).join(' · ')}; untuned TP 0, a 1200 m tune +${tp12} TP`);
+}
+{ // Car Lab final drive (owner Q245): its sweet spot moves with the race length, and an 800 m tune is worth having
+  const fdAt = (id: string, d: number) => bestTune(id, MAX_TUNE, d).tune.fd!, moves = CATALOG_ORDER.filter(id => fdAt(id, 600) > fdAt(id, 1200));
+  const gains = CATALOG_ORDER.map(id => tAt(id, MAX_TUNE, 800) - bestAt(id, MAX_TUNE, 800));
+  check(moves.length === CATALOG_ORDER.length && gains.every(g => g >= 0.02), `final drive: shorter is best at 600 m and taller at 1200 m on every car (${moves.length}/${CATALOG_ORDER.length}); an 800 m tune saves ${Math.min(...gains).toFixed(2)}–${Math.max(...gains).toFixed(2)} s`);
+}
 check(times.hyper <= 12, `hypercar clears 800 m in 12 s or less on stock parts (${times.hyper.toFixed(2)} s, owner Q89)`);
 // random rivals (owner Q87): same league, never faster than your perfect run, close enough that mistakes lose
 const configs: [string, Tune][] = [['panda_civix', STOCK_TUNE], ['classic', { engine: 3, trans: 2, tires: 2, weight: 1, turbo: 3, nitrous: 2, gearing: 'short' }], ['muscle', STOCK_TUNE],
@@ -194,13 +207,9 @@ check(headStart && outmatched, `boss cars: quicker than any stock car in the nex
     `tyres, weight and turbo T5 each make cars quicker (s saved at 800 m, league average — tyres / weight / turbo: ${helps.map(h => `${h[0]} ${h[1].toFixed(2)}/${h[2].toFixed(2)}/${h[3].toFixed(2)}`).join(' · ')})`);
   const c0 = carStats('panda_civix', STOCK_TUNE, stage), cT = carStats('panda_civix', { turbo: 5 }, stage), cW = carStats('panda_civix', { weight: 5, turbo: 5 }, stage), cY = carStats('panda_civix', { tires: 5 }, stage);
   const lo = 0.35 * c0.redline, hi = 0.95 * c0.redline;
-  check(Math.abs(cT.massKg / c0.massKg - 1.05) < 1e-9 && Math.abs(cW.massKg / c0.massKg - 0.97) < 1e-9 && torqueAt(cT, lo) < torqueAt(c0, lo) && torqueAt(cT, hi) > torqueAt(c0, hi) * 1.2
-    && cY.tractionN > c0.tractionN * 1.2 && cY.launch.perfectMax - cY.launch.perfectMin > (c0.launch.perfectMax - c0.launch.perfectMin) * 1.25,
+  check(Math.abs(cT.massKg / c0.massKg - 1.05) < 1e-9 && Math.abs(cW.massKg / c0.massKg - 0.97) < 1e-9 && torqueAt(cT, lo) < torqueAt(c0, lo)
+    && cY.tractionN > c0.tractionN * 1.2 && cY.launch.perfectMax - cY.launch.perfectMin > (c0.launch.perfectMax - c0.launch.perfectMin) * 1.25 && torqueAt(cT, hi) > torqueAt(c0, hi) * 1.1,
     `turbo: less pull low in the revs, +${Math.round((torqueAt(cT, hi) / torqueAt(c0, hi) - 1) * 100)}% high up, +5% weight (Q168); weight T5 + turbo T5 = −3%; tyres T5 +22% grip, +30% launch window`);
-  const gearBest = (id: string, tune: Partial<Tune>, d: number) => { const v = GEARINGS.map(g => tAt(id, { ...tune, gearing: g.id }, d)); return GEARINGS[v.indexOf(Math.min(...v))].id; };
-  const stockShort = CATALOG_ORDER.every(id => gearBest(id, STOCK_TUNE, 800) === 'short');
-  const maxPicks = CATALOG_ORDER.map(id => gearBest(id, MAX_TUNE, 800)), picks = (g: Gearing) => maxPicks.filter(x => x === g).length;
-  check(stockShort && picks('long') >= 3 && picks('long') < maxPicks.length, `gearing is a real choice: every stock car is quickest on Short; maxed at 800 m — Short ${picks('short')} · Balanced ${picks('balanced')} · Long ${picks('long')} cars`);
   const limit = used.slice(1).map((l, i) => { const below = used[i], ids = (lg: string) => CATALOG_ORDER.filter(id => CARS[id].league === lg);
     return [below, Math.min(...ids(below).map(id => bestAt(id, MAX_TUNE, 800))), l, Math.min(...ids(l).map(id => bestAt(id, STOCK_TUNE, 800)))] as [string, number, string, number]; });
   check(limit.every(x => x[1] > x[3]), `class limit (U3): a maxed car never beats a stock car of the next league (${limit.map(x => `${x[0]} maxed ${x[1].toFixed(2)} > ${x[2]} stock ${x[3].toFixed(2)}`).join(' · ')})`);
@@ -448,14 +457,14 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
     const r = humanRun('hyper', MAX_TUNE, 0.30); const race = new Race(800), rr = race.add('p', carStats('hyper', MAX_TUNE, stage), new AIController(1, [0.3, 0.3], 7, false)); const at: number[] = []; let g = 0;
     for (let i = 0; i < 120 * 60 && !race.done; i++) { race.step(1 / 120); if (rr.gear !== g) { g = rr.gear; at.push(race.raceTime - rr.launchTime); } }
     const gaps = at.map((t, i) => i ? t - at[i - 1] : t), top = at[at.length - 1];
-    check(at.length === 7 && top >= 6 && Math.min(...gaps) >= 0.55 && r.finish! > 0, `maxed hypercar spreads its 7 shifts over the run (8th at ${top.toFixed(1)} s, shortest gear ${Math.min(...gaps).toFixed(2)} s)`);
+    check(at.length === 7 && top >= 5 && Math.min(...gaps) >= 0.5 /* V0.21.0: 5 s / 0.5 s (was 6 / 0.55) with the stock-tall top gear */ && r.finish! > 0, `maxed hypercar spreads its 7 shifts over the run (8th at ${top.toFixed(1)} s of ~10, shortest gear ${Math.min(...gaps).toFixed(2)} s)`);
   }
   { // gear ratio tuning (owner Q192, V0.17.0)
     const stock = TRANSMISSION.S[4].ratios, wild = legalRatios(stock, stock.map((r, i) => i % 2 ? r * 3 : r * 0.1)), S = RATIO_TUNING;
     const legal = wild.every((r, i) => r >= stock[i] * (1 - S.spread) - 0.001 && r <= stock[i] * (1 + S.spread) + 0.001 && (i === 0 || r <= wild[i - 1] * (1 - S.minStep) + 0.001));   // ratios are kept to 3 decimals
-    const tall = stock.map(r => r * 0.8), used = carStats('hyper', { ...MAX_TUNE, ratios: tall }, stage), notT5 = carStats('hyper', { ...MAX_TUNE, trans: 4, ratios: tall }, stage);
-    check(legal && used.trans.ratios[3] === legalRatios(stock, tall)[3] && notT5.trans.ratios[3] === TRANSMISSION.S[3].ratios[3],
-      `gear ratios: any input is clamped to ±${S.spread * 100}% of stock and kept descending; used only with Transmission T5`);
+    const tall = stock.map(r => r * 0.8), used = carStats('hyper', { ...MAX_TUNE, ratios: tall }, stage), t4 = carStats('hyper', { ...MAX_TUNE, trans: 4, ratios: tall }, stage), t3 = carStats('hyper', { ...MAX_TUNE, trans: 3, ratios: tall }, stage);
+    check(legal && used.trans.ratios[3] === legalRatios(stock, tall)[3] && t4.trans.ratios[3] === legalRatios(TRANSMISSION.S[3].ratios, tall)[3] && t3.trans.ratios[3] === TRANSMISSION.S[2].ratios[3],
+      `gear ratios: any input is clamped to ±${S.spread * 100}% of stock and kept descending; used from Transmission T4 (V0.21.0)`);
     const extremes = [stock.map(r => r * 0.75), stock.map(r => r * 1.25)].map(rs => dyno('hyper', { ...MAX_TUNE, ratios: rs }, stage)[1].t800), base = dyno('hyper', MAX_TUNE, stage)[1].t800;
     const rv = makeRival('hyper', { ...MAX_TUNE, ratios: stock.map(r => r * 0.9) }, stage, 31337, 800, [0.04, 0.21]);
     check(extremes.every(t => t > 0 && t < 20) && rv.expect >= rv.yours + 0.04 - 1e-6,
@@ -502,7 +511,7 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   const top = avg(st, 1), mid = avg(st, 0.7), low = avg(st, 0.4), lowKit = avg(kit, 0.4);
   class NoDrift { gas(r: DriftRun) { return !r.launched && r.rpm < r.stats.redline * 0.6; } drift() { return false; } }
   const lazy = simDrift(p, st, new NoDrift());
-  check(top > mid && mid > low && lowKit > low * 1.2 && lazy.score === 0 && lazy.run.outcomes.every(o => o === 'Missed') && lazy.time < 99,
+  check(top > mid && mid > low && lowKit > low * 1.15 /* 1.15 since V0.21.0's peakier power band (was 1.2) */ && lazy.score === 0 && lazy.run.outcomes.every(o => o === 'Missed') && lazy.time < 99,
     `drift scoring: sharp ${Math.round(top)} > fair ${Math.round(mid)} > sloppy ${Math.round(low)} pts; full drift kit lifts sloppy to ${Math.round(lowKit)}; no drifting = ${lazy.score} pts, still finishes`);
   // the gas holds the revs: flat out the whole drift spins; the gears are automatic (owner V0.18.1) — up near the top of the revs,
   // and never bogging (under 50 % of redline) once the car is rolling, out of a turn or a spin
