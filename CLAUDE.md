@@ -31,6 +31,9 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - `npm run drift-lab [-- course | pace]` — Drift bench (seconds): score / drag–drift–drag times / spins per car × AI skill; `pace` =
   average part times per league (owner target 5–7 · 10–12 · 5–7 s; feeds `PACING.driftSec`). `npm run drift-feel` — human-like players
   (flat gas / let go / reacting 0.2 s late) through the first turn: when they spin, straighten or finish clean.
+- `npm run balance [-- parts | tiers | gearing | niche] [D|C|B|A|S|carId] [--dist=600,800] [--no-nitro]` — drag balance bench (under 1 s):
+  perfect-driver times per car × build (Stock / T3 / Max) × 600/800/1200 m; `parts` = what each part is worth on a maxed car,
+  `tiers` = seconds saved per tier from stock, `gearing` = best gearing per distance, `niche` = which car wins launch / 600 / 800 / 1200.
 - `node tools/probe.mjs "?query" "start code" "wait-until code" "expression"` — opens the test build and prints what an expression
   returns at a moment (element boxes, game state) — quicker than a screenshot for "is it there / why is it hidden".
 - `npm run layout` (~3.5 min; `-- pc|small|phone|large` for one size) — every garage screen on PC + 3 phone sizes: fails on anything

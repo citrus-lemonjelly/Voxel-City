@@ -21,6 +21,7 @@
     "edit": "node tools/edit.mjs",
     "drift-lab": "tsx tools/drift-lab.mts",
     "drift-feel": "tsx tools/drift-feel.mts",
+    "balance": "tsx tools/balance.mts",
     "probe": "node tools/probe.mjs"
   },
   "dependencies": {
