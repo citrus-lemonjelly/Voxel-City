@@ -111,6 +111,11 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - Live: **V0.20.0 "City Update"** (shipped 2026-10-23, S103–S104): RACE opens the city map (`src/render/cityMap.ts` island,
   `src/ui/cityMapUi.ts` tags + district panel, rules `src/data/districts.ts`); the district sets rivals + pay; Typing stays on TYPE.
   `?citymap` opens the map at start. Smoke / layout / shot tools go RACE → map (map takes a few seconds to build the first time).
+- Live: **V0.21.0 "Build & Tune Update"** (shipped 2026-10-24 from a cloud session, S106): price ladder + car rating (PP) + tuner
+  points (`src/game/rating.ts`, `src/ui/ratingBox.ts`), Car Lab tuning screen (`src/ui/panels/carLab.ts`; the dev designer is now
+  Body Lab), 3 saved set-ups per car, Strip chapters + Hard Strip, seconds per tier in Upgrades, power band `TORQUE.band` 2.
+  Tools: `npm run balance`, `npm run strip-check`. Next from it: achievements + titles (owner edits `docs/achievements/`),
+  Rating Cups after the map update, set-up switch on the map's district panel, new cars from the owner's reference sheet (Q268–Q271).
 - **Next (owner, 2026-10-23): `docs/LOOK_ROADMAP.md`** — Terraglass-style techniques (glow, corner shading, tilt-shift, particles,
   colour variation, see-through water) on the map + garage with an On/Off setting; Settings with left-border tabs (Gameplay ·
   Visuals · Audio · Controls); map roads revamp (road network, junctions, kerbs, no 90° hits — Downtown ↔ garage worst); garage
