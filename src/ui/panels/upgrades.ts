@@ -8,6 +8,7 @@ import { DEV } from '../devConsole';
 import { ui, Wire } from './shared';
 import { labUnlocks, setupsHtml } from './carLab';
 import { ratingBoxFor } from '../ratingBox';
+import { perfectTime } from '../../game/rating';
 
 const pct = (x: number) => Math.round(x * 100);
 const att = (x: string) => x.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
@@ -42,17 +43,21 @@ export function upgradesHtml(save: SaveV1, close: string): string {
   const W = ui.work || save.carId, T = carTiers(save, W);
   const top = `${setupsHtml(save, W)}<div class="cl-top">${ratingBoxFor(W, T.equipped)}<button class="btn" id="openLab">Car Lab ▸</button></div>${labBlock(W, T)}`;
   if (CARS[W].unique) return `<div class="g-panel g-upg blk">${close}<h2 class="hd">Upgrades</h2>${top}<div class="g-note">${carName(W)} is a Strip boss car: it comes tuned as it is and can't be upgraded (Car Lab: final drive only). It gives you a head start in League ${CARS[W].league}; upgraded cars will soon catch it.</div></div>`;
-  const lg = CARS[W].league;
+  const lg = CARS[W].league, dist = save.raceDist, now = perfectTime(W, T.equipped, dist);
   const tierBtn = (kind: AnyKind, t: Tier) => {
     const def = PART_TABLE[kind][lg][t - 1];
     const owned = (T.owned[kind] ?? [1]).includes(t), eq = (T.equipped[kind] ?? 1) === t, afford = save.voxels >= def.price || DEV.unlimited;
     const cls = eq ? 'equipped' : owned ? 'owned' : afford ? '' : 'locked';
     const opens = (Object.keys(TUNE_UNLOCK) as TuneKey[]).find(k => TUNE_UNLOCK[k].kind === kind && TUNE_UNLOCK[k].tier === t);
-    const info = `${PART_LABEL[kind]} T${t} · ${effect(kind, W, t)}${opens ? ` · opens ${LAB_NAME[opens]} in Car Lab` : ''} · ${eq ? 'fitted' : owned ? 'owned — tap to fit' : `${def.price.toLocaleString()} VX`}`;
-    return `<button class="tier ${cls}" data-kind="${kind}" data-tier="${t}" title="${att(info)}" data-info="${att(info)}"><b>T${t}</b></button>`;
+    // before → after (owner C3): what this tier would do to YOUR set-up at the race length you picked (perfect run)
+    const d = eq || !(PERF_KINDS as AnyKind[]).includes(kind) ? NaN : perfectTime(W, { ...T.equipped, [kind]: t }, dist) - now;
+    const dTxt = isNaN(d) ? '' : Math.abs(d) < 0.005 ? '±0.00' : `${d < 0 ? '−' : '+'}${Math.abs(d).toFixed(2)}`;
+    const info = `${PART_LABEL[kind]} T${t} · ${effect(kind, W, t)}${dTxt ? ` · ${dTxt} s at ${dist} m on your set-up` : ''}${opens ? ` · opens ${LAB_NAME[opens]} in Car Lab` : ''} · ${eq ? 'fitted' : owned ? 'owned — tap to fit' : `${def.price.toLocaleString()} VX`}`;
+    return `<button class="tier ${cls}" data-kind="${kind}" data-tier="${t}" title="${att(info)}" data-info="${att(info)}"><b>T${t}</b>${dTxt ? `<small class="dt ${d < -0.004 ? 'up' : d > 0.004 ? 'down' : ''}">${dTxt}</small>` : ''}</button>`;
   };
   return `<div class="g-panel g-upg blk">${close}<h2 class="hd">Upgrades <small class="g-sub">League ${lg} parts · ${carName(W)}${W !== save.carId ? ' (in your garage)' : ''}</small></h2>
       ${top}
+      <div class="pt-group">Seconds each tier would change your ${save.raceDist} m time (your set-up, perfect run)</div>
       <div class="upg-grid">${PERF_KINDS.map(k => `<div class="upg"><h3 class="hd">${PERF_LABEL[k]}</h3><div class="tiers">${TIERS.map(t => tierBtn(k, t)).join('')}</div></div>`).join('')}</div>
       ${DEV.enabled ? `<div class="pt-group">Drift parts — Drift only (dev)</div>
       <div class="upg-grid">${DRIFT_KINDS.map(k => `<div class="upg"><h3 class="hd">${PART_LABEL[k]}</h3><div class="tiers">${TIERS.map(t => tierBtn(k, t)).join('')}</div></div>`).join('')}</div>` : ''}

@@ -26,6 +26,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.0', date: '2026-10-24', title: 'Car Lab, car ratings and a new Strip', header: 'Build & Tune Update',
+    added: [
+      'Car Lab: a new screen (Upgrades ▸ Car Lab) for tuning your car. Final drive is open on every car; Nitrous mix opens with Nitrous T2, Tire pressure with Tires T3 and Gear ratios with Transmission T4.',
+      'Every setting trades one thing for another, so the best tune depends on the race length. There are no right answers on screen: try things and use the Test run.',
+      'Car rating (PP): one number for how quick a car is with its parts. It shows in the Catalog, Upgrades, Car Lab, before every race (you vs your rival) and on the results.',
+      'Tuner points (TP): the box beside your rating shows what your Car Lab settings add (+) or cost (−) over 600, 800 and 1200 m. It counts up or down as you move a slider.',
+      'Saved set-ups: three per car, each with its own parts and Car Lab settings. Switch and rename them in Upgrades or Car Lab.',
+      'Upgrades: every tier you have not fitted shows how many seconds it would change your time at the race length you picked.',
+      'The Hard Strip: finish Level 60 of a league\'s Strip and a Hard version opens, with faster rivals, ×1.5 VX and double Crowns at bosses.',
+      'Test run (now in Car Lab): your tune and the factory tune side by side at 0–60, 600, 800 and 1200 m.',
+    ],
+    changed: [
+      'Pricier cars are now quicker when fully upgraded too (before, every maxed car in a league ended up level). A well-tuned cheaper car can still beat a pricier car that is not tuned or driven well.',
+      'Engines now have a real power band: they pull hardest near the top of the revs, so gearing matters.',
+      'Each car\'s factory gearing was re-set, and every car got a little more power so stock times stay the same.',
+      'The Strip comes in six chapters: each boss is a wall, and the level after a boss is harder than the boss. Every car in a league can now finish its Strip when fully upgraded and well tuned.',
+      'The Short / Balanced / Long gearing choice became the Final drive slider. Your old pick was carried over.',
+      'Upgrades in leagues C and B are a little weaker, so a maxed car still never beats a stock car of the next league.',
+      'The Premium hatch has less grip, so its tire upgrades now matter.',
+      'Tyres are now spelled Tires everywhere.',
+    ],
+    fixed: [
+      'A better gearbox could make some cars slower over 1200 m: every gearbox now keeps the stock top gear.',
+      'Tire upgrades did almost nothing on the Premium hatch.',
+    ],
+    removed: [
+      'The Preset gearing / Custom ratios switch: your own gear ratios are used whenever Transmission T4 or T5 is fitted (Car Lab ▸ Stock ratios goes back).',
+    ],
+  },
+  {
     version: '0.20.0', date: '2026-10-23', title: 'The city map', header: 'City Update',
     added: [
       'The city map: RACE now opens Vox City — a voxel island at dusk with six districts, a river, a mountain, forests, farms, villages, a railway with a running train and boats sailing round the coast.',

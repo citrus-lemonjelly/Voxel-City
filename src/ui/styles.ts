@@ -180,6 +180,7 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .g-upg .upg h3{margin:0;font-size:11px;letter-spacing:.06em}
 .g-upg .tiers{gap:4px}.g-upg .tier{padding:0;height:28px;justify-content:center}.g-upg .tier b{font-size:12px}
 .g-upg .tier.gear{padding:0}.g-upg .tier.gear b{font-size:11px}
+.g-upg .upg-grid .tier{height:36px;flex-direction:column;gap:1px}.g-upg .tier small.dt{font:600 11px system-ui;font-variant-numeric:tabular-nums;color:#9aa3b5}.g-upg .tier small.dt.up{color:var(--good)}.g-upg .tier small.dt.down{color:var(--bad)}.g-upg .tier.equipped small.dt{color:#14161c}
 .g-upg .upg-info{min-height:32px;padding:6px 8px;background:#1e2129;color:#cfd4de;font-size:12px;line-height:1.35}
 /* Upgrades ▸ Gear ratios drop-down (owner Q192, V0.17.0): one row per gear under the Transmission row */
 .g-upg .ratio-lock{margin:-1px 0 1px 116px;font-size:11px}
@@ -394,7 +395,7 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .keycap{border:0;cursor:pointer;min-width:84px;padding:5px 10px;background:#14161c;color:var(--text);font:900 12px "Courier New",monospace;letter-spacing:.06em;box-shadow:0 0 0 2px var(--edge),3px 3px 0 2px #0b0c10}
 .keycap:hover{box-shadow:0 0 0 2px var(--accent),3px 3px 0 2px #0b0c10}.keycap.wait{background:var(--accent);color:#14161c;box-shadow:0 0 0 2px #b8901c,3px 3px 0 2px #0b0c10}
 .keycap.ghost{min-width:0;color:var(--dim)}
-.ctl-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:2px}
+.ctl-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:2px}.ctl-foot .keycap{flex:none}
 /* Garage ▸ per-car record */
 .gr-rec{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--dim);padding:6px 8px;background:var(--panel2);box-shadow:0 0 0 2px var(--edge)}
 .gr-rec b{color:var(--text);font:700 12px system-ui;font-variant-numeric:tabular-nums}.gr-rec em{font-style:normal;font-size:10px}
