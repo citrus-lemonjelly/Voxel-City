@@ -105,7 +105,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Four night districts, each with its own winding road and a new layout every run: Downtown, Harbour, The Ridge and Neon Row. It rains on 4 runs in 10.',
       'A ghost rival drives the same road; beat its score to win. Easy, Medium and Hard set how close it gets.',
       'Drift button beside the gas pedal, in four looks to try: Handbrake, Pedal, Puck and Key (Settings ▸ Keybinds ▸ Drift).',
-      'Drift parts in Upgrades: Drift tyres (a wider rev band), Differential (steadier revs in a slide) and Steering lock (more angle before a spin). They only change Drift.',
+      'Drift parts in Upgrades: Drift tires (a wider rev band), Differential (steadier revs in a slide) and Steering lock (more angle before a spin). They only change Drift.',
       'Drift pays about the same VX a minute as Street Races, plus Perfect entry, clean run and new best score bonuses.',
     ],
     changed: [
@@ -157,7 +157,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: '0.16.1', date: '2026-10-22', title: 'Fair end game and more gears',
     changed: [
       'League A cars now have up to 7 gears and League S cars up to 8 (stock 6- and 7-speeds), with closer ratios and quicker shifts.',
-      'Nitrous description says when to use it: once the tyres grip (3rd gear on) — fired at the launch it only spins the wheels.',
+      'Nitrous description says when to use it: once the tires grip (3rd gear on) — fired at the launch it only spins the wheels.',
     ],
     fixed: [
       'Rivals were matched as if you launched the instant the light went green, so even a perfect driver (all Perfect shifts, maxed car) kept losing, worst in the short League S races. Rivals are now matched to a realistic reaction — a perfect run wins again.',
@@ -172,7 +172,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Sound: engine notes that rise with the revs, shift clunks, launch screech, a chime on Perfect shifts, countdown beeps, Typing Race key clicks and a win / lose jingle. Each kind of car sounds different — a muscle car rumbles, a tuner rasps, a hypercar screams.',
       'Settings ▸ Sound volume and Engine volume (Off, 25, 50, 75, 100).',
       'Nitrous: a new upgrade (T2–T5). One shot per race — press 1, or tap the bottle badge by the gauge. Stronger and longer at higher tiers. Some rivals carry it too.',
-      'Voxel effects: tyre smoke on the launch and in wheelspin, a backfire flame on Perfect shifts, a blue flame while nitrous burns, dust at the finish.',
+      'Voxel effects: tire smoke on the launch and in wheelspin, a backfire flame on Perfect shifts, a blue flame while nitrous burns, dust at the finish.',
       'Rain in about one race in four: falling rain, a wet shiny road, spray from the wheels — and less grip for both cars, so go easy on the launch.',
       'Night and dusk rain: street lights and headlights reflect in long streaks on the wet road.',
       'Shift light: the rim of the rev gauge glows green while the revs are in the shift zone.',
@@ -281,9 +281,9 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.11.0', date: '2026-10-21', title: 'Tyres, weight, turbo and gearing', header: 'Tuning Update',
+    version: '0.11.0', date: '2026-10-21', title: 'Tires, weight, turbo and gearing', header: 'Tuning Update',
     added: [
-      'Three new upgrades for every car, T1–T5 in each league: Tyres (more grip and an easier perfect launch), Weight (a lighter car) and Turbo (more power high in the revs, a little less down low, and a little extra weight).',
+      'Three new upgrades for every car, T1–T5 in each league: Tires (more grip and an easier perfect launch), Weight (a lighter car) and Turbo (more power high in the revs, a little less down low, and a little extra weight).',
       'Gearing for every car, free to change in Upgrades: Short (harder launch, runs out of revs sooner), Balanced (factory) or Long (softer launch, more top speed). Stock cars like Short; fully upgraded cars often need Long so they don\'t hit the rev limiter before the line.',
       'Boss cars can change their gearing too (their parts still come as they are).',
     ],
@@ -310,7 +310,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     added: [
       'The menus now sit in a full 3D garage: your car on a showcase turntable with a lit ring, a loft upstairs, an office nook with the Garage Terminal, and a mechanic bay.',
       'Loft lounge: couch, TV, bookshelves, posters, a mini fridge, plants, and a racing jacket over the railing.',
-      'Mechanic bay: a two-post lift with a stripped body shell in primer, a red toolbox, pegboard of tools, workbench, tyre stacks, rims on the wall, an engine on a stand, oil drums and a compressor.',
+      'Mechanic bay: a two-post lift with a stripped body shell in primer, a red toolbox, pegboard of tools, workbench, tire stacks, rims on the wall, an engine on a stand, oil drums and a compressor.',
       'A roll-up door with the street outside (parked car, lamp post, a diner across the road).',
       'Garage door button in the small button block beside Profile (the spare slot): open or close the roll-up door.',
       'Camera button beside Patch notes: four garage camera angles — A High, B Low, C Hero, D Wide (the new default, shows the loft).',

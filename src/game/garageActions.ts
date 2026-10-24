@@ -4,7 +4,7 @@
 import { SaveV1, writeSave, addCar, switchCar, removeCar, slotsUsed, slotsTotal, sellBlock, RaceDist } from '../save/save';
 import { CARS, carName, carPaint } from '../data/cars';
 import { GARAGE, sellValue, EcoLeague, cosmeticPrice, PAINT, PLATE_TEXT, repaintPrice, Difficulty } from '../data/economy';
-import { Tier, AnyKind, PART_TABLE, Gearing, GEARING_BY_ID } from '../data/parts';
+import { Tier, AnyKind, PART_TABLE, Tune } from '../data/parts';
 import { PART_BY_ID, ownsPart, isFactory } from '../data/visualParts';
 import { claimDaily, claimCalendar, paintName } from './daily';
 import { cleanPlate, DEFAULT_PLATE } from '../render/plate';
@@ -141,27 +141,14 @@ export function garageActions(ctx: GarageActionContext) {
     T.equipped[kind] = tier; writeSave(save);
     show(msg ?? `Equipped ${def.label}`);
   }
-  /** Gearing (owner Q170): free, one choice per car — boss cars too. */
-  function setGearing(g: Gearing, carId = ctx.save().carId) {
+  /** Car Lab (Build & Tune Update): save tuning settings on a car — a key set to undefined goes back to factory; null resets every
+   *  setting (final drive, tire pressure, nitrous mix, gear ratios). Free and quiet (no toast per slider move); boss cars too. */
+  function setTune(patch: Partial<Tune> | null, carId = ctx.save().carId) {
     const save = ctx.save(); if (!save.cars[carId]) return;
-    const T = carId === save.carId ? save : save.cars[carId];
-    T.equipped.gearing = g; writeSave(save);
-    show(`${GEARING_BY_ID[g].label} gearing`);
+    const e = (carId === save.carId ? save : save.cars[carId]).equipped as Partial<Tune> & Record<string, unknown>;
+    for (const [k, v] of Object.entries(patch ?? { fd: undefined, tp: undefined, nm: undefined, ratios: undefined })) { if (v === undefined) delete e[k]; else e[k] = v; }
+    writeSave(save); show(patch ? undefined : 'Factory settings');
   }
 
-  /** Gear setup (owner, V0.17.1): preset gearing or custom ratios — one or the other. */
-  function setGearMode(mode: 'preset' | 'custom', carId = ctx.save().carId) {
-    const save = ctx.save(); if (!save.cars[carId]) return;
-    const T = carId === save.carId ? save : save.cars[carId];
-    T.equipped.gearMode = mode; writeSave(save); show(mode === 'custom' ? 'Custom gear ratios' : 'Preset gearing');
-  }
-  /** Gear ratio tuning (owner Q192, V0.17.0): save a car's own T5 ratios (null = back to stock). Quiet — no toast per click. */
-  function setRatios(ratios: number[] | null, carId = ctx.save().carId) {
-    const save = ctx.save(); if (!save.cars[carId]) return;
-    const T = carId === save.carId ? save : save.cars[carId];
-    if (ratios) T.equipped.ratios = ratios; else delete T.equipped.ratios;
-    writeSave(save); show();
-  }
-
-  return { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setGearing, setRatios, setGearMode };
+  return { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setTune };
 }

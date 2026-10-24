@@ -1,4 +1,4 @@
-// Car Lab (owner 2026-10-19): a developer-only car designer. Opens from the test console (?dev → ` → Car Lab) or with
+// Body Lab (owner 2026-10-19, called Car Lab until V0.21.0 — the name went to the players' tuning screen): a developer-only car designer. Opens from the test console (?dev → ` → Body Lab) or with
 // ?lab when dev mode is on. Every body setting from render/bodies.ts as sliders / pickers, the voxel car rebuilt live on
 // the turntable at game scale, start from any existing body, try paint / wheels / decals, and Export the settings as JSON
 // (paste them into chat, or Import them back). Nothing here touches the save or the game balance.
@@ -40,7 +40,7 @@ const parsePts = (s: string): [number, number][] | null => {
   return a.length >= 2 ? a.sort((p, q) => p[0] - q[0]) : null;
 };
 
-export function openCarLab(root: HTMLElement, hooks: LabHooks) {
+export function openBodyLab(root: HTMLElement, hooks: LabHooks) {
   const bases = Object.keys(BODY_PROFILES).filter(k => k !== 'lab' && k !== 'tuner_up' && BODY_PROFILES[k]);
   let base = bases[0], P: BodyProfile = clone(BODY_PROFILES[base]), decal = 'stock', pending = false;
   const apply = () => {
@@ -49,7 +49,7 @@ export function openCarLab(root: HTMLElement, hooks: LabHooks) {
   };
   const render = () => {
     root.innerHTML = `<div id="carlab" class="blk">
-      <div class="lab-h"><b class="hd">Car Lab</b><span>dev only · game scale · nothing is saved to the game</span><button class="g-close" id="labClose" aria-label="Close">✕</button></div>
+      <div class="lab-h"><b class="hd">Body Lab</b><span>dev only · game scale · nothing is saved to the game</span><button class="g-close" id="labClose" aria-label="Close">✕</button></div>
       <div class="lab-sec"><label>Start from <select id="labBase">${bases.map(b => `<option value="${b}" ${b === base ? 'selected' : ''}>${BODY_PROFILES[b].name}</option>`).join('')}</select></label>
         <label>Paint <input type="color" id="labPaint" value="${P.paint}"></label><label>Decal <select id="labDecal">${DECALS.map(d => `<option ${d === decal ? 'selected' : ''}>${d}</option>`).join('')}</select></label></div>
       ${NUMS.map(([title, ns]) => `<div class="lab-sec"><b>${title}</b>${ns.map(n => `<label class="lab-n"><span>${n.label}</span><input type="range" data-n="${n.k}" min="${n.min}" max="${n.max}" step="${n.step ?? 1}" value="${n.get(P)}"><em>${n.get(P)}</em></label>`).join('')}</div>`).join('')}

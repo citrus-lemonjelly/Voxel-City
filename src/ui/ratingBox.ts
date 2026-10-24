@@ -54,4 +54,5 @@ export const RATING_CSS = [
   B('.rt-tp em.go-up', 'color:#4ade80'), B('.rt-tp em.go-down', 'color:#ff7a6b'),
   B('.rt-chip', 'position:absolute;left:10px;top:10px;padding:2px 6px 3px;font:700 11px system-ui;font-style:normal;color:#9aa3b5;background:#1e2129e6;box-shadow:inset 2px 2px 0 #121418,inset -2px -2px 0 #2c313d'),
   B('.rt-chip b', `${PX};font-size:12px;color:#f2c230`),
+  B('.rt-chip.inl', 'position:static;display:inline-block'),
 ].join('\n');

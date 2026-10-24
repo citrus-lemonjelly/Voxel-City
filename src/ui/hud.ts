@@ -64,6 +64,7 @@ export class Hud {
   private last = { gear: '', mph: -1, zone: '', grade: '', count: '' };
 
   constructor(root: HTMLElement, private race: Race, private player: Racer, private opp: Racer, opts: { oppName: string; paddle: string; paint?: string; showKeyHint: boolean; paddleShape?: 'arc' | 'tab'; pedal?: PedalStyle; /** bound key names (Settings ▸ Controls) */ keys?: { gas: string; up?: string; down: string; nitrous?: string };
+    /** car ratings for the "You vs rival" plate shown until the lights go (Build & Tune Update, owner Q263) */ ratings?: { me: number; them: number };
     /** Pedal mode: the pedal stays all race (owner 2026-10-21) */ drive?: 'classic' | 'pedal'; /** top-down car pictures for the progress bar */ icons?: { me: string; them: string }; /** rain: tell the player the road is wet */ wet?: boolean; /** phone race screen */ phone?: boolean; /** phone: pedal on the left */ swap?: boolean;
     /** Drift (owner, V0.18.0): the Drift button beside the gas pedal, and the rev band to show on the gauge instead of the shift zone while sliding */
     drift?: { button: string; key: string }; zone?: () => [number, number] | null;
@@ -77,6 +78,7 @@ export class Hud {
       : pedalMode ? `Hold <b>${gasKey}</b> to keep the revs in the green. Tap <b>${opts.keys?.up ?? '↑'}</b> on green to go.` : `Hold <b>${gasKey}</b> to keep the revs in the green. Let go when the light turns green.`;
     this.el = h(`<div class="overlay hud2${phone ? ' phone' : ''}${phone && opts.swap ? ' swap' : ''}">
       <div id="lights" class="blk"><i></i><i></i><i></i></div>
+      ${opts.ratings ? `<div id="vsPlate" class="blk"><span><i class="rt-chip inl">PP <b>${opts.ratings.me}</b></i> You</span><em>vs</em><span>${opts.oppName.replace(/</g, '&lt;')} <i class="rt-chip inl">PP <b>${opts.ratings.them}</b></i></span></div>` : ''}
       <div id="hint" class="blk">${hint}${opts.wet ? ' <b class="wet">Wet road — less grip, go easy on the launch.</b>' : ''}</div>
       <div class="race-strip"><div class="road"></div><div class="flag"></div><div class="car them${opts.icons ? ' pic' : ''}">${opts.icons ? `<img src="${opts.icons.them}" alt="">` : ''}</div><div class="car me${opts.icons ? ' pic' : ''}">${opts.icons ? `<img src="${opts.icons.me}" alt="">` : ''}</div></div>
       <div class="cluster"></div>
@@ -85,6 +87,7 @@ export class Hud {
     // scale the cluster with the window height (designed at 900 px tall)
     this.el.style.setProperty('--hud-scale', String(0.85 * Math.max(0.75, Math.min(1.3, (window.innerHeight || 900) / 900))));   // owner: a smidge smaller
     this.lightsEl = this.el.querySelector<HTMLElement>('#lights')!;
+    this.vsEl = this.el.querySelector<HTMLElement>('#vsPlate');
     this.lights = [...this.el.querySelectorAll<HTMLElement>('#lights i')];
     this.hint = this.el.querySelector('#hint')!;
     const strip = this.el.querySelector('.race-strip')!;
@@ -198,6 +201,7 @@ export class Hud {
     cluster.appendChild(this.pedalPod);
   }
   private oppName = 'Rival';
+  private vsEl: HTMLElement | null = null;
 
   /** Phone race screen (owner 2026-10-21): gauge in the middle, a compact "− +" paddle pair (shift up on the right) in one
    *  bottom corner and the gas pedal in the other (Settings ▸ Controls ▸ Pedal side). Each control has a big invisible
@@ -254,6 +258,7 @@ export class Hud {
     this.lights.forEach((l, i) => { l.className = this.race.green ? 'green' : i < lit ? (i === 0 ? 'red' : 'amber') : ''; });
     // owner 2026-10-22: once the race is under way the lights fade away (one smooth fade) to clear the top of the screen
     this.lightsEl.classList.toggle('gone', this.race.green && this.race.raceTime > LIGHTS_STAY);
+    this.vsEl?.classList.toggle('gone', this.race.green);
     if (r.launched) this.hint.style.display = 'none';
     if (r.launched && !this.pedalGone && !this.pedalStays) { this.pedalGone = true; this.goneAt = performance.now(); this.pedalEl.classList.remove('down'); this.pedalPod.classList.add('gone'); this.gasBtn.classList.add('gone'); }
     if (this.pedalGone && this.goneAt && this.plateFill) {                                // the bay folds in once, smoothly, after the pedal has dropped

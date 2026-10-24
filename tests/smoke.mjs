@@ -46,6 +46,13 @@ for (const t of ['profile', 'garage', 'catalog', 'settings', 'daily', 'calendar'
     await pg.click('[data-slot="paint"]'); await pg.waitForTimeout(200); await pg.click('#garage .g-close'); await pg.waitForTimeout(300);
     await pg.click('#gUpg'); await pg.waitForTimeout(400);
     ok('garage ▸ Upgrade opens the Upgrades panel', await ev(() => !!document.querySelector('button.tier[data-kind="engine"]')));
+    await pg.click('#openLab'); await pg.waitForTimeout(300);
+    ok('Upgrades ▸ Car Lab opens: rating box, final drive slider, locked settings listed', await ev(() => !!document.querySelector('#labRating .rt-tp') && !!document.querySelector('.cl-row[data-key="fd"]') && document.querySelectorAll('.cl-row.lock').length >= 2));
+    await pg.click('.cl-row[data-key="fd"] [data-nudge="-1"]'); await pg.waitForTimeout(300);
+    ok('Car Lab: a final drive step saves and changes the tuner points', await ev(() => window.__vc.save.equipped.fd < 1 && document.querySelector('#labRating .rt-tp b').dataset.v !== '0'));
+    await pg.click('#dynoBtn'); await pg.waitForTimeout(300);
+    ok('Car Lab: Test run shows your tune and the factory tune', await ev(() => document.querySelectorAll('.g-lab .dyno tr').length === 3));
+    await pg.click('#labReset'); await pg.waitForTimeout(200); await pg.click('#labBack'); await pg.waitForTimeout(200);
     await pg.click('#garage .g-close'); await pg.waitForTimeout(300); await pg.click('#garage .g-close'); await pg.waitForTimeout(300); continue; }
   await tab(t); await pg.waitForTimeout(200);
 }
@@ -78,10 +85,10 @@ const dl = await ev(() => [document.querySelectorAll('.dl-task').length, window.
 await tab('calendar'); await pg.waitForTimeout(300); await pg.click('#calClaim'); await pg.waitForTimeout(300);
 ok('daily tasks + login calendar', dl[0] === 4 && await ev(() => window.__vc.save.cal?.n === 1), JSON.stringify(dl));
 await pg.screenshot({ path: `${out}/calendar.png` }); await tab('calendar');
-// Car Lab (dev only)
+// Body Lab (dev only; Car Lab until V0.21.0)
 await ev(() => window.__vc.openLab()); await pg.waitForTimeout(800);
 await pg.fill('#carlab [data-n="L"]', '70'); await pg.dispatchEvent('#carlab [data-n="L"]', 'input'); await pg.waitForTimeout(600);
-ok('Car Lab opens and rebuilds the car', await ev(() => !!document.querySelector('#carlab') && document.querySelector('#labJson').value.includes('"L":70')));
+ok('Body Lab opens and rebuilds the car', await ev(() => !!document.querySelector('#carlab') && document.querySelector('#labJson').value.includes('"L":70')));
 await pg.screenshot({ path: `${out}/carlab.png` });
 ok('no page errors', errs.length === 0, errs.slice(0, 3).join(' | '));
 await browser.close();

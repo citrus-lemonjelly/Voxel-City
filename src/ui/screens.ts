@@ -36,7 +36,7 @@ export function renderDriftResults(root: HTMLElement, d: DriftResultData, on: { 
 }
 
 // ---------------- Results (R13) ----------------
-export interface ResultData { won: boolean; myTime: number; oppTime: number; oppName: string; launch: string; shifts: string[]; earnings: [string, number][]; total: number; newBest: boolean; /** e.g. Strip rung line */ note?: string }
+export interface ResultData { won: boolean; myTime: number; oppTime: number; oppName: string; /** car ratings (Build & Tune) */ ratings?: { me: number; them: number }; launch: string; shifts: string[]; earnings: [string, number][]; total: number; newBest: boolean; /** e.g. Strip rung line */ note?: string }
 export function renderResults(root: HTMLElement, d: ResultData, on: { again(): void; garage(): void }, againLabel = 'Race again') {
   root.innerHTML = '';
   const margin = Math.abs(d.myTime - d.oppTime);
@@ -44,8 +44,8 @@ export function renderResults(root: HTMLElement, d: ResultData, on: { again(): v
     <div class="row"><h1 class="hd ${d.won ? 'win' : 'loss'}">${d.won ? 'You win' : 'You lose'}</h1><span class="hd" style="color:var(--dim)">${d.won ? 'by' : 'behind by'} ${margin.toFixed(3)} s</span></div>
     ${d.note ? `<div class="res-note">${d.note}</div>` : ''}
     <div class="times">
-      <div class="stat"><b>${fmtTime(d.myTime)}</b><span>Your time${d.newBest ? ' · <b style="color:var(--accent);display:inline;font-size:12px">NEW BEST</b>' : ''}</span></div>
-      <div class="stat"><b>${fmtTime(d.oppTime)}</b><span>${d.oppName}</span></div>
+      <div class="stat"><b>${fmtTime(d.myTime)}</b><span>Your time${d.ratings ? ` · PP ${d.ratings.me}` : ''}${d.newBest ? ' · <b style="color:var(--accent);display:inline;font-size:12px">NEW BEST</b>' : ''}</span></div>
+      <div class="stat"><b>${fmtTime(d.oppTime)}</b><span>${d.oppName}${d.ratings ? ` · PP ${d.ratings.them}` : ''}</span></div>
     </div>
     <div><div class="hd" style="font-size:13px;color:var(--dim);margin-bottom:6px">Launch &amp; shifts</div>
       <div class="chips"><span class="chip ${d.launch}">Launch: ${d.launch}</span>${d.shifts.map((g, i) => `<span class="chip ${g}">${i + 1}→${i + 2}: ${g}</span>`).join('')}</div></div>

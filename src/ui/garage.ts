@@ -20,6 +20,7 @@ import { partsHtml, wireBodyShop, curSel, partLook } from './panels/bodyShop';
 import { garageHtml, subTabsHtml, wireMyCars } from './panels/myCars';
 import { catalogHtml, wireCatalog } from './panels/catalog';
 import { upgradesHtml, wireUpgrades } from './panels/upgrades';
+import { carLabHtml, wireCarLab } from './panels/carLab';
 import { settingsHtml, wireSettings } from './panels/settings';
 import { profileHtml, wireProfile } from './panels/profile';
 import { dailyHtml, calendarHtml, wireDaily } from './panels/daily';
@@ -30,7 +31,7 @@ export { resetGarageUI, garageInCatalog, garageOpenStrip } from './panels/shared
 export { factoryTwin } from './panels/bodyShop';
 
 /** Every panel's wiring, run on each render (each only finds its own buttons). Order kept from the single-file version. */
-const WIRES: Wire[] = [wireMiniHud, wireRaceMenu, wireStrip, wireUpgrades, wireMyCars, wireSettings, wireDaily, wireBodyShop, wireCatalog, wireProfile];
+const WIRES: Wire[] = [wireMiniHud, wireRaceMenu, wireStrip, wireUpgrades, wireCarLab, wireMyCars, wireSettings, wireDaily, wireBodyShop, wireCatalog, wireProfile];
 
 export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, stage: StageDef, on: GarageHandlers, toast?: string) {
   if (!ui.work || !save.cars[ui.work]) ui.work = save.carId;
@@ -95,7 +96,7 @@ export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, 
 /** Garage layout (V0.13.0, owner 2026-10-21): Menu · Notes · Cam in the bottom-left; Menu opens the side rail (tabs + the
  *  2×2 mini square: Spin · Daily · Calendar · Door); the Garage sub-tabs sit beside Menu · Notes · Cam; each panel title
  *  gets its icon. Runs before the wiring, so the moved buttons keep working. Looks: ui/themeBevel.ts. */
-const PANEL_ICON: Record<string, string> = { profile: 'profile', upgrades: 'upgrades', settings: 'settings', daily: 'tasks', calendar: 'daily', notes: 'notes' };
+const PANEL_ICON: Record<string, string> = { profile: 'profile', upgrades: 'upgrades', lab: 'upgrades', settings: 'settings', daily: 'tasks', calendar: 'daily', notes: 'notes' };
 /** Is the side rail open? Phones: closed on start; Menu toggles it; picking a tab, clicking outside it or Esc closes it (owner Q185).
  *  PCs (owner 2026-10-22, V0.15.0): the rail is always up the left side and the Menu button is hidden. */
 let railOpen = false, railEl: HTMLElement | null = null;
@@ -144,6 +145,7 @@ function panelHtml(save: SaveV1, on: GarageHandlers): string {
   const close = `<button class="g-close" aria-label="Close">✕</button>`;
   switch (ui.panel) {
     case 'upgrades': return upgradesHtml(save, close);
+    case 'lab': return carLabHtml(save, close);
     case 'daily': return dailyHtml(save, close);
     case 'calendar': return calendarHtml(save, close);
     case 'settings': return settingsHtml(save, close);

@@ -75,7 +75,7 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
   night scene `src/render/driftView.ts`, its props `src/render/driftProps.ts`; HUD `src/ui/driftHud.ts` (wraps the race `Hud` + Drift
   button in the pedal bay); button looks `src/ui/driftButton.ts` (`__vc.driftButtons()` sheet); drift parts in `parts.ts` (`driftKitOf`),
   pay `driftPay` in `economy.ts`. URL: `?course=downtown|harbour|ridge|neon`, `?dbtn=brake|pedal|puck|key`, `?weather=rain|clear`.
-- Key bindings: `src/game/keys.ts`. Update notice: `src/game/updates.ts`. Car Lab (dev only, `?dev` → test console → Car Lab): `src/ui/carLab.ts`.
+- Key bindings: `src/game/keys.ts`. Update notice: `src/game/updates.ts`. Body Lab (dev only, `?dev` → test console → Body Lab; was Car Lab): `src/ui/bodyLab.ts`. Car Lab = the players' tuning screen `src/ui/panels/carLab.ts`.
 - Tools: `tools/release.mjs`, `tools/collide.mjs` (+ `collide-entry.ts`), `tools/shot.mjs`, `tests/smoke.mjs`, `tests/sim.ts`; owner launcher `Run Smoke Test.cmd`.
 - Decisions log: `docs/DECISIONS.md` (S-numbered rows). Patch notes doc is generated: `docs/CHANGELOG.md`.
 - Test URL flags: `?dev` (test console), `?fast=N` (clock ×N), `?autoplay`, `?lab` (Car Lab), `?phone` (phone race screen on a PC).

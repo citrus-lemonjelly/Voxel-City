@@ -23,7 +23,7 @@ import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2).filter(a => a !== '--no-build'), pi = argv.indexOf('--preset'), preset = pi >= 0 ? argv.splice(pi, 2)[1] : '';
 const SCREENS = ['wait:1200; cap:Home', 'wait:1200; click:#menuBtn; wait:400; cap:Menu', 'click:[data-panel=profile]; wait:900; cap:Profile', 'click:[data-panel=garage]; wait:1200; cap:My cars',
-  'click:[data-panel=garage]; wait:900; click:#gParts; wait:1300; cap:Body Shop', 'click:[data-panel=garage]; wait:900; click:#gUpg; wait:1000; cap:Upgrades', 'click:[data-panel=catalog]; wait:1500; cap:Catalog',
+  'click:[data-panel=garage]; wait:900; click:#gParts; wait:1300; cap:Body Shop', 'click:[data-panel=garage]; wait:900; click:#gUpg; wait:1000; cap:Upgrades', 'click:[data-panel=garage]; wait:900; click:#gUpg; wait:600; click:#openLab; wait:500; cap:Car Lab', 'click:[data-panel=catalog]; wait:1500; cap:Catalog',
   'click:[data-panel=settings]; wait:800; cap:Settings', 'click:[data-panel=daily]; wait:800; cap:Daily', 'click:#notesBtn; wait:800; cap:Patch notes', 'click:#raceBtn; wait:6000; cap:City map', 'click:#typingBtn; wait:600; cap:Typing menu',
   'click:#raceBtn; wait:4000; click:#stripOpen; wait:1500; cap:The Strip'];
 const RACE = ['url:?dev&blur=off; click:#raceBtn; wait:400; click:#streetRace; wait:1800; cap:Countdown', 'url:?dev&autoplay&blur=off; click:#raceBtn; wait:400; click:#streetRace; waitfor:launch; wait:300; cap:Launch',

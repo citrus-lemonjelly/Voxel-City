@@ -13,7 +13,7 @@ const SIZES = { pc: { w: 1280, h: 720, touch: false }, small: { w: 667, h: 375, 
 const only = process.argv.slice(2).find(a => SIZES[a]);
 /** [name, steps] — steps: a CSS selector to click, or a number of ms to wait; '#rail' opens the side menu if it is closed */
 const SCREENS = [['Home', []], ['Menu open', ['#rail']], ['Profile', ['#rail', '[data-panel=profile]']], ['My cars', ['#rail', '[data-panel=garage]']],
-  ['Body Shop', ['#rail', '[data-panel=garage]', '#gParts']], ['Upgrades', ['#rail', '[data-panel=garage]', '#gUpg']], ['Upgrades + test run', ['#rail', '[data-panel=garage]', '#gUpg', '#dynoBtn']],
+  ['Body Shop', ['#rail', '[data-panel=garage]', '#gParts']], ['Upgrades', ['#rail', '[data-panel=garage]', '#gUpg']], ['Car Lab', ['#rail', '[data-panel=garage]', '#gUpg', '#openLab']], ['Car Lab + test run', ['#rail', '[data-panel=garage]', '#gUpg', '#openLab', '#dynoBtn']],
   ['Catalog', ['#rail', '[data-panel=catalog]', 900]], ['Settings', ['#rail', '[data-panel=settings]']], ['Daily', ['#rail', '[data-panel=daily]']], ['Calendar', ['#rail', '[data-panel=calendar]']],
   ['Patch notes', ['#notesBtn']], ['City map', ['#raceBtn', 6000]], ['City map · whole', ['#raceBtn', 4000, '#cmCity', 1500]], ['Typing menu', ['#typingBtn']], ['The Strip', ['#raceBtn', 4000, '#stripOpen', 900]]];
 
@@ -53,7 +53,9 @@ function check() {
   return out;
 }
 
-const b = await chromium.launch();
+const linux = process.platform === 'linux';   // Linux / cloud sessions: the pre-installed browser + software WebGL (as shot.mjs and smoke)
+const b = await chromium.launch({ headless: true, executablePath: process.env.PW_CHROMIUM || (linux ? '/opt/pw-browsers/chromium' : undefined),
+  args: linux ? ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] : [] });
 const url = pathToFileURL(resolve(root, 'build-test/index.html')).href + '?dev&weather=clear';
 let errors = 0, warnings = 0; const t0 = Date.now();
 for (const [size, S] of Object.entries(SIZES)) {

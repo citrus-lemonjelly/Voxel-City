@@ -12,7 +12,7 @@ const NOUN = ['canoe', 'toast', 'piston', 'otter', 'badger', 'pickle', 'waffle',
   'rocket', 'panda', 'walrus', 'taco', 'pebble', 'hornet', 'kettle', 'lantern', 'mango', 'nugget', 'parrot', 'pretzel', 'quokka',
   'radish', 'sprocket', 'turnip', 'yeti', 'zebra', 'bagel', 'biscuit', 'cactus', 'donut', 'ferret', 'hamster', 'igloo', 'koala',
   'llama', 'moose', 'narwhal', 'owl', 'penguin', 'raccoon', 'sardine', 'tortoise', 'wombat', 'spark', 'gear', 'clutch', 'wrench',
-  'bolt', 'tyre', 'muffler', 'spoiler', 'axle', 'keys', 'typer', 'caps', 'qwerty', 'pancake', 'dumpling', 'meteor', 'pigeon',
+  'bolt', 'tire', 'muffler', 'spoiler', 'axle', 'keys', 'typer', 'caps', 'qwerty', 'pancake', 'dumpling', 'meteor', 'pigeon',
   'beetle', 'cricket', 'goose', 'lobster', 'squid', 'turbine', 'piano', 'banjo', 'cobra', 'fox', 'lynx', 'mole', 'puffin', 'toad'];
 const SHORT = ['vee', 'zed', 'kay', 'jax', 'rio', 'max', 'neo', 'ash', 'sky', 'ace', 'bo', 'dex', 'fin', 'gus', 'ivy', 'kit', 'lou',
   'mo', 'pip', 'roo', 'taz', 'uma', 'viv', 'wes'];

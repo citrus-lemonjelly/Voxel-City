@@ -2,7 +2,7 @@
 // the UI state that survives re-renders, the handlers main.ts passes in, the block icons, and small helpers
 // (car looks, prices) used by several panels.
 import { SaveV1, RaceDist } from '../../save/save';
-import { Tier, AnyKind, Gearing } from '../../data/parts';
+import { Tier, AnyKind, Tune } from '../../data/parts';
 import { CARS, carBody, carPaint } from '../../data/cars';
 import { Difficulty } from '../../data/economy';
 import { lookParts, PartSlot } from '../../data/visualParts';
@@ -15,12 +15,8 @@ export const fmtTime = (s: number) => s.toFixed(3) + ' s';
 
 export interface GarageHandlers {
   onBuyOrEquip(kind: AnyKind, tier: Tier, carId: string): void;
-  /** Upgrades: Short / Balanced / Long gearing for a car (free) */
-  onGearing(g: Gearing, carId: string): void;
-  /** Gear ratio tuning (V0.17.0): a car's own T5 ratios, or null for stock */
-  onRatios(ratios: number[] | null, carId: string): void;
-  /** Gear setup (V0.17.1): preset gearing or custom ratios */
-  onGearMode(mode: 'preset' | 'custom', carId: string): void;
+  /** Car Lab (V0.21.0): save tuning settings (a key set to undefined = factory), or null = every setting back to factory */
+  onTune(patch: Partial<Tune> | null, carId: string): void;
   /** Garage (owner 2026-10-19): ★ a car */
   onFav(id: string): void;
   onRace(): void;
@@ -73,10 +69,10 @@ export interface GarageHandlers {
 /** A panel's event wiring: called on every render with the new screen element; redraw() renders the garage again. */
 export type Wire = (el: HTMLElement, save: SaveV1, on: GarageHandlers, redraw: () => void) => void;
 
-export type Panel = 'profile' | 'garage' | 'upgrades' | 'parts' | 'catalog' | 'daily' | 'calendar' | 'settings' | 'strip' | 'notes' | null;
+export type Panel = 'profile' | 'garage' | 'upgrades' | 'lab' | 'parts' | 'catalog' | 'daily' | 'calendar' | 'settings' | 'strip' | 'notes' | null;
 /** UI state that survives re-renders (buying a part re-draws the screen). */
 // work = the car Parts / Upgrades act on (the one in use, or the one picked in the Garage); back = panel to return to
-/** Last test run in Upgrades (C11): which car + set-up it was for, its rows, and the run before it (for the before → after). */
+/** Last test run in Car Lab (C11; Upgrades until V0.21.0): which car + tune it was for, its rows, and the run before it (for the before → after). */
 export const dynoState: { car: string; key: string; rows: DynoRow[]; prev?: { key: string; rows: DynoRow[] } } = { car: '', key: '', rows: [] };
 export const ui = { kmode: 'drag' as 'drag' | 'typing' | 'drift', /** Profile header tab (V0.19.0) */ ptab: 'drag' as 'drag' | 'typing' | 'top', pmsg: '', capture: '' as string, kmsg: '', panel: null as Panel, back: null as Panel, work: '', gsel: '', dial: false, favOnly: false, gtab: 'cars' as 'cars' | 'boss', sellArm: '', /** the Typing menu is open (V0.19.0; RACE opens the city map since V0.20.0) */ raceMenu: false as false | 'typing', part: { slot: 'paint' as PartSlot | 'paint', sel: '' }, cat: { id: 'panda_civix', paint: '', opts: {} as Record<string, string> } };
 /** Scroll positions kept between re-renders (strip: -1 = not set yet; stripFocus = centre on your level next time). */

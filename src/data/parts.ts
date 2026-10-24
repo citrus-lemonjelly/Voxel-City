@@ -46,7 +46,7 @@ export interface WeightTier { tier: Tier; massMult: number; price: number; label
 export interface TurboTier { tier: Tier; boost: number; lowLoss: number; massAdd: number; price: number; label: string }
 
 const TIRES_D: TiresTier[] = [
-    { tier: 1, gripMult: 1.00, launchMult: 1.00, price: 0, label: 'Stock tyres' },
+    { tier: 1, gripMult: 1.00, launchMult: 1.00, price: 0, label: 'Stock tires' },
     { tier: 2, gripMult: 1.05, launchMult: 1.08, price: 0, label: 'Street radials' },
     { tier: 3, gripMult: 1.10, launchMult: 1.15, price: 0, label: 'Sport compound' },
     { tier: 4, gripMult: 1.16, launchMult: 1.22, price: 0, label: 'Semi-slicks' },
@@ -84,10 +84,10 @@ export interface LsdTier { tier: Tier; steady: number; keep: number; price: numb
 /** Steering-angle kit: more lock — a bigger angle before a spin (`angle` degrees), so more points and room to recover. */
 export interface AngleTier { tier: Tier; angle: number; price: number; label: string }
 const DTYRES_D: DriftTyreTier[] = [
-    { tier: 1, band: 0.000, price: 0, label: 'Street tyres' },
+    { tier: 1, band: 0.000, price: 0, label: 'Street tires' },
     { tier: 2, band: 0.012, price: 0, label: 'Drift compound' },
     { tier: 3, band: 0.024, price: 0, label: 'Hard rears' },
-    { tier: 4, band: 0.036, price: 0, label: 'Pro drift tyres' },
+    { tier: 4, band: 0.036, price: 0, label: 'Pro drift tires' },
     { tier: 5, band: 0.050, price: 0, label: 'Competition drift' },
 ];
 const LSD_D: LsdTier[] = [
@@ -127,12 +127,12 @@ export const LEAGUE_EFFECT: Record<PartLeague, number> = { D: 1, C: 0.32, B: 0.5
 /** Every performance part a car can upgrade (U1); nitrous since V0.16.0. */
 export type PerfKind = 'engine' | 'trans' | 'tires' | 'weight' | 'turbo' | 'nitrous';
 export const PERF_KINDS: PerfKind[] = ['engine', 'trans', 'tires', 'weight', 'turbo', 'nitrous'];
-export const PERF_LABEL: Record<PerfKind, string> = { engine: 'Engine', trans: 'Transmission', tires: 'Tyres', weight: 'Weight', turbo: 'Turbo', nitrous: 'Nitrous' };
+export const PERF_LABEL: Record<PerfKind, string> = { engine: 'Engine', trans: 'Transmission', tires: 'Tires', weight: 'Weight', turbo: 'Turbo', nitrous: 'Nitrous' };
 /** Drift-only parts (owner E6, V0.18.0); missing on older saves = tier 1. */
 export type DriftKind = 'dtyres' | 'lsd' | 'angle';
 export const DRIFT_KINDS: DriftKind[] = ['dtyres', 'lsd', 'angle'];
 export type AnyKind = PerfKind | DriftKind;
-export const PART_LABEL: Record<AnyKind, string> = { ...PERF_LABEL, dtyres: 'Drift tyres', lsd: 'Differential', angle: 'Steering lock' };
+export const PART_LABEL: Record<AnyKind, string> = { ...PERF_LABEL, dtyres: 'Drift tires', lsd: 'Differential', angle: 'Steering lock' };
 /** A car's performance set-up: a tier per part + its gearing (missing gearing = balanced). */
 export type Tune = Record<PerfKind, Tier> & Partial<Record<DriftKind, Tier>> & { gearing?: Gearing; /** custom ratio per gear — used with Transmission T5 (V0.17.0) */ ratios?: number[];
   /** preset gearing (Short / Balanced / Long) OR custom ratios — one or the other (owner, V0.17.1). Missing: custom if ratios were saved */ gearMode?: 'preset' | 'custom';

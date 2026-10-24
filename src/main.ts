@@ -28,13 +28,14 @@ import { AIController, makeRng } from './game/ai';
 import { carStats } from './game/stats';
 import { DEV, devOppSkill, devTime, initDevConsole } from './ui/devConsole';
 import { freshSave, typingStats, playerName, typingLevelOf } from './save/save';
+import { carRating } from './game/rating';
 import { typingBadge } from './ui/typingBadge';
 import { DISTRICT_BY_ID, DistrictId, raceDistrict, raceLeague, canRace, openUpTo } from './data/districts';
 import { cityMapHtml, wireCityMap } from './ui/cityMapUi';
 import { submitTypingRace, LB_MOCK } from './game/leaderboard';
 import { TypingRun, TypingRival, makeTypingRace, makeLadderRace, rivalRef, typedBy, placeOf, wpmOf, glide } from './game/typing';
 import { TypingHud, renderTypingResults } from './ui/typingHud';
-import { openCarLab } from './ui/carLab';
+import { openBodyLab } from './ui/bodyLab';
 import { keysOf, keyMatches, keyName, KEY_MODE_LABEL } from './game/keys';
 import { TYPE_TRACK, laneZ } from './render/typingView';
 import { typingPay, TYPING, perfectShiftPay, driftPay, TypingLevel, TYPING_LEVELS, TYPING_LADDER, typingXp, typingLeagueOf, typingRankCrowns } from './data/economy';
@@ -166,7 +167,7 @@ let race: Race | null = null, hud: Hud | null = null, oppRacer: Racer | null = n
 
 function showGarage(toast?: string) {
   screen = 'garage'; world.mode = 'garage'; setTimeout(showUpdate, 0); rollRival(); if (!garageInCatalog()) world.setGarageCar(playerLook());
-  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onGearing: setGearing, onRatios: setRatios, onGearMode: setGearMode, onRace: () => startRace(), onStrip: startStrip, stripNext, onSetting: setSetting, onRepaint: repaint, onPlateText: setPlateText,
+  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onTune: setTune, onRace: () => startRace(), onStrip: startStrip, stripNext, onSetting: setSetting, onRepaint: repaint, onPlateText: setPlateText,
     onPreview: look => world.setGarageCar(look ?? playerLook()), onView: v => world.setGarageView(v), onFace: d => world.faceGarage(d),
     onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, onBuyPart: buyPart, onFitPart: (id: string, carId: string) => fitPart(id, undefined, carId),
     onFav: (id: string) => { const f = save.favs ??= []; const i = f.indexOf(id); if (i >= 0) f.splice(i, 1); else f.push(id); writeSave(save); showGarage(); }, onDistance: setDistance, onDifficulty: setDifficulty, thumb: (look, view) => world.thumbnail(look, undefined, undefined, view), playerLook,
@@ -181,7 +182,7 @@ function showGarage(toast?: string) {
     onClaimDaily: claimDailyTask, onClaimCal: claimCal, onSellCar: sellCar, onBuySlot: buySlot }, toast);
 }
 // buying, selling, claiming, fitting, painting, equipping: src/game/garageActions.ts
-const { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setGearing, setRatios, setGearMode } =
+const { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setTune } =
   garageActions({ save: () => save, world, show: msg => showGarage(msg), lookFor, playerLook });
 
 /** Weather (owner Q190 B): random — rain in about one race in four; ?weather=rain / clear forces it. Rain = less grip (wetStage). */
@@ -265,7 +266,7 @@ function startRace(kind: 'street' | 'strip' = 'street', stripR?: Rung) {
   world.setupRace(stage, dist, playerLook(), oppLook(), { time: raceTime(), near: save.settings.nearSide, weather });
   // the "Space or click" hint shows for the player's first 3 races (owner Q29)
   const DK = keysOf(save.settings).drag;
-  hud = new Hud(ui, race, playerRacer, oppRacer, { keys: { gas: keyName(DK.gas), up: keyName(DK.up), down: keyName(DK.down), nitrous: keyName(DK.nitrous) }, drive: pedalMode() ? 'pedal' : 'classic', phone: PHONE, wet: weather === 'rain', icons: { me: world.thumbnail(playerLook(), 124, 56, 'strip', 'clear'), them: world.thumbnail(oppLook(), 124, 56, 'strip', 'clear') }, swap: save.settings.pedalSide === 'left', oppName: opp.name, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3 && !PHONE, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
+  hud = new Hud(ui, race, playerRacer, oppRacer, { keys: { gas: keyName(DK.gas), up: keyName(DK.up), down: keyName(DK.down), nitrous: keyName(DK.nitrous) }, drive: pedalMode() ? 'pedal' : 'classic', phone: PHONE, wet: weather === 'rain', icons: { me: world.thumbnail(playerLook(), 124, 56, 'strip', 'clear'), them: world.thumbnail(oppLook(), 124, 56, 'strip', 'clear') }, swap: save.settings.pedalSide === 'left', oppName: opp.name, ratings: { me: carRating(save.carId, save.equipped), them: carRating(opp.carId, opp.tune) }, paddle: (params.get('pskin') as string) || save.paddles.equipped, paint: playerLook().paint, showKeyHint: save.races < 3 && !PHONE, paddleShape: (params.get('pshape') as any) || save.paddles.shape, pedal: (params.get('pedal') as any) || save.pedals.equipped });
   const btn = hud.shiftBtn;
   btn.addEventListener('pointerdown', e => { e.preventDefault(); btn.setPointerCapture(e.pointerId); paddlePress(); });
   btn.addEventListener('pointerup', paddleRelease); btn.addEventListener('pointercancel', paddleRelease);
@@ -310,7 +311,7 @@ function finishRace() {
   save.voxels += total; save.races += 1; save.perfectShifts += perfects; if (won) save.wins += 1; if (newBest) { save.best[dist] = me.finish!; if (dist === 800) save.bestTime = me.finish!; }
   writeSave(save);
   const note = doneRung ? `The Strip · League ${doneRung.league} · Level ${doneRung.n} of ${STRIP.rungs}${doneRung.boss ? ' · Boss' : ''} · ${won ? `cleared${lr ? ` — reward added${rewardExtras(lr)}` : ''}` : 'same rival next time'}` : undefined;
-  const data: ResultData = { won, myTime: me.finish!, oppTime: them.finish!, oppName: opp.name, launch: me.launchGrade || 'Bog', shifts: me.shifts.map(s => s.grade), earnings, total, newBest, note };
+  const data: ResultData = { won, myTime: me.finish!, oppTime: them.finish!, oppName: opp.name, ratings: { me: carRating(save.carId, save.equipped), them: carRating(opp.carId, opp.tune) }, launch: me.launchGrade || 'Bog', shifts: me.shifts.map(s => s.grade), earnings, total, newBest, note };
   rollRival(true);                                                                   // next street race: a new rival
   setTimeout(showUpdate, 0);
   renderResults(ui, data, { again: doneRung ? () => { garageOpenStrip(); showGarage(); } : () => startRace(), garage: () => showGarage() }, doneRung ? 'The Strip ▸' : 'Race again');
@@ -626,11 +627,11 @@ function placeTags() {
   for (const a of world.map?.anchors ?? []) { const p = world.map!.toScreen(a.pos, W, H), el = ui.querySelector<HTMLElement>(`.cm-tag[data-a="${a.id}"]`); if (el) { el.style.left = `${Math.round(p.x)}px`; el.style.top = `${Math.round(p.y)}px`; el.style.visibility = p.on ? '' : 'hidden'; } }
 }
 
-// ---------------- Car Lab (owner 2026-10-19): developers only — test console ▸ Car Lab, or ?lab with dev mode on ----------------
+// ---------------- Body Lab (owner 2026-10-19; Car Lab until V0.21.0): developers only — test console ▸ Body Lab, or ?lab with dev mode on ----------------
 function openLab() {
   if (!DEV.enabled) return;
   screen = 'lab'; world.mode = 'garage'; world.setGarageView('mycars'); document.getElementById('vc-update')?.remove();
-  openCarLab(ui, { preview: look => world.setGarageCar(look), close: () => showGarage('Closed Car Lab') });
+  openBodyLab(ui, { preview: look => world.setGarageCar(look), close: () => showGarage('Closed Body Lab') });
 }
 
 // ---------------- update notice (owner V0.2.1) ----------------

@@ -191,12 +191,25 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .g-upg .ratio-row span{color:#9aa3b5;font-weight:700}.g-upg .ratio-row b{text-align:center;font-variant-numeric:tabular-nums}.g-upg .ratio-row b.ch{color:var(--accent)}
 .g-upg .ratio-row .rb{height:22px;padding:0}.g-upg .ratio-row .rb b{font-size:12px}
 .g-upg .ratio-row em{font-style:normal;text-align:right;color:#cfd4de;font-variant-numeric:tabular-nums}
-.g-upg .rbar{position:relative;height:18px;cursor:ew-resize;touch-action:none;background:linear-gradient(#2c313d,#2c313d) 0 50%/100% 6px no-repeat}
+.g-upg .rbar,.cl-bar{position:relative;height:18px;cursor:ew-resize;touch-action:none;background:linear-gradient(#2c313d,#2c313d) 0 50%/100% 6px no-repeat}
 .g-upg .rbar::after{content:'';position:absolute;left:50%;top:4px;width:2px;height:10px;background:#5a5f6d}
 .g-upg .rbar u{position:absolute;top:3px;width:8px;height:12px;margin-left:-4px;background:var(--accent);box-shadow:inset -2px -2px 0 #b8901c}
 .g-upg .rbar:hover u,.g-upg .rbar.drag u{background:#ffe27a}
 .g-upg .ratio-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:5px}.g-upg .ratio-foot .btn{font-size:11px;padding:5px 10px}
 /* Upgrades ▸ Test run (owner C11, V0.16.0) */
+/* ---- Car Lab (Build & Tune Update): rating box + Car Lab button on Upgrades; slider rows on the Car Lab panel ---- */
+.cl-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.cl-top .g-note{flex:1;min-width:160px}
+.cl-top>.btn{margin-left:auto;font-size:13px;padding:8px 14px}
+.cl-unlocks{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;padding:6px 8px;background:#1e2129;box-shadow:inset 2px 2px 0 #121418,inset -2px -2px 0 #2c313d;font-size:11px;color:#7d8290}
+.cl-unlocks span{display:flex;justify-content:space-between;gap:6px}.cl-unlocks span.ok{color:#cfd4de}.cl-unlocks i{font-style:normal;color:#7d8290}.cl-unlocks span.ok i{color:var(--good)}
+.cl-rows{display:flex;flex-direction:column;gap:6px}
+.cl-row{display:grid;grid-template-columns:96px 24px 84px 24px 1fr;grid-template-rows:auto auto;align-items:center;gap:2px 6px;padding:6px 8px;background:#1e2129;box-shadow:inset 2px 2px 0 #121418,inset -2px -2px 0 #2c313d}
+.cl-name{font:700 11px system-ui;letter-spacing:.06em;text-transform:uppercase;color:#cfd4de}
+.cl-row .rb{height:22px;padding:0}.cl-val{text-align:center;font:700 12px system-ui;font-variant-numeric:tabular-nums;white-space:nowrap}.cl-val.ch{color:var(--accent)}
+.cl-ends{grid-column:2/-1;display:flex;justify-content:space-between;font-size:11px;color:#7d8290}
+.cl-row.lock{grid-template-columns:96px 1fr;grid-template-rows:auto}.cl-lock{font-size:12px;color:#7d8290}
+.g-lab .ratios{margin:0}.g-lab .dyno table td,.g-lab .dyno table th{padding:4px 5px}
+.cl-foot{display:flex;justify-content:space-between;gap:8px}.cl-foot .btn{font-size:12px;padding:6px 12px}
 .dyno{display:flex;flex-direction:column;gap:6px;margin-top:4px}.dyno .dyno-go{align-self:flex-start;font-size:13px;padding:7px 14px}
 .dyno table{width:100%;border-collapse:collapse;font:600 12px system-ui;font-variant-numeric:tabular-nums}
 .dyno th{text-align:left;font:700 11px system-ui;letter-spacing:.08em;text-transform:uppercase;color:#7d8290;padding:3px 6px}
@@ -220,6 +233,10 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .hud2 .race-strip .car img{display:block;width:100%;height:100%;transform:scaleX(-1)}.hud2 .race-strip .car.pic{background:none}
 #lights{position:absolute;top:86px;left:50%;transform:translateX(-50%);display:flex;gap:12px;padding:12px 14px;transition:opacity .6s ease}
 #lights.gone{opacity:0;pointer-events:none}
+#vsPlate{position:absolute;top:160px;right:28px;display:flex;align-items:center;gap:10px;padding:8px 12px;font:700 13px system-ui;transition:opacity .4s ease,transform .4s ease}
+#vsPlate em{font-style:normal;color:#7d8290;font-size:11px;text-transform:uppercase;letter-spacing:.1em}#vsPlate span{display:flex;align-items:center;gap:6px}
+#vsPlate.gone{opacity:0;transform:translateX(24px);pointer-events:none}
+.hud2.phone #vsPlate{top:100px;right:10px;transform:scale(.8);transform-origin:100% 0;font-size:12px}.hud2.phone #vsPlate.gone{transform:scale(.8) translateX(24px)}
 #hint .wet{display:block;color:#7cc4ff;margin-top:2px}
 #hint{position:absolute;top:160px;left:50%;transform:translateX(-50%);font-size:15px;padding:8px 14px;white-space:nowrap}
 .hud2 .count{position:absolute;left:50%;top:214px;transform:translateX(-50%)}
@@ -355,7 +372,7 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .gr-dbtn:disabled{cursor:default;opacity:.6}
 .gr-pick{position:absolute;left:380px;top:140px;width:200px}
 
-/* ---- Car Lab (dev only) ---- */
+/* ---- Body Lab (dev only; Car Lab until V0.21.0) ---- */
 #carlab input,#carlab select{accent-color:var(--accent)}
 #carlab input[type=range]{height:6px}
 #carlab{position:absolute;left:20px;top:20px;bottom:20px;width:380px;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;font-size:12px}

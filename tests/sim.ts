@@ -204,7 +204,7 @@ check(headStart && outmatched, `boss cars: quicker than any stock car in the nex
   const helps = lgs.map(l => { const st = avg(l, STOCK_TUNE); return [l, st - avg(l, { tires: 5 }), st - avg(l, { weight: 5 }), st - avg(l, { turbo: 5 })] as [string, number, number, number]; });
   const everyCar = CATALOG_ORDER.every(id => tAt(id, { weight: 5 }, 800) < tAt(id, STOCK_TUNE, 800) && tAt(id, { turbo: 5 }, 800) < tAt(id, STOCK_TUNE, 800));
   check(helps.every(h => h[1] > 0 && h[2] > 0 && h[3] > 0) && everyCar,
-    `tyres, weight and turbo T5 each make cars quicker (s saved at 800 m, league average — tyres / weight / turbo: ${helps.map(h => `${h[0]} ${h[1].toFixed(2)}/${h[2].toFixed(2)}/${h[3].toFixed(2)}`).join(' · ')})`);
+    `tires, weight and turbo T5 each make cars quicker (s saved at 800 m, league average — tires / weight / turbo: ${helps.map(h => `${h[0]} ${h[1].toFixed(2)}/${h[2].toFixed(2)}/${h[3].toFixed(2)}`).join(' · ')})`);
   const c0 = carStats('panda_civix', STOCK_TUNE, stage), cT = carStats('panda_civix', { turbo: 5 }, stage), cW = carStats('panda_civix', { weight: 5, turbo: 5 }, stage), cY = carStats('panda_civix', { tires: 5 }, stage);
   const lo = 0.35 * c0.redline, hi = 0.95 * c0.redline;
   check(Math.abs(cT.massKg / c0.massKg - 1.05) < 1e-9 && Math.abs(cW.massKg / c0.massKg - 0.97) < 1e-9 && torqueAt(cT, lo) < torqueAt(c0, lo)
@@ -221,7 +221,7 @@ check(headStart && outmatched, `boss cars: quicker than any stock car in the nex
   const ld = S.loadSave(), c = ld.cars.panda_civix;
   check(ld.equipped.engine === 2 && ld.equipped.tires === 1 && ld.equipped.turbo === 1 && c.owned.weight.join() === '1' && c.equipped.tires === 1 && JSON.stringify(ld.owned.engine) === '[1,2]'
     && E.sellValue('D', 10_000, { ...c.owned, turbo: [1, 3] }) === Math.round((5_000 + E.partPrice('engine', 2, 'D') / 2 + E.partPrice('turbo', 3, 'D') / 2) / 50) * 50,
-    'old saves keep their engine/gearbox and get tyres, weight and turbo at stock; selling counts every part');
+    'old saves keep their engine/gearbox and get tires, weight and turbo at stock; selling counts every part');
   delete (globalThis as any).localStorage;
 }
 // economy: harder Street Races pay more; each league's cheapest car takes no more Medium wins than the league below
@@ -437,11 +437,11 @@ check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'ear
   const none = nosRun(1, 4), t2 = nosRun(2, 4), t5 = nosRun(5, 4);
   check(none.burns === 0 && t2.burns === 1 && t5.burns === 1 && t5.used, `nitrous: one shot per race, none without the part (burns ${none.burns} / ${t2.burns} / ${t5.burns})`);
   check(t5.time < t2.time && t2.time < none.time, `nitrous: higher tiers are quicker (none ${none.time.toFixed(2)} · T2 ${t2.time.toFixed(2)} · T5 ${t5.time.toFixed(2)} s)`);
-  const rows = dyno('panda_civix', STOCK_TUNE, stage), maxed = dyno('panda_civix', MAX_TUNE, stage);
-  check(rows.length === 3 && rows.every(r => r.t60 > 0 && r.t600 < r.t800) && maxed[1].t800 < rows[1].t800,
-    `test run: 0–60 / 600 m / 800 m on each gearing, maxed beats stock (balanced 800 m ${rows[1].t800.toFixed(2)} → ${maxed[1].t800.toFixed(2)} s)`);
+  const rows = dyno('panda_civix', STOCK_TUNE, stage), maxed = dyno('panda_civix', MAX_TUNE, stage), tuned = dyno('panda_civix', { ...MAX_TUNE, fd: 0.9 }, stage);
+  check(rows.length === 2 && rows.every(r => r.t60 > 0 && r.t600 < r.t800 && r.t800 < r.t1200) && maxed[0].t800 < rows[0].t800 && tuned[1].t800 === maxed[0].t800 && tuned[0].t1200 !== tuned[1].t1200,
+    `test run (Car Lab): your tune and the factory tune at 0–60 / 600 / 800 / 1200 m; maxed beats stock (800 m ${rows[0].t800.toFixed(2)} → ${maxed[0].t800.toFixed(2)} s)`);
   const wet = dyno('panda_civix', STOCK_TUNE, wetStage(stage));
-  check(wet[1].t800 > rows[1].t800 && wet[1].t800 - rows[1].t800 < 1.5, `rain (Q190 B): less grip makes the same car slower, but not hugely (dry ${rows[1].t800.toFixed(2)} → wet ${wet[1].t800.toFixed(2)} s)`);
+  check(wet[0].t800 > rows[0].t800 && wet[0].t800 - rows[0].t800 < 1.5, `rain (Q190 B): less grip makes the same car slower, but not hugely (dry ${rows[0].t800.toFixed(2)} → wet ${wet[0].t800.toFixed(2)} s)`);
   // end game (owner 2026-10-22: a maxed hypercar with all-Perfect shifts kept losing). A human-like driver: perfect shifts and launch,
   // a reaction of 0.30 s (a bit slower than the 0.25 s reference), no nitrous — must beat Medium rivals and most Hard ones.
   const humanRun = (id: string, tune: Partial<Tune>, react: number) => { const race = new Race(800), r = race.add('p', carStats(id, tune, stage), new AIController(1, [react, react], 7, false));

@@ -15,7 +15,7 @@ for (const l of LEAGUES) {
   L.push(`| ${l} | ×${E.LEAGUE_SCALE[l as 'D']} | ${p('easy')} | ${p('medium')} | ${p('hard')} | ${(cheapest / E.racePay(l as any, 'medium', true).result).toFixed(1)} |`);
 }
 L.push('', `Bonuses (share of the win): Perfect shift ${E.ECONOMY.perfectShiftBonus * 100}% each · Perfect launch ${E.ECONOMY.perfectLaunchBonus * 100}% · New best ${E.ECONOMY.newBestBonus * 100}%. Rival closeness (s behind your perfect run): ${Object.entries(E.DIFFICULTY).map(([k, d]) => `${d.label} ${d.gap[0]}–${d.gap[1]}`).join(' · ')}.`, '');
-const KINDS = Object.keys(E.PART_PRICES) as (keyof typeof E.PART_PRICES)[], KLABEL: Record<string, string> = { engine: 'Engine', trans: 'Transmission', tires: 'Tyres', weight: 'Weight', turbo: 'Turbo' };
+const KINDS = Object.keys(E.PART_PRICES) as (keyof typeof E.PART_PRICES)[], KLABEL: Record<string, string> = { engine: 'Engine', trans: 'Transmission', tires: 'Tires', weight: 'Weight', turbo: 'Turbo' };
 L.push('## Performance parts (T2 · T3 · T4 · T5)', '', `| League | ${KINDS.map(k => KLABEL[k]).join(' | ')} |`, `|---|${KINDS.map(() => '---').join('|')}|`);
 for (const l of LEAGUES) L.push(`| ${l} | ${KINDS.map(k => [2, 3, 4, 5].map(t => f(E.partPrice(k, t, l as any))).join(' · ')).join(' | ')} |`);
 L.push('', '## The Strip — one-time level rewards', '', '| League | Level 1 | Level 59 | Boss levels (10, 20 … 60) | Final boss car |', '|---|---|---|---|---|');
