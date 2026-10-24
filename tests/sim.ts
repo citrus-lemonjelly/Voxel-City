@@ -231,8 +231,8 @@ check(headStart && outmatched, `boss cars: quicker than any stock car in the nex
   // saved set-ups (owner Q179): three per car, switching keeps each one's parts + settings, an empty slot starts as a copy
   const su = S.freshSave(); su.owned.engine = [1, 2]; su.equipped.engine = 2; su.equipped.fd = 0.9;
   S.switchSetup(su, su.carId, 1); const copy = su.equipped.engine === 2 && su.equipped.fd === 0.9;
-  su.equipped.engine = 1; su.equipped.fd = 1.1; S.switchSetup(su, su.carId, 0); const back = su.equipped.engine === 2 && su.equipped.fd === 0.9;
-  S.switchSetup(su, su.carId, 1); const again = su.equipped.engine === 1 && su.equipped.fd === 1.1 && su.cars[su.carId].equipped.fd === 1.1;
+  su.equipped.engine = 1; su.equipped.fd = 1.1; S.switchSetup(su, su.carId, 0); const now = () => su.equipped as Tune, back = now().engine === 2 && now().fd === 0.9;
+  S.switchSetup(su, su.carId, 1); const again = now().engine === 1 && now().fd === 1.1 && su.cars[su.carId].equipped.fd === 1.1;
   S.renameSetup(su, su.carId, 1, '  1200 <Top> end!!  '); const named = S.setupsOf(su, su.carId);
   check(copy && back && again && named.active === 1 && named.names[1] === '1200 Top end' && named.names[2] === 'Set-up 3',
     `set-ups: an empty set-up starts as a copy, switching restores each one's parts + Car Lab settings, names are cleaned (${named.names.join(' / ')})`);
@@ -244,6 +244,16 @@ const wins = LEAGUES.map(l => { const cheapest = Math.min(...CATALOG_ORDER.filte
 check(racePay('D', 'hard', true).result > racePay('D', 'medium', true).result && racePay('D', 'medium', true).result > racePay('D', 'easy', true).result && wins.every((w, i) => i === 0 || w <= wins[i - 1] + 0.01),
   `pay: Hard > Medium > Easy; Medium wins to buy each league's cheapest car: ${LEAGUES.map((l, i) => `${l} ${wins[i].toFixed(1)}`).join(' · ')}`);
 check(rungs.slice(0, 10).every(r => r.rival.skill < rungs[50].rival.skill), 'early Strip rivals drive worse than late ones');
+{ // Build & Tune Strip (C1d): six chapters with a wall at each boss; every League D car maxed + tuned beats each final rival; the Hard Strip
+  const { stripStep, stripBand: band } = await import('../src/game/strip');
+  const REFD = { reaction: [MATCH.reaction, MATCH.reaction] as [number, number], nitrous: false };
+  const steps = Array.from({ length: STRIP.rungs }, (_, i) => stripStep(i + 1)), walls = [10, 20, 30, 40, 50, 60].every(b => steps[b - 1] - steps[b - 2] > 2 * (steps[b - 2] - steps[b - 3]) && (b === 60 || steps[b] > steps[b - 1]));
+  const ids = CATALOG_ORDER.filter(id => CARS[id].league === 'D');
+  const anyCar = STRIP.dists.every(d => ids.every(id => bestTune(id, MAX_TUNE, d, REFD).time < band('D', d, stage).final.expect));
+  const hardTop = STRIP.dists.every(d => Math.min(...ids.map(id => bestTune(id, MAX_TUNE, d, REFD).time)) < band('D', d, stage, true).final.expect), h1 = stripRung('D', 1, stage, true), hr = levelReward('D', 10, true);
+  check(walls && anyCar && hardTop && h1.hard && h1.rival.expect < stripRung('D', 1, stage).rival.expect && hr.crowns === 10 && !hr.decal && hr.vx > levelReward('D', 10).vx,
+    'Strip: a wall at every boss and the next chapter starts above it; every D car maxed + tuned can beat the final rivals; Hard: tougher from Level 1, the best car can finish, ×1.5 VX and double Crowns, no repeat decals');
+}
 // patch notes (owner 2026-10-19): newest first, versions unique and rising, package.json matches
 {
   const vn = (v: string) => v.split('.').reduce((a, x) => a * 1000 + +x, 0);

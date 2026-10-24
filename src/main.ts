@@ -22,7 +22,7 @@ import { Tier, LAUNCH } from './data/parts';
 import { CARS, carBody, carName, carPaint, League } from './data/cars';
 import { makeRival, Rival } from './game/rivals';
 import { lookParts, randomParts } from './data/visualParts';
-import { stripRung, STRIP, Rung, levelReward, decalName } from './game/strip';
+import { stripRung, STRIP, Rung, levelReward, decalName, stripPick, stripHardOpen } from './game/strip';
 import { Race, Racer, Controller } from './game/race';
 import { AIController, makeRng } from './game/ai';
 import { carStats } from './game/stats';
@@ -220,16 +220,16 @@ function setSetting(key: string, value: string) {
  *  league's Strip is done. */
 let rung: Rung | null = null;
 function stripNext(): Rung | null {
-  const lg = raceLeague(save), n = (save.strip[lg] ?? 0) + 1;
-  return n > STRIP.rungs ? null : stripRung(lg, n, stage);
+  const lg = raceLeague(save), hard = stripPick.hard && stripHardOpen(save.strip, lg), n = ((hard ? save.stripHard?.[lg] : save.strip[lg]) ?? 0) + 1;   // Hard Strip (V0.21.0): after Level 60
+  return n > STRIP.rungs ? null : stripRung(lg, n, stage, hard);
 }
 /** Claim a cleared Strip level's one-time reward (owner: L1 100 VX, every 10th level +5 Crowns). */
 /** A cleared Strip level's one-time reward (owner: L1 100 VX, every 10th level +5 Crowns, decals, boss cars). Since V0.14.0 it
  *  is added automatically when the level is cleared (owner 2026-10-21) — no Claim button. Grants the Crowns / decal / car and
  *  marks the level claimed; the caller adds the VX (the race results add it with the race pay). */
-function grantLevel(lg: League, n: number) {
-  const r = levelReward(lg, n);
-  save.crowns += r.crowns; save.stripClaimed[lg] = [...(save.stripClaimed[lg] ?? []), n];
+function grantLevel(lg: League, n: number, hard = false) {
+  const r = levelReward(lg, n, hard), claimed = hard ? (save.stripHardClaimed ??= {}) : save.stripClaimed;
+  save.crowns += r.crowns; claimed[lg] = [...(claimed[lg] ?? []), n];
   if (r.decal && !save.decals.includes(r.decal)) save.decals.push(r.decal);
   if (r.car) addCar(save, r.car);
   return r;
@@ -293,10 +293,11 @@ function finishRace() {
   const diff: Difficulty = rung ? 'medium' : save.raceDiff, pay = racePay(raceLeague(save), diff, won, race.distanceM);   // the district's league pays (V0.20.0)
   const earnings: [string, number][] = [[won ? (rung ? `Strip level ${rung.n} win` : `${raceDistrict(save).races[diff]} win`) : 'Finish', pay.result]];
   const doneRung = rung;
-  if (rung && won && rung.n > (save.strip[rung.league] ?? 0)) dailyEvent(save, 'stripClear');
-  if (rung && won) save.strip[rung.league] = Math.max(save.strip[rung.league] ?? 0, rung.n);
+  const climbed = rung?.hard ? (save.stripHard ??= {}) : save.strip, claimedL = rung?.hard ? (save.stripHardClaimed ??= {}) : save.stripClaimed;
+  if (rung && won && rung.n > (climbed[rung.league] ?? 0)) dailyEvent(save, 'stripClear');
+  if (rung && won) climbed[rung.league] = Math.max(climbed[rung.league] ?? 0, rung.n);
   // the level's reward is added right away (owner 2026-10-21): its VX shows in the results with the race pay
-  const lr = rung && won && !(save.stripClaimed[rung.league] ?? []).includes(rung.n) ? grantLevel(rung.league, rung.n) : null;
+  const lr = rung && won && !(claimedL[rung.league] ?? []).includes(rung.n) ? grantLevel(rung.league, rung.n, rung.hard) : null;
   if (lr && rung) earnings.push([`Level ${rung.n} reward`, lr.vx + lr.cash]);
   // dailies (owner Q150)
   dailyEvent(save, 'race'); dailyEvent(save, 'perfectShift', perfects);
@@ -310,7 +311,7 @@ function finishRace() {
   rec.races++; if (won) rec.wins++; if (rec.best[dist] == null || me.finish! < rec.best[dist]!) rec.best[dist] = me.finish!;
   save.voxels += total; save.races += 1; save.perfectShifts += perfects; if (won) save.wins += 1; if (newBest) { save.best[dist] = me.finish!; if (dist === 800) save.bestTime = me.finish!; }
   writeSave(save);
-  const note = doneRung ? `The Strip · League ${doneRung.league} · Level ${doneRung.n} of ${STRIP.rungs}${doneRung.boss ? ' · Boss' : ''} · ${won ? `cleared${lr ? ` — reward added${rewardExtras(lr)}` : ''}` : 'same rival next time'}` : undefined;
+  const note = doneRung ? `The Strip${doneRung.hard ? ' (Hard)' : ''} · League ${doneRung.league} · Level ${doneRung.n} of ${STRIP.rungs}${doneRung.boss ? ' · Boss' : ''} · ${won ? `cleared${lr ? ` — reward added${rewardExtras(lr)}` : ''}` : 'same rival next time'}` : undefined;
   const data: ResultData = { won, myTime: me.finish!, oppTime: them.finish!, oppName: opp.name, ratings: { me: carRating(save.carId, save.equipped), them: carRating(opp.carId, opp.tune) }, launch: me.launchGrade || 'Bog', shifts: me.shifts.map(s => s.grade), earnings, total, newBest, note };
   rollRival(true);                                                                   // next street race: a new rival
   setTimeout(showUpdate, 0);

@@ -21,6 +21,9 @@ export interface SaveV1 {
   strip: Record<string, number>;
   /** Strip levels whose one-time reward has been claimed, per league. */
   stripClaimed: Record<string, number[]>;
+  /** The Hard Strip (Build & Tune Update): opens per league after Level 60 — levels cleared and rewards claimed, per league. */
+  stripHard?: Record<string, number>;
+  stripHardClaimed?: Record<string, number[]>;
   /** Street Race difficulty picked in the race menu (owner 2026-10-19). */
   raceDiff: 'easy' | 'medium' | 'hard';
   /** Typing Race level, picked on its own card (V0.19.0; Expert is typing only). Missing = the Street Race difficulty. */

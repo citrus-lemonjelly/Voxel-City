@@ -3,7 +3,7 @@
 // yellow card you tap to race; rewards are added automatically when a level is cleared (main.ts grantLevel).
 import { SaveV1 } from '../../save/save';
 import { CARS } from '../../data/cars';
-import { STRIP, levelInfo } from '../../game/strip';
+import { STRIP, levelInfo, stripPick, stripHardOpen } from '../../game/strip';
 import { raceLeague } from '../../data/districts';
 import { ui, scroll, resetGarageUI, crownIcon, GarageHandlers, Wire } from './shared';
 
@@ -16,9 +16,11 @@ export function stripCard(save: SaveV1): string {
 
 /** The Strip screen. */
 export function stripHtml(save: SaveV1, _on: GarageHandlers): string {
-  const lg = raceLeague(save), done = save.strip[lg] ?? 0;
+  const lg = raceLeague(save), open = stripHardOpen(save.strip, lg), hard = stripPick.hard && open, done = (hard ? save.stripHard?.[lg] : save.strip[lg]) ?? 0;
+  // Normal / Hard (Build & Tune Update): the Hard Strip opens after Level 60 — faster rivals, ×1.5 VX, double Crowns at bosses
+  const modes = `<div class="seg sl-mode" role="group" aria-label="Strip mode"><button class="${hard ? '' : 'on'}" data-smode="normal">Normal</button><button class="${hard ? 'on' : ''}" data-smode="hard" ${open ? '' : 'disabled'} title="${open ? 'Hard Strip: faster rivals, ×1.5 VX, double Crowns at bosses' : 'Opens after Level 60'}">Hard${open ? '' : ' · after L60'}</button></div>`;
   const cards = Array.from({ length: STRIP.rungs }, (_, i) => {
-    const n = i + 1, L = levelInfo(lg, n), state = n <= done ? 'done' : n === done + 1 ? 'next' : 'locked', R = L.reward;
+    const n = i + 1, L = levelInfo(lg, n, hard), state = n <= done ? 'done' : n === done + 1 ? 'next' : 'locked', R = L.reward;
     const pay = `<span class="sl-rw">+${(R.vx + R.cash).toLocaleString()} VX${R.crowns ? ` <b class="cr">${crownIcon()}${R.crowns}</b>` : ''}</span>`;
     const cls = `sl-card ${state}${L.boss ? ' boss' : ''}`, title = L.boss ? ' title="Boss level"' : '';
     return state === 'next'
@@ -26,7 +28,7 @@ export function stripHtml(save: SaveV1, _on: GarageHandlers): string {
       : `<div class="${cls}" data-level="${n}"${title}><b class="hd">Level ${n}${state === 'done' ? ' ✓' : ''}</b>${pay}</div>`;
   }).join('');
   return `<div class="strip-wrap">
-    <div class="sl-head"><h2 class="hd">The Strip</h2><span>League ${lg} · ${done} / ${STRIP.rungs}</span><button class="g-close" aria-label="Close">✕</button></div>
+    <div class="sl-head"><h2 class="hd">The Strip${hard ? ' · Hard' : ''}</h2><span>League ${lg} · ${done} / ${STRIP.rungs}</span>${modes}<button class="g-close" aria-label="Close">✕</button></div>
     <div class="sl-row"><button class="sl-arrow" data-scroll="-1" aria-label="Scroll left">◀</button><div class="strip-track">${cards}</div><button class="sl-arrow" data-scroll="1" aria-label="Scroll right">▶</button></div>
     <i class="g-strip-bar sl-bar"><u style="width:${Math.round(done / STRIP.rungs * 100)}%"></u></i>
   </div>`;
@@ -35,6 +37,7 @@ export function stripHtml(save: SaveV1, _on: GarageHandlers): string {
 export const wireStrip: Wire = (el, _save, on, redraw) => {
   el.querySelector('#stripOpen')?.addEventListener('click', () => { if (ui.panel === 'catalog' || ui.panel === 'parts') on.onPreview(null); ui.panel = 'strip'; ui.raceMenu = false; scroll.stripFocus = true; on.onView('strip'); redraw(); });
   el.querySelector('#stripGo')?.addEventListener('click', () => { on.onView('home'); resetGarageUI(); on.onStrip(); });
+  el.querySelectorAll<HTMLButtonElement>('[data-smode]').forEach(b => b.addEventListener('click', () => { stripPick.hard = b.dataset.smode === 'hard'; scroll.stripFocus = true; redraw(); }));
   // the scroller: arrows, mouse wheel and drag all slide it sideways; cards snap into place
   const track = el.querySelector<HTMLElement>('.strip-track');
   if (!track) return;

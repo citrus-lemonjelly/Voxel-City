@@ -34,6 +34,8 @@ which the owner uploads to the repo `citrus-lemonjelly/Voxel-City`.
 - `npm run balance [-- parts | tiers | gearing | niche] [D|C|B|A|S|carId] [--dist=600,800] [--no-nitro]` — drag balance bench (under 1 s):
   perfect-driver times per car × build (Stock / T3 / Max) × 600/800/1200 m; `parts` = what each part is worth on a maxed car,
   `tiers` = seconds saved per tier from stock, `gearing` = best gearing per distance, `niche` = which car wins launch / 600 / 800 / 1200.
+- `npm run strip-check [-- D|C|B|A|S]` — Strip check (~30 s): how far each car climbs per build (Stock → Max + best tune), Normal and Hard;
+  fails if a level isn't harder than the last, a boss isn't a wall, or any car can't finish maxed + tuned. Run it after car / part / Strip changes.
 - `node tools/probe.mjs "?query" "start code" "wait-until code" "expression"` — opens the test build and prints what an expression
   returns at a moment (element boxes, game state) — quicker than a screenshot for "is it there / why is it hidden".
 - `npm run layout` (~3.5 min; `-- pc|small|phone|large` for one size) — every garage screen on PC + 3 phone sizes: fails on anything

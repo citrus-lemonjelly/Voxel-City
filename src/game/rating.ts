@@ -15,10 +15,13 @@ export const RATING = {
 };
 const stage = STAGES[START_STAGE];
 const cache = new Map<string, number>();
-/** A perfect run's time over `dist` m for a tune (nitrous fired as the AI does). Cached. */
-export function perfectTime(carId: string, tune: Partial<Tune>, dist: number): number {
-  const k = `${carId}|${dist}|${JSON.stringify(tune)}`, hit = cache.get(k); if (hit !== undefined) return hit;
-  const t = simTime(carId, tune, stage, 1, RATING.reaction, 7, dist, true);
+/** Who drives a perfect run: reaction off the green and whether it fires nitrous (the Strip's reference: 0.30 s, no nitrous). */
+export interface Driver { reaction?: [number, number]; nitrous?: boolean }
+/** A perfect run's time over `dist` m for a tune (nitrous fired as the AI does, unless the driver says not). Cached. */
+export function perfectTime(carId: string, tune: Partial<Tune>, dist: number, drv: Driver = {}): number {
+  const re = drv.reaction ?? RATING.reaction, nos = drv.nitrous ?? true;
+  const k = `${carId}|${dist}|${re.join()}|${nos}|${JSON.stringify(tune)}`, hit = cache.get(k); if (hit !== undefined) return hit;
+  const t = simTime(carId, tune, stage, 1, re, 7, dist, nos);
   cache.set(k, t); return t;
 }
 /** The car's rating with these parts (the sliders don't count — that is what tuner points are for). */
@@ -40,14 +43,14 @@ export function tunerPoints(carId: string, tune: Partial<Tune>): number {
 
 /** The quickest slider settings for one length (a coarse search; tools, the Strip and the sim checks use it).
  *  Gear ratios stay stock — the search moves final drive, tire pressure and nitrous mix. */
-export function bestTune(carId: string, parts: Partial<Tune>, dist: number): { tune: Tune; time: number } {
+export function bestTune(carId: string, parts: Partial<Tune>, dist: number, drv: Driver = {}): { tune: Tune; time: number } {
   const base = untuned(fullTune(parts));
   const axes: [keyof Tune, number[]][] = [['fd', range(TUNING.fd.min, TUNING.fd.max, 0.03)]];
   if (tuneOpen('tp', base)) axes.push(['tp', range(-1, 1, 0.5)]);
   if (tuneOpen('nm', base)) axes.push(['nm', range(-1, 1, 0.5)]);
-  let best: Tune = { ...base, fd: 1 }, time = perfectTime(carId, best, dist);
+  let best: Tune = { ...base, fd: 1 }, time = perfectTime(carId, best, dist, drv);
   for (let pass = 0; pass < 2; pass++) for (const [key, vals] of axes) for (const v of vals) {
-    const cand = { ...best, [key]: v } as Tune, t = perfectTime(carId, cand, dist);
+    const cand = { ...best, [key]: v } as Tune, t = perfectTime(carId, cand, dist, drv);
     if (t < time - 1e-4) { best = cand; time = t; }
   }
   return { tune: best, time };
