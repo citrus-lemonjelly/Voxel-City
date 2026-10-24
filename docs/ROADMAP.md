@@ -158,6 +158,31 @@ What exists (S87–S92): drag → 3–5 turns → drag, automatic gears, tap Dri
 
 ---
 
+### E6 New cars from the owner's reference sheet (owner 2026-10-24)
+Sheet: `docs/reference/car-sheet/voxel-drag-car-reference-sheet.png` — 8 cars (muscle, modern tuner, classic drag car, Pro Stock,
+pickup, diesel truck, front-engine dragster, custom). Build at **our** scale (Civix 58 blocks ≈ 4 m, same block size everywhere —
+follow the drawings, not the sheet's "16–28 units"). Open: Q268 leagues · Q269 scale · Q270 dragster parts · Q271 start with cars 1–4.
+
+| # | Idea | Effort |
+|---|---|---|
+| E6.1 | Build cars 1–4 (muscle, tuner, classic drag car, Pro Stock) from the sheet with the body builder, so Body Shop parts, paint and `npm run collide` keep working; each gets a Catalog entry and a place on the price ladder (`npm run balance -- ladder`) | Medium |
+| E6.2 | `tools/mesh2vox`: an AI or hand-made **.glb** model → our blocks at car scale, colours snapped to our palette (free AI tools that take a drawing: Hunyuan3D, TRELLIS 2 — open source; Meshy / Tripo free tiers have credit / licence strings) | Medium |
+| E6.3 | Truck bed + lifted stance in the body builder (unlocks the pickup and the diesel truck) | Medium |
+| E6.4 | New parts from the sheet: supercharger, hood scoop, wheelie bar, exhaust stacks, number livery ("77") — they fit existing cars too | Medium |
+| E6.5 | Front-engine dragster as its own "Top Fuel" event with its own rules (a hand-made voxel model, paint + decals only) | Big |
+| E6.6 | Two-colour liveries (stripes in a second colour) for the Custom / your-ride look | Medium |
+
+### E7 Build & Tune follow-ups (after V0.21.0)
+| # | Idea | Effort |
+|---|---|---|
+| E7.1 | Set-up switch on the map's district panel (left out while the map is in revamp on the PC) | Small |
+| E7.2 | Rating Cups: district events with a car-rating cap (e.g. 200 PP), once the map has room for event buttons | Medium |
+| E7.3 | A title for finishing each league's Hard Strip (with achievements, C8) | Small |
+| E7.4 | Car Lab on phones: bigger slider markers for thumbs | Small |
+| E7.5 | "Copy set-up" (set-up 1 into 2, then change one thing) | Small |
+| E7.6 | Car rating on the My cars list too | Small |
+| E7.7 | Achievements + titles from the owner's edited table (`docs/achievements/`, Q250–Q255, plus the "Tuner" title at 50 tuned wins) | Medium |
+
 ## §F Reference files
 
 | File | What |
@@ -166,3 +191,5 @@ What exists (S87–S92): drag → 3–5 turns → drag, automatic gears, tap Dri
 | `docs/reference/tuning-update/upgrades.png` | V0.11.0 Upgrades panel (stock / after buying) |
 | `docs/reference/tuning-update/Q175_nitrous_badge.png` | Nitrous badge mockup (states + placement) |
 | `docs/DECISIONS.md` S66 | Tuning Update numbers and reasoning |
+| `docs/reference/car-sheet/voxel-drag-car-reference-sheet.png` | Owner's 8-car reference sheet (E6) |
+| `docs/reference/build-tune/` | V0.21.0 review shots (Car Lab, Upgrades, Hard Strip, race plate, Catalog) |
