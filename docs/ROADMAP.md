@@ -1,8 +1,9 @@
 # Voxel City — Roadmap, open questions and ideas
 
-Compiled 2026-10-21 after V0.11.0 "Tuning Update" shipped. **Read this first next session.**
+Compiled 2026-10-21 after V0.11.0; **refreshed 2026-10-24 after V0.21.0 "Build & Tune Update" shipped.** Read this first next session.
 Effort labels: **Small** (under an hour), **Medium** (a session), **Big** (several sessions).
-Question numbers (Q#) carry on from `docs/DECISIONS.md`.
+Question numbers (Q#) carry on from `docs/DECISIONS.md` (next free: run `npm run sync`). The look / map / garage plan has its own
+file: `docs/LOOK_ROADMAP.md` (L1–L31).
 
 ---
 
@@ -10,49 +11,33 @@ Question numbers (Q#) carry on from `docs/DECISIONS.md`.
 
 | # | Item | Status |
 |---|---|---|
-| A1 | Live version | **V0.18.3** (2026-10-22). Since V0.11.0: Pedal mode, Bevel+ look, phone screens, sound, nitrous, effects + rain, Test run, A/S 7/8 gears, per-gear ratio tuning, 1200 m track, pay downtune, Drift (dev mode only from V0.18.2) |
+| A1 | Live version | **V0.21.0 "Build & Tune Update"** (2026-10-24, S106): price ladder, car rating (PP) + tuner points (TP), Car Lab tuning screen, 3 saved set-ups per car, Strip chapters + Hard Strip, seconds per tier in Upgrades. Before it: V0.20.0 City Update (city map, districts), V0.19.x Typing Update (+ online Top 500), V0.18.x Drift (dev only), V0.17.x Gearbox, V0.16.x Feel Update (sound, nitrous, effects, rain, Test run) |
 | A2 | Milestone 1 — core slice | ✅ Done |
-| A3 | Milestone 2 — collection and tuning | 🟡 Almost done: cars ✅ · visual parts ✅ · buying cars ✅ · upgrade types ✅ (nitrous ✅) · tuning ✅ (gearing, ratio tuning; Build & Tune next) |
-| A4 | Milestone 3 — garage-home | 🟡 Started: 3D garage room (V0.10.0); not walkable yet |
-| A5 | Milestone 4 — career and world | 🟡 Partly: the Strip, Street Race difficulties, dailies |
-| A6 | Milestone 5 — crews and online | ⬜ Not started (needs a server) |
-| A7 | Checks at ship time | Sim 91/91 · collisions clean · smoke 20/20 |
+| A3 | Milestone 2 — collection and tuning | ✅ Done: cars ✅ · visual parts ✅ · buying cars ✅ · every upgrade type incl. nitrous ✅ · tuning: gearing → Car Lab, ratings, set-ups ✅ (V0.21.0) |
+| A4 | Milestone 3 — garage-home | 🟡 Started: 3D garage room (V0.10.0), not walkable; garage revamp planned (LOOK_ROADMAP Part E, "Workshop Update") |
+| A5 | Milestone 4 — career and world | 🟡 Well under way: city map + 5 districts (V0.20.0), the Strip per league with chapters + Hard Strip, Street Race difficulties, dailies + calendar. Next: district race scenes (Q222), the Harbor end game (Q219), Rating Cups (E7.2) |
+| A6 | Milestone 5 — crews and online | 🟡 Started: Typing Top 500 online (Supabase, V0.19.1). Accounts / server saves / crews not started |
+| A7 | Checks at the last ship (V0.21.0) | Sim 106/106 · collisions clean · smoke 23/23 · layout clean on PC + 3 phones · strip-check clean every league |
+| A8 | Work in progress elsewhere | The **map revamp** (LOOK_ROADMAP Part C, roads) is being built on the owner's PC — it takes the next free version |
 
 ---
 
 ## §B Questions to answer (start here)
 
-### B1 Garage room review (V0.10.x) — screenshots: `docs/reference/garage-review/garage-review-1.png`, `-2.png`
+| Q | Question | Options | Claude's pick | Where |
+|---|---|---|---|---|
+| **Q164** | The lift in the garage hard to see from the Upgrades view | **A)** Aim the Upgrades camera so the lift shows · **B)** Move the lift · **C)** Fold into the garage revamp | C | LOOK Part E |
+| **Q229–Q236** | Look Update: model-on-a-stand frame, effects in races, Settings tab names, phones Off by default, tilt-shift on the garage, detail block size, garage layout, roundabouts | see the table there | Claude's picks listed | `docs/LOOK_ROADMAP.md` §9 |
+| **Q250–Q255** | Achievements + titles: how many, where they show, notes when earned, secret ones, Crowns per step, old saves | edit the table | B / B / yes / A / 5-10-25 / yes | `docs/achievements/Achievements_draft.xlsx` |
+| **Q268** | New cars: which leagues? | — | Muscle + Classic drag → C · Tuner + Pro Stock → B · Pickup → C · Diesel → B · Dragster → special class | §E6 |
+| **Q269** | New cars: follow the drawings' size (~58 blocks) or the sheet's numbers (16–28)? | — | The drawings (same block size everywhere) | §E6 |
+| **Q270** | Dragster: Body Shop parts? | — | Paint + decals only | §E6 |
+| **Q271** | Start with cars 1–4 from the sheet? | — | Yes; trucks after the truck bed (E6.3) | §E6 |
 
-A yes / no / "change X" per row is enough.
-
-| # | Look at | Shot | Claude's note |
-|---|---|---|---|
-| B1.1 | Overall look (showroom + workshop) | R1 | Reads well |
-| B1.2 | Default camera D (Wide): shows the loft enough? | R1 | The car name box covers part of the loft shelves |
-| B1.3 | Keep camera angles A / B / C? | R2–R4 | A and C look alike |
-| B1.4 | **Lift with the primer shell** | R1, R5 | ⚠ You can barely see it: one blue post at the right edge |
-| B1.5 | Upgrades view turns toward the mechanic bay | R5 | The panel covers the bay |
-| B1.6 | Profile view turns toward the loft | R6 | Good |
-| B1.7 | Roll-up door: start open or closed? | R1, R7 | Starts open now |
-| B1.8 | Catalog keeps the old aim (car small at the back) | R8 | OK? |
-| B1.9 | Random race time of day: does night come up too often? | — | Play ~5 races |
-| B1.10 | Smoothness on your PC | — | Is the garage slower than before? |
-| B1.11 | Anything missing? (Q159 trophy shelf is saved for later) | — | — |
-
-### B2 Open questions
-
-| Q | Question | Options | Claude's pick |
-|---|---|---|---|
-| **Q164** | Fix the hidden lift (B1.4 / B1.5) | **A)** Aim the Upgrades camera so the lift shows left of the panel · **B)** Move the lift closer to the car | A |
-| **Q174** | Class limit: a maxed car never beats a stock car of the next league | **A)** Keep it (C upgrades are 38% strength, B 60%, as shipped) · **B)** Full strength everywhere; maxed cars can pass the next league's stock cars | A for now; re-check after Build & Tune (§C3) |
-| **Q175** | Nitrous badge — mockup: `docs/reference/tuning-update/Q175_nitrous_badge.png` | **A)** Voxel circle + blue bottle, top-left of the rev gauge (reserved in S25) · **B)** Square block · or send a drawing | A |
-| **Q176** | Nitrous strength (one shot per race, key **1**) | **A)** ~2 s at +15%, better at higher tiers · **B)** Fixed 1.5 s | A |
-| **Q177** | Direction for balance | **A)** Just relax "maxed cars within 0.2 s" · **B)** "Build & Tune": every car has a niche + part trade-offs + saved set-ups + the Strip follows your car · **C)** B plus Spec Rating events now | B |
-| **Q178** | Keep "you never need a second car in a league"? | **A)** Yes, every car can finish its league · **B)** No, some cars are just better | A |
-| **Q179** | Saved set-ups per car | **A)** 2 · **B)** 3 · **C)** None (refit by hand) | B |
-| **Q180** | Nitrous upgrade tiers | **A)** T1–T5 like other parts (bigger shot, longer burn) · **B)** One part, no tiers | A |
-| **Q181** | Economy pass after nitrous | **A)** Tune to your targets (D 2–3 h, C 3–4 h, B/A/S 3–6 h) · **B)** Leave as is | A |
+Answered since the last refresh (kept for the record): Q174 class limit **kept** (S106: C / B part strength 0.32 / 0.55) · Q175 / Q176 / Q180
+nitrous built as picked (one shot on key 1, T1–T5, V0.16.0 S79) · Q177–Q179 Build & Tune, every car can finish its league, 3 set-ups
+(S106) · Q181 economy pass done (S79, re-checked V0.21.0) · Q219 Harbor = end game later · Q222 district race scenes next (S104) ·
+Q237–Q267 (S106). The V0.10.x garage review list (old §B1) moves into the garage revamp (LOOK Part E).
 
 ---
 
@@ -60,35 +45,28 @@ A yes / no / "change X" per row is enough.
 
 | Step | Version | What | Effort | Needs |
 |---|---|---|---|---|
-| C1 | **V0.11.1** | Garage fixes from §B1 (lift visible, camera tweaks, door default) | Small | §B1, Q164 |
-| C2 | **V0.11.2 — Nitrous** | Drag-race nitrous on key **1**: one shot per race, voxel badge at the gauge (ready / firing / used), bottle adds a little weight; Nitrous row in Upgrades (T1–T5); rivals sometimes carry it | Medium | Q175, Q176, Q180 |
-| C3 | **V0.12.0 "Build & Tune Update"** | See §D. Every car has a niche; part trade-offs at T4–T5; 3 saved set-ups per car switchable in the race menu; the Strip's top rungs follow your car's best build | Medium | Q177–Q179 |
-| C4 | V0.12.1 — Economy pass | Re-time leagues with all parts + nitrous priced in (`npm run economy`) | Small | Q181 |
-| C5 | — | **Close Milestone 2** in `docs/DECISIONS.md` | Small | — |
-| C6 | V0.13.0 — first Milestone 4 piece | Pick one: District map (Big) · Spec Rating events + event rules (Big) · Car Tier-up (Medium) | — | Owner pick |
+| C1 | next free (V0.22.0) | **Map revamp** + Look work from the owner's PC (`docs/LOOK_ROADMAP.md`: effects + On/Off, Settings left tabs, map roads, map art) | Big | Q229–Q236 |
+| C2 | next | **Achievements + titles** (E7.7) + Hard Strip titles (E7.3) | Medium | Q250–Q255 (owner's table) |
+| C3 | next | **New cars 1–4** from the owner's sheet (E6.1) + their parts (E6.4) | Medium | Q268–Q271 |
+| C4 | after the map | Set-up switch on the district panel (E7.1) + **Rating Cups** (E7.2) | Medium | the new map's event buttons |
+| C5 | — | Garage revamp "Workshop Update" (LOOK Part E) | Big | Q233–Q235 |
+| C6 | — | District race scenes (Q222), then the Harbor end game (Q219) | Big | — |
+| C7 | — | Trucks (E6.3) and the dragster event (E6.5); Drift back from dev mode (§E4.6) | Big | — |
 
 ---
 
-## §D "Build & Tune" design notes (for Q177)
+## §D "Build & Tune" design notes — ✅ built in V0.21.0 (S106)
 
-Findings from the V0.11.0 sims:
+What was planned (Q177) and what shipped instead:
 
-| # | Finding | Why it matters |
+| # | Plan | Shipped |
 |---|---|---|
-| D1 | Every part always helps. Dropping any one part on a maxed Civix costs 0.25–1.26 s at 600 m (engine 1.26 · turbo 0.64 · tyres 0.60 · transmission 0.36 · weight 0.25) | "Buy everything" is always right; only gearing is a real choice today |
-| D2 | Removing the per-car turbo tuning lets maxed cars spread 0.2–0.8 s, but **the same car wins both 600 and 800 m** in D (City car), C (Muscle) and A (Compact) | Relaxing alone creates a "must-buy car", not build variety |
-| D3 | Street Races balance themselves (rivals match *your* perfect run) | Balance only matters for the Strip and for pacing |
-
-Proposed pieces:
-
-| # | Piece | How | Effort |
-|---|---|---|---|
-| D4 | Every car has a niche | Replace "maxed cars within 0.2 s" with: maxed cars within ~0.5 s, and each car is best (or close) at launch / 600 m / 800 m. Drop the per-car `turboGain` numbers | Small |
-| D5 | Part trade-offs (T4–T5) | **Turbo:** bigger = later boost (lag) + weight; strong at 800 m, weaker off the line. **Tyres:** drag radials grip hard but add a little drag at speed. **Weight:** lighter = a little less grip (already in the physics; show it). **Engine T5:** narrower power band, so shifts must be cleaner. **Nitrous:** bottle weight | Medium |
-| D6 | Saved set-ups | 3 per car with a name ("600 Launch", "800 Top end"); switch in the race menu. Re-fitting owned tiers is already free | Medium |
-| D7 | The Strip follows your car | Top rungs are set by *your* car's best build at that length, so any car can finish its league's Strip | Small |
-| D8 | Sim checks change | From "cars close together" to "every car has a niche" and "no single build wins every distance" | Small |
-| D9 | Later: Spec Rating events | Each tier adds points; some events cap your rating ("Spec 450"), plus event rules ("No turbo", "Stock only", "600 m launch duel"). The strongest "build" system (like Forza) | Big (Milestone 4) |
+| D4 | Every car has a niche | Changed by the owner (Q243): **price ladder** — pricier cars quicker stock and maxed; a good tune closes most of the gap |
+| D5 | Part trade-offs at T4–T5 | Became the **Car Lab sliders** (final drive, nitrous mix, tire pressure, gear ratios), unlocked by part tiers like CSR |
+| D6 | Saved set-ups | ✅ 3 per car (parts + Car Lab settings) |
+| D7 | The Strip follows your car | ✅ the final rival is set so every car of the league, maxed + tuned, can win; + Hard Strip |
+| D8 | Sim checks change | ✅ ladder, rating, final drive, Strip checks; `npm run balance`, `npm run strip-check` |
+| D9 | Spec Rating events | → **Rating Cups** (E7.2), using the car rating (PP) |
 
 ---
 
@@ -98,9 +76,9 @@ Proposed pieces:
 | # | Idea | Effort |
 |---|---|---|
 | E1.1 | Tune advice on the results screen ("Hit the limiter at 640 m — try Long gearing") | Small |
-| E1.2 | "Dyno" button in Upgrades: a quick test pull showing 0–60 / 600 m / 800 m for the current set-up | Medium |
+| E1.2 | ✅ Test run (V0.16.0; in Car Lab since V0.21.0, 0–60 / 600 / 800 / 1200 m) | — |
 | E1.3 | Rivals pick themed builds (launch build, top-end build) so the trade-offs show | Small |
-| E1.4 | "Before → After" numbers on each tier button (time saved at 800 m) | Small |
+| E1.4 | ✅ Seconds per tier on the Upgrades buttons (V0.21.0) | — |
 | E1.5 | 700 m / 600 m Street Race records shown per set-up | Small |
 | E1.6 | Weighted race time of day (more day than night) | Small |
 
@@ -126,8 +104,8 @@ Proposed pieces:
 ### E4 Modes and world
 | # | Idea | Effort |
 |---|---|---|
-| E4.1 | **District map** (owner pick Q199, 2026-10-22): a 3D voxel city with 6 districts — **the Harbor, Downtown, Neon Highrise, Daluda Forest, Oil Fields, Rooftop Skyway** (S94) — each mode in its own district (Milestone 4). Plan drafted (Race opens the map, districts open by league, V0.19.0 = map + 3 districts); waiting on the owner's ChatGPT reference map and Q200–Q205 | Big |
-| E4.2 | Strip completion rewards (Q104) | Small |
+| E4.1 | ✅ built in V0.20.0 (City Update); revamp in progress (LOOK_ROADMAP). Original note: **District map** (owner pick Q199, 2026-10-22): a 3D voxel city with 6 districts — **the Harbor, Downtown, Neon Highrise, Daluda Forest, Oil Fields, Rooftop Skyway** (S94) — each mode in its own district (Milestone 4). Plan drafted (Race opens the map, districts open by league, V0.19.0 = map + 3 districts); waiting on the owner's ChatGPT reference map and Q200–Q205 | Big |
+| E4.2 | ✅ Strip rewards: VX every level, Crowns + cash + decals at bosses, the boss car at L60 (V0.14.0); Hard Strip (V0.21.0) | — |
 | E4.3 | Typing Race: more passages per tier, nitro upgrades, its own district | Medium |
 | E4.4 | Crowns sources: weekly events, achievements | Medium |
 | E4.5 | Accounts + server saves + owner admin console (Milestone 5; P8) | Big |
@@ -153,7 +131,7 @@ What exists (S87–S92): drag → 3–5 turns → drag, automatic gears, tap Dri
 |---|---|---|
 | E5.1 | Split `main.ts` further (Typing Race, race setup) | Medium |
 | E5.2 | Test console: "Max upgrades" and "Set gearing" buttons | Small |
-| E5.3 | `npm run balance` tool: the build/gearing tables from this session as one command (times per car × build × distance) | Small |
+| E5.3 | ✅ `npm run balance` (V0.21.0) | — |
 | E5.4 | Smoke test: buy a part and change gearing in the Upgrades panel | Small |
 
 ---
