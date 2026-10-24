@@ -17,6 +17,9 @@ export interface GarageHandlers {
   onBuyOrEquip(kind: AnyKind, tier: Tier, carId: string): void;
   /** Car Lab (V0.21.0): save tuning settings (a key set to undefined = factory), or null = every setting back to factory */
   onTune(patch: Partial<Tune> | null, carId: string): void;
+  /** Saved set-ups (V0.21.0): switch a car to set-up i, or rename set-up i */
+  onSetup(i: number, carId: string): void;
+  onSetupName(i: number, name: string, carId: string): void;
   /** Garage (owner 2026-10-19): ★ a car */
   onFav(id: string): void;
   onRace(): void;

@@ -89,6 +89,10 @@ export interface CarState {
   parts: Record<string, string>;
   /** the player's own rear plate text (Body Shop) */
   plateText?: string;
+  /** Saved set-ups (Build & Tune Update, owner Q179/Q249): up to SETUPS named set-ups, each the parts fitted + Car Lab settings.
+   *  The active one (`setup`, default 0) lives in `equipped`; its entry here only keeps its name until you switch away. */
+  setups?: { name: string; tune: Tune }[];
+  setup?: number;
 }
 export interface Settings {
   camera: 'dynamic' | 'close';            // C = Dynamic, C2 = Dynamic close
@@ -203,6 +207,33 @@ export function playerName(s: SaveV1): string {
 export const typingLevelOf = (s: SaveV1) => s.typingLevel ?? s.raceDiff;
 
 /** A car's upgrade tiers: the car in use keeps them at the top level of the save, the others in their own entry. */
+// ---------------- Saved set-ups (Build & Tune Update, owner Q179: three per car) ----------------
+export const SETUPS = 3;
+const setupName = (c: CarState, i: number) => c.setups?.[i]?.name || `Set-up ${i + 1}`;
+/** A car's set-up names and which one is in use. */
+export function setupsOf(s: SaveV1, id: string): { names: string[]; active: number } {
+  const c = s.cars[id]; return { names: Array.from({ length: SETUPS }, (_, i) => setupName(c, i)), active: c.setup ?? 0 };
+}
+/** Switch a car to set-up i: the one in use is stored, set-up i is fitted (an empty slot starts as a copy of the current one). */
+export function switchSetup(s: SaveV1, id: string, i: number) {
+  const c = s.cars[id]; if (!c || i < 0 || i >= SETUPS) return;
+  const cur = c.setup ?? 0; if (i === cur) return;
+  const T = id === s.carId ? s : c;
+  c.setups ??= [];
+  c.setups[cur] = { name: setupName(c, cur), tune: clone(T.equipped) };
+  const next = c.setups[i]?.tune ? clone(c.setups[i].tune) : clone(T.equipped);
+  for (const k of PERF_KINDS) if (!(T.owned[k] ?? [1]).includes(next[k])) next[k] = 1;   // only parts the car still owns
+  c.setups[i] = { name: setupName(c, i), tune: clone(next) };
+  T.equipped = next; c.setup = i;
+  if (id === s.carId) c.equipped = clone(next);
+}
+/** Rename set-up i (letters, numbers, spaces and . - ', up to 14). */
+export function renameSetup(s: SaveV1, id: string, i: number, name: string) {
+  const c = s.cars[id]; if (!c || i < 0 || i >= SETUPS) return;
+  const clean = name.replace(/[^A-Za-z0-9 .'-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 14);
+  c.setups ??= []; c.setups[i] = { name: clean || `Set-up ${i + 1}`, tune: c.setups[i]?.tune ?? clone(c.equipped) };
+}
+
 export function carTiers(s: SaveV1, id: string): { owned: CarState['owned']; equipped: CarState['equipped'] } {
   return id === s.carId ? { owned: s.owned, equipped: s.equipped } : { owned: s.cars[id].owned, equipped: s.cars[id].equipped };
 }

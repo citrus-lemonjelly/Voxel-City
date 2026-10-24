@@ -1,7 +1,7 @@
 // Garage actions (split out of main.ts, 2026-10-20): what happens when you buy, sell, claim, fit, repaint or equip
 // something in the garage. Each one checks the price, changes the save, writes it, and shows the garage again with a
 // short message. Prices live in src/data/economy.ts; the panels that call these live in src/ui/panels/.
-import { SaveV1, writeSave, addCar, switchCar, removeCar, slotsUsed, slotsTotal, sellBlock, RaceDist } from '../save/save';
+import { SaveV1, writeSave, addCar, switchCar, removeCar, slotsUsed, slotsTotal, sellBlock, RaceDist, switchSetup, renameSetup, setupsOf } from '../save/save';
 import { CARS, carName, carPaint } from '../data/cars';
 import { GARAGE, sellValue, EcoLeague, cosmeticPrice, PAINT, PLATE_TEXT, repaintPrice, Difficulty } from '../data/economy';
 import { Tier, AnyKind, PART_TABLE, Tune } from '../data/parts';
@@ -150,5 +150,15 @@ export function garageActions(ctx: GarageActionContext) {
     writeSave(save); show(patch ? undefined : 'Factory settings');
   }
 
-  return { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setTune };
+  /** Saved set-ups (owner Q179): switch a car to set-up i (free), or rename one. */
+  function useSetup(i: number, carId = ctx.save().carId) {
+    const save = ctx.save(); if (!save.cars[carId]) return;
+    switchSetup(save, carId, i); writeSave(save); show(setupsOf(save, carId).names[i]);
+  }
+  function nameSetup(i: number, name: string, carId = ctx.save().carId) {
+    const save = ctx.save(); if (!save.cars[carId]) return;
+    renameSetup(save, carId, i, name); writeSave(save); show();
+  }
+
+  return { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setTune, useSetup, nameSetup };
 }

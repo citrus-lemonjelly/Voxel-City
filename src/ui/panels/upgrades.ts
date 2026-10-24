@@ -6,7 +6,7 @@ import { TIERS, Tier, PERF_KINDS, PERF_LABEL, PART_TABLE, ENGINE, TRANSMISSION, 
 import { CARS, carName } from '../../data/cars';
 import { DEV } from '../devConsole';
 import { ui, Wire } from './shared';
-import { labUnlocks } from './carLab';
+import { labUnlocks, setupsHtml } from './carLab';
 import { ratingBoxFor } from '../ratingBox';
 
 const pct = (x: number) => Math.round(x * 100);
@@ -40,7 +40,7 @@ function labBlock(W: string, T: { owned: Record<string, number[]>; equipped: Par
 }
 export function upgradesHtml(save: SaveV1, close: string): string {
   const W = ui.work || save.carId, T = carTiers(save, W);
-  const top = `<div class="cl-top">${ratingBoxFor(W, T.equipped)}<button class="btn" id="openLab">Car Lab ▸</button></div>${labBlock(W, T)}`;
+  const top = `${setupsHtml(save, W)}<div class="cl-top">${ratingBoxFor(W, T.equipped)}<button class="btn" id="openLab">Car Lab ▸</button></div>${labBlock(W, T)}`;
   if (CARS[W].unique) return `<div class="g-panel g-upg blk">${close}<h2 class="hd">Upgrades</h2>${top}<div class="g-note">${carName(W)} is a Strip boss car: it comes tuned as it is and can't be upgraded (Car Lab: final drive only). It gives you a head start in League ${CARS[W].league}; upgraded cars will soon catch it.</div></div>`;
   const lg = CARS[W].league;
   const tierBtn = (kind: AnyKind, t: Tier) => {

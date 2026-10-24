@@ -3,7 +3,7 @@
 // (Transmission T4), each a slider that trades one thing for another; the car rating (PP) with the tuner points (TP) your
 // settings add, counting up / down as you move a slider; and the Test run (moved here from Upgrades). No hints on what is best —
 // the player experiments (owner F3).
-import { SaveV1, carTiers } from '../../save/save';
+import { SaveV1, carTiers, setupsOf } from '../../save/save';
 import { CARS, carName } from '../../data/cars';
 import { TRANSMISSION, TUNING, TUNE_UNLOCK, TuneKey, Tune, RATIO_TUNING, legalRatios, tuneOpen, PERF_LABEL } from '../../data/parts';
 import { carStats } from '../../game/stats';
@@ -81,6 +81,7 @@ export function carLabHtml(save: SaveV1, close: string): string {
   const W = ui.work || save.carId, T = carTiers(save, W), pp = carRating(W, T.equipped), tp = tunerPoints(W, T.equipped);
   const lg = CARS[W].league, shown = shownTp[W] ?? tp;
   return `<div class="g-panel g-upg g-lab blk">${close}<h2 class="hd">Car Lab <small class="g-sub">${carName(W)} · League ${lg}${W !== save.carId ? ' (in your garage)' : ''}</small></h2>
+    ${setupsHtml(save, W)}
     <div class="cl-top">${ratingBox(pp, shown, 'labRating')}<span class="g-note">PP = the car with its parts · TP = what your settings add (+) or cost (−) over 600, 800 and 1200 m</span></div>
     <div class="cl-rows">${ORDER.map(k => sliderRow(W, k, T)).join('')}${ratiosHtml(W, T)}</div>
     ${dynoHtml(W, T)}
@@ -141,6 +142,20 @@ export const wireCarLab: Wire = (el, save, on, redraw) => {
     Object.assign(dynoState, { car: W, key, rows: dyno(W, T.equipped, STAGES.downtown_grid), prev });
     keepScroll = panel.scrollTop; redraw();
   });
+};
+/** Saved set-ups (owner Q179/Q249): three tabs, the one in use yellow; its name can be changed in the box beside them. Each set-up
+ *  is the parts fitted + the Car Lab settings. Shown in Car Lab and Upgrades. */
+export function setupsHtml(save: SaveV1, W: string): string {
+  const S = setupsOf(save, W);
+  return `<div class="cl-setups"><div class="seg" role="group" aria-label="Saved set-ups">${S.names.map((n, i) => `<button class="${i === S.active ? 'on' : ''}" data-setup="${i}" title="${att(`Set-up ${i + 1}: ${n} — parts + Car Lab settings`)}">${att(n)}</button>`).join('')}</div>
+    <input class="cl-sname" maxlength="14" value="${att(S.names[S.active])}" aria-label="Name this set-up" title="Name this set-up (e.g. 600 Launch)"></div>`;
+}
+export const wireSetups: Wire = (el, save, on) => {
+  const W = ui.work || save.carId, box = el.querySelector('.cl-setups'); if (!box) return;
+  box.querySelectorAll<HTMLButtonElement>('[data-setup]').forEach(b => b.addEventListener('click', () => { if (!b.classList.contains('on')) on.onSetup(+b.dataset.setup!, W); }));
+  const inp = box.querySelector<HTMLInputElement>('.cl-sname')!, act = setupsOf(save, W).active;
+  const commit = () => { if (inp.value.trim() !== setupsOf(save, W).names[act]) on.onSetupName(act, inp.value, W); };
+  inp.addEventListener('change', commit); inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); e.stopPropagation(); });
 };
 /** Upgrades lists what opens each Car Lab setting (owner: "mention the milestones in the Upgrades section"). */
 export function labUnlocks(W: string, T: { owned: Record<string, number[]>; equipped: Partial<Tune> }): { label: string; open: boolean; need: string }[] {

@@ -20,7 +20,7 @@ import { partsHtml, wireBodyShop, curSel, partLook } from './panels/bodyShop';
 import { garageHtml, subTabsHtml, wireMyCars } from './panels/myCars';
 import { catalogHtml, wireCatalog } from './panels/catalog';
 import { upgradesHtml, wireUpgrades } from './panels/upgrades';
-import { carLabHtml, wireCarLab } from './panels/carLab';
+import { carLabHtml, wireCarLab, wireSetups } from './panels/carLab';
 import { settingsHtml, wireSettings } from './panels/settings';
 import { profileHtml, wireProfile } from './panels/profile';
 import { dailyHtml, calendarHtml, wireDaily } from './panels/daily';
@@ -31,7 +31,7 @@ export { resetGarageUI, garageInCatalog, garageOpenStrip } from './panels/shared
 export { factoryTwin } from './panels/bodyShop';
 
 /** Every panel's wiring, run on each render (each only finds its own buttons). Order kept from the single-file version. */
-const WIRES: Wire[] = [wireMiniHud, wireRaceMenu, wireStrip, wireUpgrades, wireCarLab, wireMyCars, wireSettings, wireDaily, wireBodyShop, wireCatalog, wireProfile];
+const WIRES: Wire[] = [wireMiniHud, wireRaceMenu, wireStrip, wireUpgrades, wireCarLab, wireSetups, wireMyCars, wireSettings, wireDaily, wireBodyShop, wireCatalog, wireProfile];
 
 export function renderGarage(root: HTMLElement, save: SaveV1, opp: OpponentDef, stage: StageDef, on: GarageHandlers, toast?: string) {
   if (!ui.work || !save.cars[ui.work]) ui.work = save.carId;

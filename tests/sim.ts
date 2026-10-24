@@ -222,6 +222,20 @@ check(headStart && outmatched, `boss cars: quicker than any stock car in the nex
   check(ld.equipped.engine === 2 && ld.equipped.tires === 1 && ld.equipped.turbo === 1 && c.owned.weight.join() === '1' && c.equipped.tires === 1 && JSON.stringify(ld.owned.engine) === '[1,2]'
     && E.sellValue('D', 10_000, { ...c.owned, turbo: [1, 3] }) === Math.round((5_000 + E.partPrice('engine', 2, 'D') / 2 + E.partPrice('turbo', 3, 'D') / 2) / 50) * 50,
     'old saves keep their engine/gearbox and get tires, weight and turbo at stock; selling counts every part');
+  // Build & Tune: an old gearing pick becomes a final drive; custom ratios keep their ratios (and fd 1)
+  store['voxelcity.save'] = JSON.stringify({ ...S.freshSave(), equipped: { ...MAX_TUNE, gearing: 'long' }, cars: { panda_civix: { owned: { engine: [1], trans: [1, 5] }, equipped: { ...MAX_TUNE, gearing: 'long' }, paint: '', opts: {}, parts: {} },
+    classic: { owned: { trans: [1, 5] }, equipped: { ...MAX_TUNE, gearing: 'short', ratios: [3, 2, 1.5, 1.2, 1, 0.8], gearMode: 'custom' }, paint: '', opts: {}, parts: {} } } });
+  const mg = S.loadSave();
+  check(mg.equipped.fd === 0.92 && mg.equipped.gearing === undefined && mg.cars.classic.equipped.fd === undefined && mg.cars.classic.equipped.ratios?.length === 6 && mg.cars.classic.equipped.gearMode === undefined,
+    'old saves: Long gearing becomes final drive ×0.92; custom gear ratios stay (final drive untouched); the gearing switch is gone');
+  // saved set-ups (owner Q179): three per car, switching keeps each one's parts + settings, an empty slot starts as a copy
+  const su = S.freshSave(); su.owned.engine = [1, 2]; su.equipped.engine = 2; su.equipped.fd = 0.9;
+  S.switchSetup(su, su.carId, 1); const copy = su.equipped.engine === 2 && su.equipped.fd === 0.9;
+  su.equipped.engine = 1; su.equipped.fd = 1.1; S.switchSetup(su, su.carId, 0); const back = su.equipped.engine === 2 && su.equipped.fd === 0.9;
+  S.switchSetup(su, su.carId, 1); const again = su.equipped.engine === 1 && su.equipped.fd === 1.1 && su.cars[su.carId].equipped.fd === 1.1;
+  S.renameSetup(su, su.carId, 1, '  1200 <Top> end!!  '); const named = S.setupsOf(su, su.carId);
+  check(copy && back && again && named.active === 1 && named.names[1] === '1200 Top end' && named.names[2] === 'Set-up 3',
+    `set-ups: an empty set-up starts as a copy, switching restores each one's parts + Car Lab settings, names are cleaned (${named.names.join(' / ')})`);
   delete (globalThis as any).localStorage;
 }
 // economy: harder Street Races pay more; each league's cheapest car takes no more Medium wins than the league below

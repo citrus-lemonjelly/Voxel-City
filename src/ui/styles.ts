@@ -198,6 +198,8 @@ canvas.grab{cursor:grab}canvas.grabbing{cursor:grabbing}
 .g-upg .ratio-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:5px}.g-upg .ratio-foot .btn{font-size:11px;padding:5px 10px}
 /* Upgrades ▸ Test run (owner C11, V0.16.0) */
 /* ---- Car Lab (Build & Tune Update): rating box + Car Lab button on Upgrades; slider rows on the Car Lab panel ---- */
+.cl-setups{display:flex;gap:8px;align-items:stretch}.cl-setups .seg{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}.cl-setups .seg button{font-size:11px;padding:6px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cl-sname{width:118px;padding:0 8px;font:600 12px system-ui;color:#e9ecf2;border:0;background:#1e2129;box-shadow:inset 2px 2px 0 #121418,inset -2px -2px 0 #2c313d}.cl-sname:focus{outline:2px solid var(--accent)}
 .cl-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.cl-top .g-note{flex:1;min-width:160px}
 .cl-top>.btn{margin-left:auto;font-size:13px;padding:8px 14px}
 .cl-unlocks{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;padding:6px 8px;background:#1e2129;box-shadow:inset 2px 2px 0 #121418,inset -2px -2px 0 #2c313d;font-size:11px;color:#7d8290}

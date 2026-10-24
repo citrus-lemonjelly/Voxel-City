@@ -167,7 +167,7 @@ let race: Race | null = null, hud: Hud | null = null, oppRacer: Racer | null = n
 
 function showGarage(toast?: string) {
   screen = 'garage'; world.mode = 'garage'; setTimeout(showUpdate, 0); rollRival(); if (!garageInCatalog()) world.setGarageCar(playerLook());
-  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onTune: setTune, onRace: () => startRace(), onStrip: startStrip, stripNext, onSetting: setSetting, onRepaint: repaint, onPlateText: setPlateText,
+  renderGarage(ui, save, opp, stage, { onBuyOrEquip: buyOrEquip, onTune: setTune, onSetup: useSetup, onSetupName: nameSetup, onRace: () => startRace(), onStrip: startStrip, stripNext, onSetting: setSetting, onRepaint: repaint, onPlateText: setPlateText,
     onPreview: look => world.setGarageCar(look ?? playerLook()), onView: v => world.setGarageView(v), onFace: d => world.faceGarage(d),
     onBuyCar: buyCar, onUseCar: useCar, onCarStyle: carStyle, onBuyPart: buyPart, onFitPart: (id: string, carId: string) => fitPart(id, undefined, carId),
     onFav: (id: string) => { const f = save.favs ??= []; const i = f.indexOf(id); if (i >= 0) f.splice(i, 1); else f.push(id); writeSave(save); showGarage(); }, onDistance: setDistance, onDifficulty: setDifficulty, thumb: (look, view) => world.thumbnail(look, undefined, undefined, view), playerLook,
@@ -182,7 +182,7 @@ function showGarage(toast?: string) {
     onClaimDaily: claimDailyTask, onClaimCal: claimCal, onSellCar: sellCar, onBuySlot: buySlot }, toast);
 }
 // buying, selling, claiming, fitting, painting, equipping: src/game/garageActions.ts
-const { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setTune } =
+const { buyCar, sellCar, buySlot, claimDailyTask, claimCal, useCar, buyPart, repaint, setPlateText, fitPart, carStyle, setDistance, setDifficulty, buyOrEquip, setTune, useSetup, nameSetup } =
   garageActions({ save: () => save, world, show: msg => showGarage(msg), lookFor, playerLook });
 
 /** Weather (owner Q190 B): random — rain in about one race in four; ?weather=rain / clear forces it. Rain = less grip (wetStage). */
